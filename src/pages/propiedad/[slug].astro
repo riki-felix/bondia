@@ -16,7 +16,7 @@ const { data: property, error } = await supabase
   .eq('slug', slug)
   .single();
 ---
-<Layout>
+<Layout title="{ slug }">
 	{error && <p>❌ Error al cargar: {error.message}</p>}
 	{property && (
 	  <>

@@ -1,12 +1,5 @@
 // src/middleware.ts
 import { defineMiddleware } from 'astro/middleware';
-import { createServerClient } from '@supabase/ssr';
-
-// TEMP: sin protección SSR
-export const onRequest = defineMiddleware(async (_ctx, next) => {
-  return next();
-});
-
 
 // Rutas públicas (no requieren sesión)
 const isAllowlisted = (p: string) => {
@@ -31,3 +24,14 @@ const isAllowlisted = (p: string) => {
   return false;
 };
 
+export const onRequest = defineMiddleware(async (ctx, next) => {
+  const path = ctx.url.pathname;
+
+  // Solo ejemplo: deja pasar si está en lista blanca
+  if (isAllowlisted(path)) {
+    return next();
+  }
+
+  // Más adelante aquí protegerás con sesión Supabase
+  return next();
+});

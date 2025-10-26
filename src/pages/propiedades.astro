@@ -17,10 +17,9 @@ const { data: properties, error } = await supabase
   .order('created_at', { ascending: false })
 ---
 
-<Layout title="Propiedades" description="Listado de propiedades">
+<Layout title="Propiedades" >
   <section>
 	<h1>Propiedades</h1>
-
 	{error && <p class="">Error: {error.message}</p>}
 
 	<ul class="">

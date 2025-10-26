@@ -6,28 +6,6 @@ export const prerender = false;
   <head>
 	<meta charset="utf-8" />
 	<title>Tus propiedades</title>
-	<style>
-	  :root { color-scheme: light dark; }
-	  body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
-	  header { display:flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-	  table { width: 100%; border-collapse: collapse; }
-	  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid #e5e5e5; }
-	  th { font-size: .9rem; color: #666; }
-	  img.thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; background: #f2f2f2; }
-	  .actions { display: flex; gap: .5rem; }
-	  .btn { border: 1px solid #ddd; padding: .35rem .6rem; border-radius: 6px; text-decoration: none; font-size: .9rem; background: #fafafa; }
-	  .btn:hover { background: #f0f0f0; }
-	  .btn.danger { border-color: #c00; color: #c00; background: #fff5f5; }
-	  .status { margin: .75rem 0 1.25rem; padding: .6rem .8rem; border-radius: 6px; border: 1px solid transparent; font-size: .95rem; }
-	  .status.ok { background: #e6ffed; border-color: #33aa55; }
-	  .status.err { background: #ffeaea; border-color: #cc0000; }
-	  .muted { color:#777; font-size:.9rem; }
-	  .topbar { display:flex; gap:.5rem; align-items:center; }
-	  input[type="search"]{ padding:.45rem .6rem; border:1px solid #ddd; border-radius:6px; min-width:220px; }
-	  @media (max-width: 720px) {
-		.hide-sm { display: none; }
-	  }
-	</style>
   </head>
   <body>
 	<header>
@@ -185,17 +163,6 @@ export const prerender = false;
 		);
 		render(filtered);
 	  });
-
-	  // Realtime opcional: refrescar al insertar/actualizar desde otro tab
-	  try {
-		const channel = supabase
-		  .channel('properties-changes')
-		  .on('postgres_changes', { event: '*', schema: 'public', table: 'properties', filter: `created_by=eq.${user?.id || ''}` },
-			(_payload) => load()
-		  )
-		  .subscribe();
-		// Si no quieres realtime, elimina todo este bloque.
-	  } catch {}
 
 	  // Primera carga
 	  load();

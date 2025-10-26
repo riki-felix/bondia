@@ -1,34 +1,11 @@
 ---
 export const prerender = false;
-
-// Capturamos el id de la ruta en SSR (solo para imprimirlo en el cliente)
-const { id } = Astro.params;
-const EDIT_ID = JSON.stringify(id || null);
+const editId = Astro.params.id ?? null;
 ---
-
 <html lang="es">
   <head>
 	<meta charset="utf-8" />
 	<title>Editar propiedad</title>
-	<style>
-	  :root { color-scheme: light dark; }
-	  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-	  header { display:flex; justify-content: space-between; align-items:center; gap:.75rem; margin-bottom: 1rem; }
-	  form { display:grid; gap: 1rem; }
-	  label { display:block; }
-	  input[type="text"], input[type="file"] { width:100%; padding:.5rem .6rem; border:1px solid #ddd; border-radius:6px; }
-	  .row { display:grid; gap: .75rem; grid-template-columns: 1fr 1fr; }
-	  .imgwrap { display:flex; gap: .75rem; align-items:flex-start; }
-	  .thumb { width: 160px; height: 120px; object-fit: cover; border-radius: 8px; background:#f2f2f2; border:1px solid #e8e8e8; }
-	  .muted{ color:#777; font-size:.9rem }
-	  .actions { display:flex; gap:.5rem; }
-	  .btn { border:1px solid #ddd; background:#fafafa; padding:.5rem .8rem; border-radius:8px; cursor:pointer; }
-	  .btn.primary { background:#1f7aed; border-color:#1962bd; color:white; }
-	  .btn.danger  { border-color:#c00; color:#c00; background:#fff5f5; }
-	  .status { margin: .75rem 0 1.25rem; padding: .6rem .8rem; border-radius: 6px; border: 1px solid transparent; font-size: .95rem; display:none; }
-	  .status.ok { background: #e6ffed; border-color: #33aa55; display:block; }
-	  .status.err{ background: #ffeaea; border-color: #cc0000; display:block; }
-	</style>
   </head>
   <body>
 	<header>
@@ -65,9 +42,14 @@ const EDIT_ID = JSON.stringify(id || null);
 		<button id="deleteImg" type="button" class="btn danger">Quitar imagen</button>
 	  </div>
 	</form>
+	<script is:inline id="edit-id" type="application/json">
+	  {JSON.stringify(editId)}
+	</script>
 
 	<script is:inline type="module">
 	  import { supabase } from '/src/scripts/supabaseClient.js';
+	
+	  const EDIT_ID = JSON.parse(document.getElementById('edit-id').textContent);	
 
 	  // ===== Utilidades =====
 	  const slugify = (text) =>
@@ -90,7 +72,7 @@ const EDIT_ID = JSON.stringify(id || null);
 	  const imgInfo = document.getElementById('imgInfo');
 	  const removeBtn = document.getElementById('deleteImg');
 
-	  const EDIT_ID = ${EDIT_ID}; // viene del frontmatter
+	  
 	  let user = null;
 	  let record = null;
 
