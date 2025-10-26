@@ -1,0 +1,85 @@
+---
+---
+
+<html lang="es">
+  <head>
+	<meta charset="utf-8" />
+	<title>Nueva propiedad</title>
+	<style>
+	  body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+	  form { display: flex; flex-direction: column; gap: 1rem; }
+	  input, button { font-size: 1rem; padding: 0.5rem; }
+	  .hidden { display: none; }
+	  .success { background: #e6ffed; border: 1px solid #33aa55; padding: 0.5rem; }
+	  .error { background: #ffeaea; border: 1px solid #cc0000; padding: 0.5rem; }
+	</style>
+  </head>
+
+  <body>
+	<h1>Nueva propiedad</h1>
+
+	<form id="property-form">
+	  <div>
+		<label>Título</label><br />
+		<input type="text" name="title" required placeholder="Ej. Casa en la playa" />
+	  </div>
+
+	  <div>
+		<label>Dirección</label><br />
+		<input type="text" name="address" required placeholder="Ej. Calle Mayor 10, Madrid" />
+	  </div>
+
+	  <div>
+		<label>Foto (opcional)</label><br />
+		<input type="file" name="image" accept="image/*" />
+	  </div>
+
+	  <button type="submit">Crear propiedad</button>
+	</form>
+
+	<p id="status" class="hidden"></p>
+
+	<script>
+	  const form = document.getElementById('property-form');
+	  const status = document.getElementById('status');
+
+	  form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		status.textContent = 'Guardando...';
+		status.className = '';
+		
+		const fd = new FormData(form);
+
+		try {
+		  const res = await fetch('/.netlify/functions/createProperty', {
+			method: 'POST',
+			body: fd
+		  });
+
+		  if (!res.ok) {
+			throw new Error(await res.text());
+		  }
+
+		  const data = await res.json();
+		  status.textContent = '✅ Propiedad creada correctamente';
+		  status.className = 'success';
+
+		  // Reiniciar el formulario
+		  form.reset();
+
+		  // Enlace opcional a la nueva ficha
+		  const link = document.createElement('a');
+		  link.href = `/propiedad/${data.id}`;
+		  link.textContent = 'Ver propiedad';
+		  link.style.display = 'block';
+		  link.style.marginTop = '0.5rem';
+		  status.appendChild(link);
+
+		} catch (err) {
+		  status.textContent = '❌ Error: ' + err.message;
+		  status.className = 'error';
+		}
+	  });
+	</script>
+  </body>
+</html>
