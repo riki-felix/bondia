@@ -1,4 +1,8 @@
 ---
+export const prerender = false;
+
+import Layout from "../components/Layout.astro";
+
 import { createClient } from '@supabase/supabase-js'
 import { publicImageUrl } from '../lib/imageUrl'
 
@@ -12,27 +16,30 @@ const { data: properties, error } = await supabase
   .select('*')
   .order('created_at', { ascending: false })
 ---
-<html lang="es">
-  <head><meta charset="utf-8" /><title>Propiedades</title></head>
-  <body>
-	<main class="max-w-4xl mx-auto p-6">
-	  <h1 class="text-2xl font-semibold mb-6">Propiedades</h1>
-	  {error && <p style="color:red">Error: {error.message}</p>}
-	  <ul class="grid grid-cols-1 md:grid-cols-2 gap-6">
-		{properties?.map(p => {
-		  const img = publicImageUrl(p.image_path)
-		  return (
-			<li class="border rounded p-4">
-			  {img && <img src={img} alt={p.title} class="mb-3 rounded" loading="lazy" />}
-			  <h2 class="font-medium text-lg"><a href={`/propiedad/${p.id}`}>{p.title}</a></h2>
-			  <p class="text-sm text-gray-600">{p.address}</p>
-			</li>
-		  )
-		})}
-	  </ul>
-	  <div class="mt-8">
-		<a href="/admin/new" class="underline">+ Nueva propiedad</a>
-	  </div>
-	</main>
-  </body>
-</html>
+
+<Layout title="Propiedades" description="Listado de propiedades">
+  <section>
+	<h1>Propiedades</h1>
+
+	{error && <p class="">Error: {error.message}</p>}
+
+	<ul class="">
+	  {properties?.map((p) => {
+		const img = publicImageUrl(p.image_path);
+		return (
+		  <li class="">
+			{img && <img src={img} alt={p.title} class="" loading="lazy" />}
+			<h2 class="">
+			  <a href={`/propiedad/${p.slug}`}>{p.title}</a>
+			</h2>
+			<p class="">{p.address}</p>
+		  </li>
+		);
+	  })}
+	</ul>
+
+	<p class="">
+	  <a href="/admin/new" class="">+ Nueva propiedad</a>
+	</p>
+  </section>
+</Layout>

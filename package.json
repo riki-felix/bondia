@@ -12,7 +12,8 @@
   "dependencies": {
     "@astrojs/check": "^0.9.5",
     "@astrojs/netlify": "^6.6.0",
-    "@supabase/supabase-js": "^2.48.1",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.76.1",
     "@tailwindcss/vite": "^4.0.1",
     "astro": "^5.15.1",
     "formdata-node": "^6.0.3",

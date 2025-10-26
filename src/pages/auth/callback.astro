@@ -1,0 +1,16 @@
+---
+export const prerender = false;
+---
+<html><body>
+  <p>Verificando enlace...</p>
+  <script is:inline type="module">
+	import { supabase } from '/src/scripts/supabaseClient.js';
+	const u = new URL(location.href);
+	const h = new URLSearchParams(u.hash.slice(1));
+	const access_token  = h.get('access_token');
+	const refresh_token = h.get('refresh_token');
+	if (!access_token || !refresh_token) { location.replace('/login'); }
+	const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+	location.replace(error ? '/login' : '/admin');
+  </script>
+</body></html>

@@ -1,0 +1,38 @@
+---
+export const prerender = false;
+---
+
+<html lang="es">
+  <head><meta charset="utf-8"><title>Admin</title></head>
+  <body>
+	<h1>Zona privada</h1>
+	<p id="status">Comprobando sesión...</p>
+	<button id="logout">Cerrar sesión</button>
+	<ul>
+	  <li><a href="/admin/propiedades">🏠 Propiedades</a></li>
+	  <li><a href="/admin/new">➕ Nueva propiedad</a></li>
+	</ul>
+	<script is:inline type="module">
+	  import { supabase } from '/src/scripts/supabaseClient.js';
+
+	  const status = document.getElementById('status');
+	  const logout = document.getElementById('logout');
+
+	  async function checkSession() {
+		const { data } = await supabase.auth.getSession();
+		if (data.session) {
+		  status.textContent = 'Sesión activa: ' + data.session.user.email;
+		} else {
+		  location.replace('/login');
+		}
+	  }
+
+	  logout.addEventListener('click', async () => {
+		await supabase.auth.signOut();
+		location.replace('/login');
+	  });
+
+	  checkSession();
+	</script>
+  </body>
+</html>

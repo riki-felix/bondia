@@ -1,0 +1,8 @@
+body {
+	background-color: var(--color-cream);
+}
+
+.site {
+	display: grid;
+	grid-template-columns: 0.5fr auto;
+}

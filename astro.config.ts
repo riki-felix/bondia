@@ -3,6 +3,7 @@ import netlify from '@astrojs/netlify';
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  output: 'server',
   markdown: {
     shikiConfig: {
       theme: 'github-light-high-contrast',
@@ -16,3 +17,4 @@ export default defineConfig({
   },
   adapter: netlify()
 });
+

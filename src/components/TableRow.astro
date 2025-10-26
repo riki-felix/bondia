@@ -8,15 +8,15 @@ interface Props {
 const { framework } = Astro.props;
 ---
 
-<tr class="border-b border-neutral-600">
-  <td class="text-xl font-bold">{framework.name}</td>
+<tr class="">
+  <td class="">{framework.name}</td>
   <td>
     <img
       src={`/.netlify/images?url=/images/${framework.logo}`}
-      class="w-32"
+      class=""
       alt={framework.name}
     />
   </td>
   <td>{framework.likes} like{framework.likes === 1 ? "" : "s"}</td>
-  <td><a href={`/frameworks/${framework.id}`} class="underline">Learn more &rarr;</a></td>
+  <td><a href={`/frameworks/${framework.id}`} class="">Learn more &rarr;</a></td>
 </tr>

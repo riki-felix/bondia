@@ -1,0 +1,36 @@
+---
+export const prerender = false;
+import Layout from "../components/Layout.astro";
+import '../../src/styles/layout/auth-module.css';
+---
+<Layout>
+  <div class="login-form">
+    <h1>Hola!</h1>
+    <form id="login-form">
+      <input type="email" name="email" placeholder="tu@email.com" required />
+      <button type="submit">Acceder</button>
+    </form>
+    <p id="msg"></p>
+  </div>
+  <script is:inline type="module">
+    import { supabase } from '/src/scripts/supabaseClient.js';
+  
+    const form = document.getElementById('login-form');
+    const msg = document.getElementById('msg');
+  
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = 'Enviando enlace...';
+      const email = new FormData(form).get('email');
+  
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+  
+      msg.textContent = error ? 'Error: ' + error.message : 'Revisa tu correo.';
+    });
+  </script>
+</Layout>

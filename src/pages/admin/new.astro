@@ -1,7 +1,6 @@
 ---
-import { initNewPropertyForm } from '../../scripts/new-property.js'
+export const prerender = false;
 ---
-
 <html lang="es">
   <head>
 	<meta charset="utf-8" />
@@ -16,17 +15,96 @@ import { initNewPropertyForm } from '../../scripts/new-property.js'
   <body>
 	<h1>Nueva propiedad</h1>
 
-	<form id="f">
+	<form id="f" method="post" action="#">
 	  <label>Título<br/><input name="title" required /></label>
 	  <label>Dirección<br/><input name="address" required /></label>
-	  <label>Foto<br/><input type="file" name="image" accept="image/*" /></label>
+	  <label>Foto (opcional)<br/><input type="file" name="image" accept="image/*" /></label>
 	  <button type="submit">Crear propiedad</button>
 	</form>
 
 	<p id="msg"></p>
 
-	<script>
-	  import('/scripts/new-property.js').then(m => m.initNewPropertyForm())
+	<!-- 👇 Client-only, sin imports de npm directos -->
+	<script is:inline type="module">
+	  import { supabase } from '/src/scripts/supabaseClient.js';
+	
+	  const form = document.getElementById('f');
+	  const msg  = document.getElementById('msg');
+	
+	  const slugify = (text) =>
+		text.toString()
+		  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+		  .toLowerCase().trim()
+		  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+	
+	  form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		msg.className = '';
+		msg.textContent = 'Guardando…';
+	
+		try {
+		  // 1) sesión del usuario
+		  const { data: { session } } = await supabase.auth.getSession();
+		  const user_id = session?.user?.id;
+		  if (!user_id) throw new Error('No hay sesión');
+	
+		  // 2) datos del formulario
+		  const fd = new FormData(form);
+		  const title   = (fd.get('title')   || '').toString().trim();
+		  const address = (fd.get('address') || '').toString().trim();
+		  const file    = fd.get('image');
+	
+		  if (!title || !address) throw new Error('Faltan título o dirección');
+	
+		  const slug = slugify(title);
+	
+		  // 3) subir imagen (opcional)
+		  let image_url = null;
+		  let image_path = null;
+	
+		  if (file && file.size > 0) {
+			const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+			const filePath = `${user_id}/${crypto?.randomUUID?.() || Date.now()}-${slug}.${ext}`;
+	
+			const { error: upErr } = await supabase
+			  .storage
+			  .from('property-images')  // 👈 nuevo nombre del bucket
+			  .upload(filePath, file, {
+				cacheControl: '3600',
+				upsert: false,
+				contentType: file.type || 'image/*'
+			  });
+	
+			if (upErr) throw upErr;
+	
+			// bucket público → URL pública
+			const { data: pub } = supabase
+			  .storage
+			  .from('property-images')   // 👈 también aquí
+			  .getPublicUrl(filePath);
+	
+			image_url = pub?.publicUrl || null;
+			image_path = filePath;
+		  }
+	
+		  // 4) guardar registro en tu Function
+		  const res = await fetch('/.netlify/functions/createProperty', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ title, address, user_id, image_url, image_path }),
+		  });
+	
+		  if (!res.ok) throw new Error(await res.text());
+		  const data = await res.json();
+	
+		  msg.className = 'ok';
+		  msg.innerHTML = `✅ Propiedad creada<br><a href="/propiedad/${data.id}">Ver propiedad</a>`;
+		  form.reset();
+		} catch (err) {
+		  msg.className = 'err';
+		  msg.textContent = '❌ ' + (err?.message || String(err));
+		}
+	  });
 	</script>
   </body>
 </html>

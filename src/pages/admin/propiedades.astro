@@ -1,0 +1,204 @@
+---
+export const prerender = false;
+---
+
+<html lang="es">
+  <head>
+	<meta charset="utf-8" />
+	<title>Tus propiedades</title>
+	<style>
+	  :root { color-scheme: light dark; }
+	  body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
+	  header { display:flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+	  table { width: 100%; border-collapse: collapse; }
+	  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid #e5e5e5; }
+	  th { font-size: .9rem; color: #666; }
+	  img.thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; background: #f2f2f2; }
+	  .actions { display: flex; gap: .5rem; }
+	  .btn { border: 1px solid #ddd; padding: .35rem .6rem; border-radius: 6px; text-decoration: none; font-size: .9rem; background: #fafafa; }
+	  .btn:hover { background: #f0f0f0; }
+	  .btn.danger { border-color: #c00; color: #c00; background: #fff5f5; }
+	  .status { margin: .75rem 0 1.25rem; padding: .6rem .8rem; border-radius: 6px; border: 1px solid transparent; font-size: .95rem; }
+	  .status.ok { background: #e6ffed; border-color: #33aa55; }
+	  .status.err { background: #ffeaea; border-color: #cc0000; }
+	  .muted { color:#777; font-size:.9rem; }
+	  .topbar { display:flex; gap:.5rem; align-items:center; }
+	  input[type="search"]{ padding:.45rem .6rem; border:1px solid #ddd; border-radius:6px; min-width:220px; }
+	  @media (max-width: 720px) {
+		.hide-sm { display: none; }
+	  }
+	</style>
+  </head>
+  <body>
+	<header>
+	  <div>
+		<h1 style="margin:.25rem 0 .25rem">Propiedades</h1>
+		<div class="muted" id="user-email"></div>
+	  </div>
+	  <div class="topbar">
+		<input id="q" type="search" placeholder="Buscar por título o dirección…" />
+		<a class="btn" href="/admin/new">+ Nueva</a>
+	  </div>
+	</header>
+
+	<p id="msg" class="status" style="display:none"></p>
+
+	<table>
+	  <thead>
+		<tr>
+		  <th>Imagen</th>
+		  <th>Título</th>
+		  <th class="hide-sm">Dirección</th>
+		  <th class="hide-sm">Actualizada</th>
+		  <th style="width:1%">Acciones</th>
+		</tr>
+	  </thead>
+	  <tbody id="rows">
+		<tr><td colspan="5" class="muted">Cargando…</td></tr>
+	  </tbody>
+	</table>
+
+	<script is:inline type="module">
+	  import { supabase } from '/src/scripts/supabaseClient.js';
+
+	  const rowsEl = document.getElementById('rows');
+	  const msgEl  = document.getElementById('msg');
+	  const qEl    = document.getElementById('q');
+	  const userEmailEl = document.getElementById('user-email');
+
+	  let allRows = [];
+	  let user = null;
+
+	  const fmtDate = (iso) => {
+		if (!iso) return '';
+		try {
+		  const d = new Date(iso);
+		  return d.toLocaleString();
+		} catch { return iso; }
+	  };
+
+	  const setMsg = (text, kind = 'ok') => {
+		msgEl.textContent = text;
+		msgEl.className = 'status ' + kind;
+		msgEl.style.display = 'block';
+		if (kind === 'ok') setTimeout(() => (msgEl.style.display = 'none'), 2000);
+	  };
+
+	  const render = (list) => {
+		if (!Array.isArray(list) || list.length === 0) {
+		  rowsEl.innerHTML = '<tr><td colspan="5" class="muted">No hay propiedades todavía.</td></tr>';
+		  return;
+		}
+		rowsEl.innerHTML = list.map((r) => {
+		  const viewHref = r.slug ? `/propiedad/${r.slug}` : `/propiedad/${r.id}`;
+		  const editHref = `/admin/propiedad/${r.id}/editar`;
+		  const img = r.image_url ? `<img class="thumb" src="${r.image_url}" alt="">` : '<div class="thumb" style="width:72px;height:54px;border:1px solid #eee;border-radius:6px"></div>';
+		  return `
+			<tr data-id="${r.id}" data-image-path="${r.image_path || ''}">
+			  <td>${img}</td>
+			  <td><a href="${viewHref}">${r.title || '(sin título)'}</a></td>
+			  <td class="hide-sm">${r.address || ''}</td>
+			  <td class="hide-sm">${fmtDate(r.updated_at || r.created_at)}</td>
+			  <td>
+				<div class="actions">
+				  <a class="btn" href="${viewHref}">Ver</a>
+				  <a class="btn" href="${editHref}">Editar</a>
+				  <button class="btn danger" data-action="del">Borrar</button>
+				</div>
+			  </td>
+			</tr>
+		  `;
+		}).join('');
+	  };
+
+	  const load = async () => {
+		// comprobar sesión
+		const { data: { session } } = await supabase.auth.getSession();
+		if (!session) {
+		  location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
+		  return;
+		}
+		user = session.user;
+		userEmailEl.textContent = 'Conectado: ' + (user.email || user.id);
+
+		// traer propiedades del usuario
+		const { data, error } = await supabase
+		  .from('properties')
+		  .select('id, title, address, slug, image_url, image_path, created_at, updated_at, created_by')
+		  .eq('created_by', user.id)
+		  .order('updated_at', { ascending: false })
+		  .limit(200);
+
+		if (error) {
+		  rowsEl.innerHTML = '<tr><td colspan="5" class="muted">Error cargando propiedades.</td></tr>';
+		  setMsg('❌ ' + error.message, 'err');
+		  return;
+		}
+
+		allRows = data || [];
+		render(allRows);
+	  };
+
+	  // Borrado (fila + imagen en Storage si existe)
+	  rowsEl.addEventListener('click', async (e) => {
+		const btn = e.target.closest('[data-action="del"]');
+		if (!btn) return;
+
+		const tr = btn.closest('tr');
+		const id = tr?.dataset?.id;
+		const imagePath = tr?.dataset?.imagePath || null;
+
+		if (!id) return;
+
+		const ok = confirm('¿Seguro que quieres borrar esta propiedad? Esta acción no se puede deshacer.');
+		if (!ok) return;
+
+		try {
+		  // 1) borrar registro
+		  const { error: delErr } = await supabase.from('properties').delete().eq('id', id);
+		  if (delErr) throw delErr;
+
+		  // 2) borrar imagen (si hay) del bucket property-images
+		  if (imagePath) {
+			const { error: storErr } = await supabase.storage.from('property-images').remove([imagePath]);
+			// No abortamos si falla la imagen; sólo informamos
+			if (storErr) console.warn('No se pudo borrar la imagen:', storErr.message);
+		  }
+
+		  // 3) refrescar tabla en memoria
+		  allRows = allRows.filter(r => r.id !== id);
+		  render(allRows);
+		  setMsg('✅ Propiedad borrada');
+		} catch (err) {
+		  setMsg('❌ ' + (err?.message || String(err)), 'err');
+		}
+	  });
+
+	  // Búsqueda client-side
+	  qEl.addEventListener('input', () => {
+		const q = qEl.value.trim().toLowerCase();
+		if (!q) return render(allRows);
+		const filtered = allRows.filter(r =>
+		  (r.title || '').toLowerCase().includes(q) ||
+		  (r.address || '').toLowerCase().includes(q) ||
+		  (r.slug || '').toLowerCase().includes(q)
+		);
+		render(filtered);
+	  });
+
+	  // Realtime opcional: refrescar al insertar/actualizar desde otro tab
+	  try {
+		const channel = supabase
+		  .channel('properties-changes')
+		  .on('postgres_changes', { event: '*', schema: 'public', table: 'properties', filter: `created_by=eq.${user?.id || ''}` },
+			(_payload) => load()
+		  )
+		  .subscribe();
+		// Si no quieres realtime, elimina todo este bloque.
+	  } catch {}
+
+	  // Primera carga
+	  load();
+	</script>
+  </body>
+</html>

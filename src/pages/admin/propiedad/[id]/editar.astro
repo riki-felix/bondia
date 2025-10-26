@@ -1,0 +1,261 @@
+---
+export const prerender = false;
+
+// Capturamos el id de la ruta en SSR (solo para imprimirlo en el cliente)
+const { id } = Astro.params;
+const EDIT_ID = JSON.stringify(id || null);
+---
+
+<html lang="es">
+  <head>
+	<meta charset="utf-8" />
+	<title>Editar propiedad</title>
+	<style>
+	  :root { color-scheme: light dark; }
+	  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+	  header { display:flex; justify-content: space-between; align-items:center; gap:.75rem; margin-bottom: 1rem; }
+	  form { display:grid; gap: 1rem; }
+	  label { display:block; }
+	  input[type="text"], input[type="file"] { width:100%; padding:.5rem .6rem; border:1px solid #ddd; border-radius:6px; }
+	  .row { display:grid; gap: .75rem; grid-template-columns: 1fr 1fr; }
+	  .imgwrap { display:flex; gap: .75rem; align-items:flex-start; }
+	  .thumb { width: 160px; height: 120px; object-fit: cover; border-radius: 8px; background:#f2f2f2; border:1px solid #e8e8e8; }
+	  .muted{ color:#777; font-size:.9rem }
+	  .actions { display:flex; gap:.5rem; }
+	  .btn { border:1px solid #ddd; background:#fafafa; padding:.5rem .8rem; border-radius:8px; cursor:pointer; }
+	  .btn.primary { background:#1f7aed; border-color:#1962bd; color:white; }
+	  .btn.danger  { border-color:#c00; color:#c00; background:#fff5f5; }
+	  .status { margin: .75rem 0 1.25rem; padding: .6rem .8rem; border-radius: 6px; border: 1px solid transparent; font-size: .95rem; display:none; }
+	  .status.ok { background: #e6ffed; border-color: #33aa55; display:block; }
+	  .status.err{ background: #ffeaea; border-color: #cc0000; display:block; }
+	</style>
+  </head>
+  <body>
+	<header>
+	  <h1>Editar propiedad</h1>
+	  <div class="actions">
+		<a class="btn" href="/propiedades">← Volver</a>
+	  </div>
+	</header>
+
+	<p id="msg" class="status"></p>
+
+	<form id="f" novalidate>
+	  <div class="row">
+		<label>Título
+		  <input id="title" name="title" type="text" required />
+		</label>
+		<label>Dirección
+		  <input id="address" name="address" type="text" required />
+		</label>
+	  </div>
+
+	  <div class="imgwrap">
+		<img id="thumb" class="thumb" alt="Vista previa" />
+		<div>
+		  <label>Nueva imagen (opcional)
+			<input id="image" name="image" type="file" accept="image/*" />
+		  </label>
+		  <div class="muted" id="imgInfo"></div>
+		</div>
+	  </div>
+
+	  <div class="actions">
+		<button id="save" type="submit" class="btn primary">Guardar cambios</button>
+		<button id="deleteImg" type="button" class="btn danger">Quitar imagen</button>
+	  </div>
+	</form>
+
+	<script is:inline type="module">
+	  import { supabase } from '/src/scripts/supabaseClient.js';
+
+	  // ===== Utilidades =====
+	  const slugify = (text) =>
+		text.toString()
+		  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+		  .toLowerCase().trim()
+		  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+	  const show   = (el, text, kind='ok') => { el.textContent = text; el.className = 'status ' + kind; el.style.display='block'; };
+	  const hide   = (el) => { el.style.display='none'; };
+	  const fmt    = (s) => (s ?? '').toString();
+
+	  // ===== Elementos =====
+	  const msg     = document.getElementById('msg');
+	  const form    = document.getElementById('f');
+	  const titleEl = document.getElementById('title');
+	  const addrEl  = document.getElementById('address');
+	  const imgEl   = document.getElementById('image');
+	  const thumb   = document.getElementById('thumb');
+	  const imgInfo = document.getElementById('imgInfo');
+	  const removeBtn = document.getElementById('deleteImg');
+
+	  const EDIT_ID = ${EDIT_ID}; // viene del frontmatter
+	  let user = null;
+	  let record = null;
+
+	  // ===== Carga inicial =====
+	  async function load() {
+		try {
+		  // 1) sesión
+		  const { data: { session } } = await supabase.auth.getSession();
+		  if (!session) {
+			location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
+			return;
+		  }
+		  user = session.user;
+
+		  // 2) obtener la propiedad del usuario
+		  const { data, error } = await supabase
+			.from('properties')
+			.select('id, title, address, slug, image_url, image_path, created_by, updated_at')
+			.eq('id', EDIT_ID)
+			.eq('created_by', user.id) // ownership
+			.maybeSingle();
+
+		  if (error) throw error;
+		  if (!data) {
+			show(msg, '❌ Propiedad no encontrada o no te pertenece.', 'err');
+			setTimeout(() => location.replace('/propiedades'), 1500);
+			return;
+		  }
+
+		  record = data;
+
+		  // 3) pintar valores
+		  titleEl.value = fmt(record.title);
+		  addrEl.value  = fmt(record.address);
+		  thumb.src     = record.image_url || '';
+		  imgInfo.textContent = record.image_path ? `Archivo: ${record.image_path}` : 'Sin imagen';
+
+		  hide(msg);
+		} catch (err) {
+		  show(msg, '❌ ' + (err?.message || String(err)), 'err');
+		}
+	  }
+
+	  // ===== Guardar =====
+	  form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		hide(msg);
+		try {
+		  if (!record) throw new Error('No se pudo cargar la propiedad');
+
+		  const title   = titleEl.value.trim();
+		  const address = addrEl.value.trim();
+		  if (!title || !address) throw new Error('Faltan título o dirección');
+
+		  const newSlug = slugify(title);
+		  let image_url  = record.image_url  || null;
+		  let image_path = record.image_path || null;
+
+		  // ¿imagen nueva?
+		  const file = imgEl.files?.[0];
+		  if (file) {
+			// 1) subir nueva
+			const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+			const filePath = `${user.id}/${crypto?.randomUUID?.() || Date.now()}-${newSlug}.${ext}`;
+
+			const { error: upErr } = await supabase
+			  .storage
+			  .from('property-images')
+			  .upload(filePath, file, {
+				cacheControl: '3600',
+				upsert: false,
+				contentType: file.type || 'image/*',
+			  });
+
+			if (upErr) throw upErr;
+
+			const { data: pub } = supabase.storage.from('property-images').getPublicUrl(filePath);
+			image_url  = pub?.publicUrl || null;
+
+			// 2) borrar anterior si existía
+			if (record.image_path) {
+			  const { error: delOld } = await supabase
+				.storage
+				.from('property-images')
+				.remove([record.image_path]);
+			  if (delOld) console.warn('No se pudo borrar la imagen previa:', delOld.message);
+			}
+
+			image_path = filePath;
+		  }
+
+		  // Actualizar fila
+		  const updateRow = {
+			title,
+			address,
+			slug: newSlug,
+			image_url,
+			image_path,
+		  };
+
+		  const { data, error } = await supabase
+			.from('properties')
+			.update(updateRow)
+			.eq('id', record.id)
+			.eq('created_by', user.id)
+			.select()
+			.single();
+
+		  if (error) throw error;
+
+		  record = data;
+		  thumb.src = record.image_url || '';
+		  imgEl.value = '';
+		  imgInfo.textContent = record.image_path ? `Archivo: ${record.image_path}` : 'Sin imagen';
+
+		  show(msg, '✅ Cambios guardados');
+		} catch (err) {
+		  show(msg, '❌ ' + (err?.message || String(err)), 'err');
+		}
+	  });
+
+	  // ===== Quitar imagen =====
+	  removeBtn.addEventListener('click', async () => {
+		hide(msg);
+		try {
+		  if (!record) return;
+		  if (!record.image_path) {
+			show(msg, 'No hay imagen que quitar.', 'err');
+			return;
+		  }
+
+		  const ok = confirm('¿Seguro que quieres quitar la imagen actual?');
+		  if (!ok) return;
+
+		  // 1) borrar del storage
+		  const { error: delErr } = await supabase
+			.storage
+			.from('property-images')
+			.remove([record.image_path]);
+
+		  if (delErr) throw delErr;
+
+		  // 2) actualizar fila
+		  const { data, error } = await supabase
+			.from('properties')
+			.update({ image_url: null, image_path: null })
+			.eq('id', record.id)
+			.eq('created_by', user.id)
+			.select()
+			.single();
+
+		  if (error) throw error;
+
+		  record = data;
+		  thumb.src = '';
+		  imgInfo.textContent = 'Sin imagen';
+
+		  show(msg, '✅ Imagen eliminada');
+		} catch (err) {
+		  show(msg, '❌ ' + (err?.message || String(err)), 'err');
+		}
+	  });
+
+	  // Inicial
+	  load();
+	</script>
+  </body>
+</html>

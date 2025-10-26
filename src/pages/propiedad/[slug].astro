@@ -1,0 +1,38 @@
+---
+export const prerender = false;
+import Layout from "../../components/Layout.astro";
+import { createClient } from '@supabase/supabase-js';
+
+const { slug } = Astro.params;
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+const { data: property, error } = await supabase
+  .from('properties')
+  .select('*')
+  .eq('slug', slug)
+  .single();
+---
+<Layout>
+	{error && <p>❌ Error al cargar: {error.message}</p>}
+	{property && (
+	  <>
+		<h1>{property.title}</h1>
+		<p><strong>Dirección:</strong> {property.address}</p>
+	
+		{property.image_path && (
+		  <img
+			src={`${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${property.image_path}`}
+			alt={property.title}
+			loading="lazy"
+		  />
+		)}
+	
+		<p><small>Creada el {new Date(property.created_at).toLocaleString('es-ES')}</small></p>
+		<a href="/propiedades" class="">← Volver al listado</a>
+	  </>
+	)}
+</Layout>

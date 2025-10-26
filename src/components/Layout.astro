@@ -1,7 +1,10 @@
 ---
-import "../../src/styles/globals.css";
-import Footer from "./Footer.astro";
+import '../../src/styles/base/reset.css';
+import '../../src/styles/base/tokens.css';
+import '../../src/styles/base/typography.css';
+import '../../src/styles/base/base.css';
 import Header from "./Header.astro";
+import Footer from "./Footer.astro";
 
 interface Props {
   title: string;
@@ -11,17 +14,16 @@ const { title } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
   </head>
-  <body class="px-4 antialiased bg-neutral-800 sm:px-8 text-white">
+  <body class="site">
     <Header />
-    <main class="w-full max-w-4xl mx-auto grow">
+    <main class="">
       <slot />
     </main>
-    <Footer />
   </body>
 </html>
