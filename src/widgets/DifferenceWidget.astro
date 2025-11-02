@@ -2,7 +2,7 @@
 import '../../src/styles/components/widgets.css';
 import { fmt, round2 } from "../widgets/propContext";
 
-const { precio_venta,precio_compra, totals } = Astro.props;
+const { precio_venta,precio_compra,movimientos, totals } = Astro.props;
 
 const total = round2(totals.total);
 const pagado = round2(totals.pagado);
@@ -25,7 +25,7 @@ const mitad = round2((diferencia * 0.8) / 2);
 				{diferencia} €
 			</span>
 			<span class="data-label label-xs">
-				Vendido por {precio_compra} €
+				Vendido por {precio_venta} €
 			</span>			
 		</div>
 	</div>
