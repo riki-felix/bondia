@@ -1,0 +1,42 @@
+---
+import '../../src/styles/components/widgets.css';
+import { fmt, round2 } from "../widgets/propContext";
+
+const { totals, movimientos } = Astro.props;
+
+const total = round2(totals.total);
+const pagado = round2(totals.pagado);
+const pendiente = round2(totals.pendiente);
+
+---
+<section class="widget wg-size grid-3">
+	<div class="widget-row--totals">
+		<div class="widget-cell">
+			<span class="data-label label-m">
+				Gastos
+			</span>			
+			<span class="data-money data-xl">
+			{total} €
+			</span>
+		</div>
+	</div>
+	<div class="widget-row wg--2col">
+		<div class="widget-cell">
+			<span class="data-money data-m">
+				{pagado} €
+			</span>
+			<span class="data-label label-s">
+				Pagado
+			</span>
+		</div>
+		<div class="widget-cell">
+			<span class="data-money data-m">
+				{pendiente} €
+			</span>
+			<span class="data-label label-s">
+				Pendiente
+			</span>
+		</div>
+	</div>
+<!-- {movimientos.length} -->
+</section>

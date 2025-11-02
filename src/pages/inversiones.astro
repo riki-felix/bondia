@@ -1,0 +1,57 @@
+---
+export const prerender = false;
+
+import '../../src/styles/pages/propiedades.css';
+
+import Layout from "../components/Layout.astro";
+import { supabaseClient } from "../lib/supabaseClient";
+import { publicImageUrl } from '../lib/imageUrl';
+
+const supabase = supabaseClient();
+
+const { data: properties, error } = await supabase
+  .from("propiedades")
+  .select("*")
+  .eq("tipo", "inversion")
+  .order("created_at", { ascending: false });
+
+const imgUrl = (p) =>
+  p?.foto_destacada_path
+	? `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${p.foto_destacada_path}`
+	: null;
+---
+
+<Layout title="Inversiones">
+  <header class="main-header">
+	<h1>Inversiones</h1>
+	<div class="page-actions">
+	  <a class="button--small" href="/admin/nueva">+ Nueva</a>
+	</div>
+  </header>
+
+  {error && <p>❌ {error.message}</p>}
+
+  {(!error && (!properties || properties.length === 0)) && (
+	<p>No hay propiedades de tipo <em>Inversión</em>.</p>
+  )}
+
+  {properties && properties.length > 0 && (
+	<div class="cards-grid">
+	  {properties.map((p) => (
+		<div class="card-item">
+		  {imgUrl(p) && (
+			  <a class="card-img--link" href={`/propiedad/${p.slug}`}>
+				<img src={imgUrl(p)} alt={p.titulo} loading="lazy" />
+			  </a>
+			)}
+		  <h2 class="card-title">
+			<a class="card-link" href={`/propiedad/${p.slug}`}>{p.titulo}</a>
+		  </h2>
+		  <p class="card-meta">
+			{p.superficie_m2 ? `${p.superficie_m2} m² · ` : ''}{p.estado ? p.estado : '—'}
+		  </p>
+		</div>
+	  ))}
+	</div>
+  )}
+</Layout>

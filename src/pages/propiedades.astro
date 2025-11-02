@@ -1,44 +1,53 @@
 ---
 export const prerender = false;
-
+import '../../../src/styles/pages/propiedades.css';
 import Layout from "../components/Layout.astro";
+import { publicImageUrl } from '../lib/imageUrl';
 
-import { createClient } from '@supabase/supabase-js'
-import { publicImageUrl } from '../lib/imageUrl'
+// Cliente Supabase (anon) para ejecutar en el frontmatter (SSR)
+import { supabaseClient } from "../lib/supabaseClient";
 
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-)
+const supabase = supabaseClient();
 
+// Traemos las propiedades más recientes primero
 const { data: properties, error } = await supabase
-  .from('properties')
+  .from('propiedades')
   .select('*')
-  .order('created_at', { ascending: false })
+  .order('created_at', { ascending: false });
+
+// Helper para construir una línea de dirección legible
+function formatDireccion(p) {
+  const linea1 = [p?.direccion_via, p?.direccion_numero].filter(Boolean).join(' ');
+  const linea2 = [p?.codigo_postal, p?.ciudad, p?.provincia].filter(Boolean).join(' ');
+  // Si tienes 'direccion_linea' libre y quieres mostrarla, puedes añadirla:
+  // const extra = p?.direccion_linea ? ` · ${p.direccion_linea}` : '';
+  return [linea1, linea2].filter(Boolean).join(', ');
+}
 ---
 
-<Layout title="Propiedades" >
+<Layout title="Propiedades">
   <section>
 	<h1>Propiedades</h1>
 	{error && <p class="">Error: {error.message}</p>}
 
 	<ul class="">
 	  {properties?.map((p) => {
-		const img = publicImageUrl(p.image_path);
+		const img = publicImageUrl(p.foto_destacada_path); // antes: image_path
+		const direccion = formatDireccion(p);
 		return (
 		  <li class="">
-			{img && <img src={img} alt={p.title} class="" loading="lazy" />}
+			{img && <img src={img} alt={p.titulo} class="" loading="lazy" />}
 			<h2 class="">
-			  <a href={`/propiedad/${p.slug}`}>{p.title}</a>
+			  <a href={`/propiedad/${p.slug}`}>{p.titulo}</a>
 			</h2>
-			<p class="">{p.address}</p>
+			{direccion && <p class="">{direccion}</p>}
 		  </li>
 		);
 	  })}
 	</ul>
 
 	<p class="">
-	  <a href="/admin/new" class="">+ Nueva propiedad</a>
+	  <a href="/admin/nueva" class="">+ Nueva propiedad</a>
 	</p>
   </section>
 </Layout>

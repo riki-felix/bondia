@@ -1,0 +1,85 @@
+---
+// src/pages/admin/movimientos/[slug]/editar.astro
+export const prerender = false;
+
+import Admin from "../../../../components/Admin.astro";
+import MovementForm from "../../../../components/MovementForm.astro";
+import { createClient } from "@supabase/supabase-js";
+
+// Lee envs privados SOLO en servidor (no se envían al cliente)
+const SUPABASE_URL =
+  import.meta.env.SUPABASE_URL || import.meta.env.PUBLIC_SUPABASE_URL || "";
+const SUPABASE_SERVICE_ROLE =
+  import.meta.env.SUPABASE_SERVICE_ROLE ||
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "";
+
+// Cliente admin (service role) – no persiste sesión ni refresca tokens
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+// Param slug de la ruta
+const rawSlug = Astro.params.slug || "";
+const slug = decodeURIComponent(rawSlug);
+
+// Busca el movimiento por slug (1 fila)
+const { data: movement, error: movErr } = await admin
+  .from("movimientos")
+  .select("id, slug, propiedad_id, concepto, fecha, importe, estado, frecuencia, categoria_id,tipo_movimiento")
+  .eq("slug", slug)
+  .maybeSingle();
+
+// Si no lo encuentra, muestra un mensaje claro
+if (movErr || !movement) {
+  console.error("[edit movement] not found or error:", movErr);
+}
+  
+// Carga tags_ids para selección múltiple por defecto
+let tags_ids: string[] = [];
+if (movement?.id) {
+  const { data: tagMap, error: mapErr } = await admin
+	.from("movimiento_tag_map")
+	.select("tag_id")
+	.eq("movimiento_id", movement.id);
+  if (!mapErr && Array.isArray(tagMap)) {
+	tags_ids = tagMap.map((r: any) => String(r.tag_id));
+  }
+}
+
+// Prepara initial para el formulario (importe_es formateado para mostrar)
+const initial = movement
+  ? {
+	  ...movement,
+	  importe_es:
+		movement.importe == null
+		  ? ""
+		  : Number(movement.importe).toLocaleString("es-ES", {
+			  minimumFractionDigits: 2,
+			  maximumFractionDigits: 2,
+			}),
+	  tags_ids,
+	}
+  : null;
+---
+
+<Admin title={initial ? `Editar movimiento: ${initial.concepto ?? ''}` : 'Editar movimiento'}>
+  {!initial && (
+	<div style="color:#b00020; padding:.75rem; border:1px solid #b00020; border-radius:.5rem; background:#fff4f4;">
+	  <p><strong>Movimiento no encontrado</strong></p>
+	  <p style="opacity:.8">Revisa que el slug exista. (Consulta la consola del servidor para ver los slugs disponibles.)</p>
+	  <p><a href="/admin/movimientos">← Volver al listado</a></p>
+	</div>
+  )}
+
+  {initial && (
+	<>
+	  <nav style="margin-bottom:1rem; display:flex; gap:.75rem; align-items:center;">
+		<a href="/admin/movimientos">← Volver al listado</a>
+	  </nav>
+
+	  <!-- Reutilizamos el mismo formulario en modo edición -->
+	  <MovementForm mode="edit" initial={initial} />
+	</>
+  )}
+</Admin>

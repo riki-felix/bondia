@@ -1,0 +1,455 @@
+---
+export interface Props {
+  mode: 'create' | 'edit';
+  initial?: any | null; // propiedad opcional para modo edición
+}
+const { mode = 'create', initial = null } = Astro.props;
+const isEdit = mode === 'edit';
+---
+
+<form id="prop-form" novalidate>
+  <h1>{isEdit ? `Editar propiedad: ${initial?.titulo ?? ''}` : 'Nueva propiedad'}</h1>
+
+  {isEdit && (
+	<>
+	  <input type="hidden" id="prop_id" value={initial?.id} />
+	  <input type="hidden" id="prop_slug" value={initial?.slug} />
+	</>
+  )}
+  
+  <label for="tipo">TIPO</label>
+  <select id="tipo" name="tipo" required>
+	<option value="">— Selecciona —</option>
+	<option value="inversion" selected={isEdit && initial?.tipo === 'inversion'}>Inversión</option>
+	<option value="activo"    selected={isEdit && initial?.tipo === 'activo'}>Activo</option>
+  </select>
+  
+  <!-- Título -->
+  <label for="titulo">Título</label>
+  <input id="titulo" name="titulo" placeholder="Ej: Piso en Gràcia" required value={isEdit ? (initial?.titulo ?? '') : ''} />
+
+  <!-- Superficie / Año construcción -->
+  <div class="row">
+	<div>
+	  <label for="superficie_m2">Superficie (m², entero)</label>
+	  <input id="superficie_m2" name="superficie_m2" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 85" value={isEdit && initial?.superficie_m2 != null ? String(initial.superficie_m2) : ''} />
+	</div>
+	<div>
+	  <label for="anio_construccion">Año construcción (4 cifras)</label>
+	  <input id="anio_construccion" name="anio_construccion" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 1998" value={isEdit && initial?.anio_construccion != null ? String(initial.anio_construccion) : ''} />
+	</div>
+  </div>
+
+  <!-- Nº Catastro -->
+  <label for="numero_catastro">Nº Catastro</label>
+  <input id="numero_catastro" name="numero_catastro" type="text" placeholder="Código catastral" value={isEdit ? (initial?.numero_catastro ?? '') : ''} />
+
+  <!-- Fecha compra -->
+  <label for="fecha_compra">Fecha de compra</label>
+  <input id="fecha_compra" name="fecha_compra" type="date" value={isEdit && initial?.fecha_compra ? String(initial.fecha_compra).slice(0,10) : ''} />
+
+  <!-- Precio / Alquiler -->
+  <div class="row">
+	<div>
+	  <label for="precio_compra">Precio de compra</label>
+	  <input id="precio_compra" name="precio_compra" type="text" inputmode="decimal" placeholder="Ej: 250000,00" value={isEdit && initial?.precio_compra != null ? String(initial.precio_compra).replace('.', ',') : ''} />
+	  <p class="hint">Usa coma para decimales. No uses puntos para miles.</p>
+	</div>
+	<div>
+	  <label for="precio_venta">Precio de venta</label>
+	  <input id="precio_venta" name="precio_venta" type="text" inputmode="decimal" placeholder="Ej: 500000,00" value={isEdit && initial?.precio_venta != null ? String(initial.precio_venta).replace('.', ',') : ''} />
+	  <p class="hint">Usa coma para decimales. No uses puntos para miles.</p>
+	</div>
+	<div>
+	  <label for="alquiler_previsto">Alquiler previsto</label>
+	  <input id="alquiler_previsto" name="alquiler_previsto" type="text" inputmode="decimal" placeholder="Ej: 950,00" value={isEdit && initial?.alquiler_previsto != null ? String(initial.alquiler_previsto).replace('.', ',') : ''} />
+	</div>
+  </div>
+
+  <!-- Valor catastral / ITE -->
+  <div class="row">
+	<div>
+	  <label for="valor_catastro">Valor catastral</label>
+	  <input id="valor_catastro" name="valor_catastro" type="text" inputmode="decimal" placeholder="Ej: 120000,00" value={isEdit && initial?.valor_catastro != null ? String(initial.valor_catastro).replace('.', ',') : ''} />
+	</div>
+	<div>
+	  <label for="valor_ite">ITE</label>
+	  <input id="valor_ite" name="valor_ite" type="text" inputmode="decimal" placeholder="Ej: 800,00" value={isEdit && initial?.valor_ite != null ? String(initial.valor_ite).replace('.', ',') : ''} />
+	</div>
+  </div>
+
+  <!-- Administrador / Comunidad -->
+  <div class="row">
+	<div>
+	  <label for="coste_administrador">Administrador</label>
+	  <input id="coste_administrador" name="coste_administrador" type="text" inputmode="decimal" placeholder="Ej: 60,00" value={isEdit && initial?.coste_administrador != null ? String(initial.coste_administrador).replace('.', ',') : ''} />
+	</div>
+	<div>
+	  <label for="cuota_comunidad">Comunidad</label>
+	  <input id="cuota_comunidad" name="cuota_comunidad" type="text" inputmode="decimal" placeholder="Ej: 45,00" value={isEdit && initial?.cuota_comunidad != null ? String(initial.cuota_comunidad).replace('.', ',') : ''} />
+	</div>
+  </div>
+
+  <!-- Periodicidad (solo si hay comunidad) -->
+  <div id="periodicidad_wrap" class={isEdit && initial?.cuota_comunidad != null ? '' : 'hidden'}>
+	<label for="periodicidad_cuota">Periodicidad de pago</label>
+	<select id="periodicidad_cuota" name="periodicidad_cuota">
+	  <option value="">— Selecciona —</option>
+	  <option value="mensual" selected={isEdit && initial?.periodicidad_cuota === 'mensual'}>Mensual</option>
+	  <option value="trimestral" selected={isEdit && initial?.periodicidad_cuota === 'trimestral'}>Trimestral</option>
+	  <option value="anual" selected={isEdit && initial?.periodicidad_cuota === 'anual'}>Anual</option>
+	</select>
+  </div>
+
+  <!-- IBI -->
+  <label for="ibi">IBI</label>
+  <input id="ibi" name="ibi" type="text" inputmode="decimal" placeholder="Ej: 350,00" value={isEdit && initial?.ibi != null ? String(initial.ibi).replace('.', ',') : ''} />
+
+  <!-- Estado -->
+  <label for="estado">Estado</label>
+  <select id="estado" name="estado">
+	<option value="tanteo" selected={!isEdit || initial?.estado === 'tanteo'}>Tanteo</option>
+	<option value="negociacion" selected={isEdit && initial?.estado === 'negociacion'}>Negociación</option>
+	<option value="compra" selected={isEdit && initial?.estado === 'compra'}>Compra</option>
+	<option value="reforma" selected={isEdit && initial?.estado === 'reforma'}>Reforma</option>
+	<option value="alquiler" selected={isEdit && initial?.estado === 'alquiler'}>Alquiler</option>
+	<option value="vendido" selected={isEdit && initial?.estado === 'vendido'}>Vendido</option>
+  </select>
+
+  <!-- Suministros -->
+  <div class="row">
+	<div>
+	  <label for="suministro_luz">Suministro Luz</label>
+	  <select id="suministro_luz" name="suministro_luz">
+		<option value="">— Selecciona —</option>
+		<option value="sin_suministro" selected={isEdit && initial?.suministro_luz === 'sin_suministro'}>Sin suministro</option>
+		<option value="pinchada" selected={isEdit && initial?.suministro_luz === 'pinchada'}>Pinchada</option>
+		<option value="contratada" selected={isEdit && initial?.suministro_luz === 'contratada'}>Contratada</option>
+	  </select>
+	</div>
+	<div>
+	  <label for="suministro_agua">Suministro Agua</label>
+	  <select id="suministro_agua" name="suministro_agua">
+		<option value="">— Selecciona —</option>
+		<option value="sin_suministro" selected={isEdit && initial?.suministro_agua === 'sin_suministro'}>Sin suministro</option>
+		<option value="pinchada" selected={isEdit && initial?.suministro_agua === 'pinchada'}>Pinchada</option>
+		<option value="contratada" selected={isEdit && initial?.suministro_agua === 'contratada'}>Contratada</option>
+	  </select>
+	</div>
+  </div>
+
+  <label for="suministro_gas">Suministro Gas</label>
+  <select id="suministro_gas" name="suministro_gas">
+	<option value="">— Selecciona —</option>
+	<option value="sin_suministro" selected={isEdit && initial?.suministro_gas === 'sin_suministro'}>Sin suministro</option>
+	<option value="pinchado" selected={isEdit && initial?.suministro_gas === 'pinchado'}>Pinchado</option>
+	<option value="contratado" selected={isEdit && initial?.suministro_gas === 'contratado'}>Contratado</option>
+  </select>
+
+  <div class="sep"></div>
+
+  <!-- Archivos -->
+  <label for="foto_file">Foto destacada (JPG/PNG)</label>
+  <input id="foto_file" name="foto_file" type="file" accept="image/jpeg,image/png" />
+
+  <label for="plano_file">Plano de la vivienda (JPG/PNG)</label>
+  <input id="plano_file" name="plano_file" type="file" accept="image/jpeg,image/png" />
+
+  <div class="actions">
+	  <button type="submit" id="submitBtn">{isEdit ? 'Guardar cambios' : 'Crear'}</button>
+  
+	  {isEdit && (
+		<button type="button" id="deleteBtn" class="danger">Eliminar propiedad</button>
+	  )}
+	</div>
+  
+	<p id="msg"></p>
+</form>
+
+<style>
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .hidden { display: none; }
+  .sep { height: 1rem; }
+  .hint { font-size: .85rem; opacity:.7; margin:.25rem 0 0; }
+  .actions { display:flex; gap:.75rem; align-items:center; margin-top:.75rem; }
+	.danger {
+	  background:#b00020; color:#fff; border:none; padding:.55rem .9rem; border-radius:.5rem;
+	  cursor:pointer;
+	}
+	.danger:hover { opacity:.9; }
+</style>
+
+<script
+  type="module"
+  is:inline
+  define:vars={{
+	IS_EDIT: isEdit,
+	UPDATE_ENDPOINT: '/.netlify/functions/updateProperty', // o '/.netlify/functions/update-property' si renombraste el file
+	CREATE_ENDPOINT: '/.netlify/functions/createProperty'
+  }}
+>
+  import { supabase } from '/src/scripts/supabaseClient.js';
+
+  const form = document.getElementById('prop-form');
+  const msg  = document.getElementById('msg');
+  const btn  = document.getElementById('submitBtn');
+  const periodicidadWrap = document.getElementById('periodicidad_wrap');
+  const cuotaInput = document.getElementById('cuota_comunidad');
+  const deleteBtn = document.getElementById('deleteBtn');
+  
+  // Enteros (solo dígitos)
+  ['superficie_m2','anio_construccion'].forEach((id) => {
+	const el = document.getElementById(id);
+	if (!el) return;
+	el.addEventListener('input', () => { el.value = el.value.replace(/\D+/g, ''); });
+  });
+
+  // Decimales ES: dígitos + una coma, sin miles
+  ['precio_compra','precio_venta','alquiler_previsto','valor_catastro','valor_ite','coste_administrador','cuota_comunidad','ibi']
+	.forEach((id) => {
+	  const el = document.getElementById(id);
+	  if (!el) return;
+	  el.addEventListener('input', () => {
+		let s = el.value.replace(/[^\d,]/g, '');
+		const first = s.indexOf(',');
+		if (first !== -1) s = s.slice(0, first + 1) + s.slice(first + 1).replace(/,/g, '');
+		el.value = s;
+		togglePeriodicidad();
+	  });
+	});
+
+  function togglePeriodicidad() {
+	const hasCuota = (cuotaInput?.value || '').trim() !== '';
+	periodicidadWrap.classList.toggle('hidden', !hasCuota);
+  }
+  togglePeriodicidad();
+
+  // Helpers
+  function emptyOrNull(v) {
+	const s = String(v ?? '').trim();
+	return s === '' ? null : s;
+  }
+  function toIntOrNull(v) {
+	const s = String(v ?? '').trim();
+	if (!s) return null;
+	const n = Number(s);
+	return Number.isInteger(n) ? n : null;
+  }
+  function toYearOrNull(v) {
+	const n = toIntOrNull(v);
+	if (n == null) return null;
+	if (n < 1000 || n > 2100) return null;
+	return n;
+  }
+  // "12,34" -> number 12.34 ; "1234" -> 1234.00 ; sin miles, máx 9 dígitos enteros
+  function canonMoneyNumber(v) {
+	if (v == null) return null;
+	let s = String(v).trim();
+	if (!s) return null;
+
+	const last = s.lastIndexOf(',');
+	if (last >= 0) {
+	  const intPart = s.slice(0, last).replace(/[^0-9]/g, '');
+	  const decPart = s.slice(last + 1).replace(/[^0-9]/g, '');
+	  s = intPart + (decPart ? ('.' + decPart) : '');
+	} else {
+	  s = s.replace(/[^0-9]/g, '');
+	}
+
+	if (!/^\d+(\.\d+)?$/.test(s)) return null;
+	const n = Number(s);
+	if (!Number.isFinite(n)) return null;
+	if (Math.trunc(Math.abs(n)) >= 1_000_000_000) return null; // 9 dígitos enteros
+	return Number(n.toFixed(2));
+  }
+
+  form.addEventListener('submit', async (e) => {
+	e.preventDefault();
+	btn.disabled = true;
+	msg.textContent = '';
+	msg.style.color = '';
+
+	const titulo = form.titulo.value.trim();
+	if (!titulo) {
+	  msg.textContent = 'Introduce un título.';
+	  msg.style.color = 'red';
+	  btn.disabled = false;
+	  return;
+	}
+
+	// Recogida de campos
+	const superficie_m2 = toIntOrNull(form.superficie_m2.value);
+	const anio_construccion = toYearOrNull(form.anio_construccion.value);
+	const numero_catastro = emptyOrNull(form.numero_catastro.value);
+	const fecha_compra = emptyOrNull(form.fecha_compra.value);
+
+	const precio_compra = canonMoneyNumber(form.precio_compra.value);
+	const precio_venta = canonMoneyNumber(form.precio_venta.value);
+	const alquiler_previsto = canonMoneyNumber(form.alquiler_previsto.value);
+	const valor_catastro = canonMoneyNumber(form.valor_catastro.value);
+	const valor_ite = canonMoneyNumber(form.valor_ite.value);
+	const coste_administrador = canonMoneyNumber(form.coste_administrador.value);
+	const cuota_comunidad = canonMoneyNumber(form.cuota_comunidad.value);
+	const periodicidad_cuota = cuota_comunidad != null ? (form.periodicidad_cuota.value || null) : null;
+	const ibi = canonMoneyNumber(form.ibi.value);
+
+	const estado = (form.estado.value || 'tanteo').toLowerCase();
+	const suministro_luz  = (form.suministro_luz.value  || '').toLowerCase() || null;
+	const suministro_agua = (form.suministro_agua.value || '').toLowerCase() || null;
+	const suministro_gas  = (form.suministro_gas.value  || '').toLowerCase() || null;
+	const tipo = (form.tipo?.value || '').trim().toLowerCase();
+	if (!tipo) {
+	  msg.textContent = 'Selecciona la clasificación (Inversión o Activo).';
+	  msg.style.color = 'red';
+	  btn.disabled = false;
+	  return;
+	}
+	const payload = {
+	  tipo,
+	  titulo,
+	  superficie_m2,
+	  anio_construccion,
+	  numero_catastro,
+	  fecha_compra,
+	  precio_compra,
+	  precio_venta,
+	  alquiler_previsto,
+	  valor_catastro,
+	  valor_ite,
+	  coste_administrador,
+	  cuota_comunidad,
+	  periodicidad_cuota,
+	  ibi,
+	  estado,
+	  suministro_luz,
+	  suministro_agua,
+	  suministro_gas
+	};
+
+	try {
+	  const endpoint = IS_EDIT ? UPDATE_ENDPOINT : CREATE_ENDPOINT;
+
+	  if (IS_EDIT) {
+		payload.id = document.getElementById('prop_id')?.value || null;
+		payload.slug = document.getElementById('prop_slug')?.value || null;
+		if (!payload.id) throw new Error('Falta ID para actualizar.');
+	  }
+
+	  // 1) Crear / Actualizar en DB
+	  const res = await fetch(endpoint, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload),
+	  });
+
+	  const raw = await res.text();
+	  let data = {};
+	  try { data = JSON.parse(raw || '{}'); } catch {}
+	  if (!res.ok) throw new Error(data.error || raw);
+
+	  const propId = data.id;
+	  const slug   = data.slug;
+
+	  // 2) Si hay sesión → subimos archivos a Storage y actualizamos paths
+	  const { data: { session } } = await supabase.auth.getSession();
+	  if (!session) {
+		window.location.href = `/propiedad/${slug}`;
+		return;
+	  }
+
+	  const updates = {};
+	  const fotoFile  = document.getElementById('foto_file')?.files?.[0];
+	  const planoFile = document.getElementById('plano_file')?.files?.[0];
+
+	  if (fotoFile) {
+		const key = `${propId}/${Date.now()}_${sanitizeFileName(fotoFile.name)}`;
+		const up = await supabase.storage.from('property-images')
+		  .upload(key, fotoFile, { cacheControl: '3600', upsert: false });
+		if (up.error) throw up.error;
+		updates.foto_destacada_path = key;
+	  }
+	  if (planoFile) {
+		const key = `${propId}/${Date.now()}_${sanitizeFileName(planoFile.name)}`;
+		const up = await supabase.storage.from('property-plans')
+		  .upload(key, planoFile, { cacheControl: '3600', upsert: false });
+		if (up.error) throw up.error;
+		updates.plano_path = key;
+	  }
+
+	  if (Object.keys(updates).length) {
+		const { error: upErr } = await supabase
+		  .from('propiedades')
+		  .update(updates)
+		  .eq('id', propId);
+		if (upErr) throw upErr;
+	  }
+
+	  msg.textContent = IS_EDIT ? '✅ Cambios guardados' : '✅ Propiedad creada';
+	  msg.style.color = 'green';
+	  if (slug) setTimeout(() => { window.location.href = `/propiedad/${slug}` }, 500);
+
+	} catch (err) {
+	  console.error('[PropertyForm] Error:', err);
+	  msg.textContent = `❌ Error: ${err.message || err}`;
+	  msg.style.color = 'red';
+	} finally {
+	  btn.disabled = false;
+	}
+  });
+  const DELETE_ENDPOINT = '/.netlify/functions/deleteProperty';
+  if (typeof IS_EDIT !== 'undefined' && IS_EDIT && deleteBtn) {
+	  deleteBtn.addEventListener('click', async () => {
+		const id = document.getElementById('prop_id')?.value || null;
+		const slug = document.getElementById('prop_slug')?.value || '';
+  
+		if (!id) {
+		  msg.textContent = '❌ Falta ID para eliminar.';
+		  msg.style.color = 'red';
+		  return;
+		}
+  
+		// Confirmación robusta (te obligo a escribir el slug para evitar sustos)
+		const confirmText = prompt(`Para confirmar la eliminación, escribe el slug exacto:\n\n${slug}\n\n(Escribe exactamente el slug)`);
+		if (confirmText !== slug) {
+		  msg.textContent = 'Eliminación cancelada.';
+		  msg.style.color = '';
+		  return;
+		}
+  
+		try {
+		  deleteBtn.disabled = true;
+		  btn.disabled = true;
+		  msg.textContent = 'Eliminando…';
+		  msg.style.color = '';
+  
+		  const res = await fetch(DELETE_ENDPOINT, {
+			method: 'POST',
+			headers: { 'Content-Type':'application/json' },
+			body: JSON.stringify({ id })
+		  });
+  
+		  const raw = await res.text();
+		  let data = {};
+		  try { data = JSON.parse(raw || '{}'); } catch {}
+  
+		  if (!res.ok) throw new Error(data.error || raw);
+  
+		  msg.textContent = '✅ Propiedad eliminada';
+		  msg.style.color = 'green';
+		  // Redirige al listado
+		  setTimeout(() => { window.location.href = '/propiedades'; }, 400);
+  
+		} catch (err) {
+		  console.error('[Eliminar propiedad] Error:', err);
+		  msg.textContent = `❌ Error: ${err.message || err}`;
+		  msg.style.color = 'red';
+		} finally {
+		  deleteBtn.disabled = false;
+		  btn.disabled = false;
+		}
+	  });
+	}
+  function sanitizeFileName(name) {
+	return String(name).replace(/[^\w.\-]+/g, '_');
+  }
+</script>

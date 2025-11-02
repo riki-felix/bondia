@@ -1,12 +1,39 @@
 :root {
 	/* Tipografía */
+	--font-heading-family:"ActaPro",serif;
+	--font-body-family:"TTNormsProVF",sans-serif;
+	--font-data-family:"TTNormsProMonoVF",monospace;
+	
+	--font-weight: "wght" 700;
+	
+	--font-size--xs: 1.1rem;
+	--font-size--s: 1.5rem;
+	--font-size--m: 2.0rem;
+	--font-size--l: 2.8rem;
+	--font-size--xl: 3.4rem;
+	--font-size--xxl: 6.0rem;
+	
 	/* Spacing */
+	--space-xs: 0.4rem;
+	--space-s: 0.8rem;
+	--space-m: 1.2rem;
+	--space-l: 2.0rem;
+	--space-xl: 3.0rem;
+	--space-xxl: 4.0rem;
 	/* Colors */
 	--color-navy: #01193C;
 	--color-white: #ffffff;
 	--color-cream: #FFF6E1;
-	--color-cream--700: #F7ECD4;
+	--color-cream--700: #efe1c1;
 	--color-cream--900: #897855;
+	--color-accent--blue: #52F6FF;
+	--color-orange: #FF783E;
 	/* Layout */
 	/* Viewports */
+	--blur: 100px;         /* intensidad de blur de la mancha */
+	--alpha: 0.4;        /* opacidad de la mancha */
+	--speed: 0.0018;      /* velocidad del “latido”/morfismo */
+	--horizon: 50vh; 
+	
 }
+

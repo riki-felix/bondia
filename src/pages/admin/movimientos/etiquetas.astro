@@ -1,0 +1,82 @@
+---
+export const prerender = false;
+import Admin from "../../../components/Admin.astro";
+---
+
+<Admin title="Etiquetas de movimientos">
+  <section style="max-width:740px;">
+	<h1>Etiquetas</h1>
+
+	<form id="new-tag" style="display:flex; gap:.5rem; margin:.75rem 0;">
+	  <input id="tag-name" placeholder="Nombre de etiqueta" required />
+	  <button type="submit">Crear</button>
+	</form>
+
+	<ul id="tag-list" style="display:grid; gap:.5rem;"></ul>
+	<p id="tag-msg"></p>
+  </section>
+</Admin>
+
+<script type="module">
+  const list = document.getElementById('tag-list');
+  const msg  = document.getElementById('tag-msg');
+
+  await reload();
+
+  document.getElementById('new-tag')?.addEventListener('submit', async (e) => {
+	e.preventDefault();
+	const name = document.getElementById('tag-name').value.trim();
+	if (!name) return;
+	const res = await fetch('/.netlify/functions/createMovTag', {
+	  method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: name })
+	});
+	if (!res.ok) { msg.textContent = 'Error creando'; msg.style.color = 'red'; return; }
+	(document.getElementById('tag-name')).value = '';
+	await reload();
+  });
+
+  async function reload() {
+	msg.textContent = '';
+	const res = await fetch('/.netlify/functions/listMovTags');
+	const out = await res.json();
+	if (!res.ok) {
+	  msg.textContent = `Error cargando: ${out.error || res.status}`;
+	  msg.style.color = 'red';
+	  return;
+	}
+	list.innerHTML = out.map(t => item(t)).join('');
+	bind();
+  }
+
+  function item(t) {
+	return `<li data-id="${t.id}" style="display:flex; gap:.5rem; align-items:center;">
+	  <input class="edit-name" value="${escapeHtml(t.nombre)}" />
+	  <button class="save">Guardar</button>
+	  <button class="del" data-id="${t.id}" style="background:#b00020;color:white;">Borrar</button>
+	  <small style="opacity:.6">slug: ${t.slug}</small>
+	</li>`;
+  }
+  function bind() {
+	list.querySelectorAll('.save').forEach(btn => btn.addEventListener('click', async (e) => {
+	  const li = e.target.closest('li'); const id = li.dataset.id;
+	  const nombre = li.querySelector('.edit-name').value.trim();
+	  const res = await fetch('/.netlify/functions/updateMovTag', {
+		method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, nombre })
+	  });
+	  if (!res.ok) { alert('Error guardando'); return; }
+	  await reload();
+	}));
+	list.querySelectorAll('.del').forEach(btn => btn.addEventListener('click', async (e) => {
+	  const id = e.target.dataset.id;
+	  if (!confirm('¿Borrar etiqueta?')) return;
+	  const res = await fetch('/.netlify/functions/deleteMovTag', {
+		method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id })
+	  });
+	  const ok = res.ok;
+	  const out = await res.text();
+	  if (!ok) { alert(out); return; }
+	  await reload();
+	}));
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script>

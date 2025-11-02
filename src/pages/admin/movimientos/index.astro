@@ -1,0 +1,164 @@
+---
+// src/pages/admin/movimientos/index.astro
+export const prerender = false;
+
+import Admin from "../../../components/Admin.astro";
+---
+
+<Admin title="Movimientos">
+  <nav style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+	<h1 style="margin:0;">Movimientos</h1>
+	<a href="/admin/movimientos/nuevo" style="padding:.6rem .9rem; border:1px solid #ddd; border-radius:.5rem;">+ Nuevo movimiento</a>
+  </nav>
+
+  <div id="mov-list-wrap">
+	<table id="mov-table" style="width:100%; border-collapse:collapse;">
+	  <thead>
+		<tr>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Fecha</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Concepto</th>
+		  <th style="text-align:right; border-bottom:1px solid #eee; padding:.5rem;">Importe</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Estado</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Propiedad</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Categoría</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Etiquetas</th>
+		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Acciones</th>
+		</tr>
+	  </thead>
+	  <tbody id="mov-tbody">
+		<tr><td colspan="8" style="padding:.75rem; opacity:.7;">Cargando…</td></tr>
+	  </tbody>
+	</table>
+
+	<div style="margin-top:1rem; display:flex; gap:.5rem;">
+	  <button id="loadMore" type="button" style="padding:.5rem .8rem; border:1px solid #ddd; border-radius:.4rem;">Cargar más</button>
+	  <span id="status" style="align-self:center; opacity:.7;"></span>
+	</div>
+  </div>
+</Admin>
+
+<script is:inline type="module">
+  const tbody = document.getElementById('mov-tbody');
+  const btnMore = document.getElementById('loadMore');
+  const statusEl = document.getElementById('status');
+
+  let offset = 0;
+  const limit = 100;
+  let loading = false;
+  let reachedEnd = false;
+
+  function fmtDate(iso) {
+	if (!iso) return '';
+	const d = iso.length === 10 ? new Date(iso + 'T00:00:00') : new Date(iso);
+	return isNaN(d) ? iso : d.toLocaleDateString('es-ES');
+  }
+  function fmtEUR(val) {
+	if (val == null || val === '') return '';
+	const n = typeof val === 'number' ? val : Number(String(val).replace(',', '.'));
+	if (!Number.isFinite(n)) return String(val);
+	return n.toLocaleString('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function text(x) {
+	return (x ?? '').toString();
+  }
+  function escapeHtml(s) {
+	return String(s ?? '')
+	  .replaceAll('&','&amp;')
+	  .replaceAll('<','&lt;')
+	  .replaceAll('>','&gt;')
+	  .replaceAll('"','&quot;')
+	  .replaceAll("'",'&#039;');
+  }
+  function clearRows() {
+	tbody.innerHTML = '';
+  }
+
+  function renderRows(items) {
+	if (!Array.isArray(items) || items.length === 0) return;
+
+	const frag = document.createDocumentFragment();
+	for (const it of items) {
+	  const fecha = fmtDate(it.fecha);
+	  const concepto = text(it.concepto);
+	  const importe = fmtEUR(it.importe);
+	  const estado = text(it.estado);
+
+	  const propiedadNombre = text(it.propiedad_titulo || it.propiedad_nombre || it.propiedad || it.propiedad_id);
+	  const categoriaNombre = text(it.categoria_nombre || it.categoria || it.categoria_id);
+
+	  // Etiquetas: {nombre}[] | string[]
+	  let tagsTxt = '';
+	  if (Array.isArray(it.etiquetas)) {
+		tagsTxt = it.etiquetas.map(e => text(e.nombre || e)).filter(Boolean).join(', ');
+	  } else if (Array.isArray(it.tags)) {
+		tagsTxt = it.tags.map(e => text(e.nombre || e)).filter(Boolean).join(', ');
+	  } else if (Array.isArray(it.tag_nombres)) {
+		tagsTxt = it.tag_nombres.map(text).join(', ');
+	  }
+
+	  // URL segura para Editar: slug || id
+	  const slugSafe = (it.slug && String(it.slug).trim()) || String(it.id ?? '');
+	  const dupHref  = `/admin/movimientos/nuevo?dupId=${encodeURIComponent(String(it.id ?? ''))}`;
+	  const editHref = it.slug ? `/admin/movimientos/${encodeURIComponent(String(it.slug))}/editar` : '';
+	  const tr = document.createElement('tr');
+	  tr.innerHTML = `
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${fecha}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(concepto)}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3; text-align:right;">${importe}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(estado)}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(propiedadNombre)}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(categoriaNombre)}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(tagsTxt)}</td>
+		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">
+		  <a href="${dupHref}" style="margin-right:.5rem;">Duplicar</a>
+		  ${ editHref ? `<a href="${editHref}">Editar</a>` : '' }
+		</td>
+	  `;
+	  frag.appendChild(tr);
+	}
+	tbody.appendChild(frag);
+  }
+
+  async function loadPage() {
+	if (loading || reachedEnd) return;
+	loading = true;
+	statusEl.textContent = 'Cargando…';
+
+	try {
+	  const url = `/.netlify/functions/listMovements?limit=${limit}&offset=${offset}`;
+	  const res = await fetch(url);
+	  const txt = await res.text();
+	  let out; try { out = JSON.parse(txt); } catch { out = { data: [] }; }
+
+	  const items = Array.isArray(out) ? out : (out.data || []);
+	  if (offset === 0) clearRows();
+	  if (items.length === 0 && offset === 0) {
+		tbody.innerHTML = `<tr><td colspan="8" style="padding:.75rem; opacity:.7;">No hay movimientos.</td></tr>`;
+		reachedEnd = true;
+		statusEl.textContent = '';
+		return;
+	  }
+
+	  renderRows(items);
+
+	  if (items.length < limit) {
+		reachedEnd = true;
+		statusEl.textContent = 'Fin de la lista';
+	  } else {
+		offset += limit;
+		statusEl.textContent = '';
+	  }
+	} catch (e) {
+	  console.error('[mov-list] load error:', e);
+	  if (offset === 0) {
+		tbody.innerHTML = `<tr><td colspan="8" style="padding:.75rem; color:#b00020;">Error cargando movimientos</td></tr>`;
+	  }
+	  statusEl.textContent = 'Error';
+	} finally {
+	  loading = false;
+	}
+  }
+
+  btnMore?.addEventListener('click', loadPage);
+  loadPage();
+</script>

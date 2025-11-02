@@ -1,0 +1,45 @@
+---
+export const prerender = false;
+
+import Admin from "../../../../components/Admin.astro";
+import PropertyForm from "../../../../components/PropertyForm.astro";
+import { supabaseClient } from "../../../../lib/supabaseClient";
+
+const { slug } = Astro.params;
+
+// Obtenemos la instancia del cliente con tu helper
+const supabase = supabaseClient();
+
+// Cargamos la propiedad por slug
+const { data: property, error } = await supabase
+  .from("propiedades")
+  .select("*")
+  .eq("slug", slug)
+  .single();
+---
+
+<Admin title={error ? 'Editar propiedad' : `Editar: ${property?.titulo ?? ''}`}>
+  {error && (
+	<div style="color:#b00020; padding:.75rem; border:1px solid #b00020; border-radius:.5rem; background:#fff4f4;">
+	  <p><strong>❌ Error al cargar la propiedad:</strong> {error.message}</p>
+	  <p><a href="/propiedades">← Volver al listado</a></p>
+	</div>
+  )}
+
+  {!error && !property && (
+	<p>Propiedad no encontrada. <a href="/propiedades">← Volver</a></p>
+  )}
+
+  {property && (
+	<>
+	  <nav>
+		<a href={`/propiedad/${property.slug}`}>← Ver propiedad</a>
+		<span style="opacity:.5">|</span>
+		<a href="/admin/propiedades">Volver al listado</a>
+	  </nav>
+
+	  <!-- Usamos el mismo formulario para editar -->
+	  <PropertyForm mode="edit" initial={property} />
+	</>
+  )}
+</Admin>

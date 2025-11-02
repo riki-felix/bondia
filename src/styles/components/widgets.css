@@ -1,0 +1,101 @@
+.widgets {
+	display:grid;
+	grid-template-columns: repeat(10,1fr);
+	gap: var(--space-m);
+}
+
+.widget {
+	display: grid;
+	background-color: var(--color-cream--700);
+	padding: var(--space-m) var(--space-l) var(--space-xl) var(--space-l);
+	border-radius: 0.8rem;
+}
+
+.widget-row--totals {
+	padding: var(--space-l) var(--space-l);
+}
+.widget-row {
+	border: 1px solid var(--color-navy);
+	border-radius: 0.8rem;
+}
+.widget-row.wg--2col{
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	.widget-cell:first-child {
+		border-right: 1px solid var(--color-navy);
+	}
+}
+.widget-row.wg--3col{
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	.widget-cell {
+		border-right: 1px solid var(--color-navy);
+	}
+	.widget-cell:last-child {
+		border-right: 0;
+	}
+}
+.widget-cell {
+	display: flex;
+	flex-flow: column wrap;
+	justify-content: center;
+	text-align: center;
+	padding: var(--space-m) var(--space-m);
+}
+
+.data-money {
+	font-family: var(--font-data-family);
+	font-variation-settings: "wght" 400;
+	word-spacing: -1rem;
+	letter-spacing: -0.1rem;
+}
+
+.data-xs {
+	font-size: var(--font-size--xs);
+}
+.data-s {
+	font-size: var(--font-size--s);
+}
+.data-m {
+	font-size: var(--font-size--m);
+}
+.data-l {
+	font-size: var(--font-size--l);
+	
+}
+.data-xl	{
+	font-size: var(--font-size--xl);
+}
+
+.data-label	{
+	font-variation-settings: "wght" 400;
+}
+.label-xs	{
+	font-size: var(--font-size--xs);
+}
+.label-s	{
+	font-size: var(--font-size--s);
+}
+.label-m	{
+	font-size: var(--font-size--m);
+	font-family: var(--font-heading-family);
+}
+.label-l	{
+	font-size: var(--font-size--l);
+	font-family: var(--font-heading-family);
+}
+.label-xl	{
+	font-size: var(--font-size--xl);
+	font-family: var(--font-heading-family);
+}
+
+/* Widgets grid */
+.grid-2		{grid-column: span 2}
+.grid-3 	{grid-column: span 3}
+.grid-4		{grid-column: span 4}
+.grid-5 	{grid-column: span 5}
+.grid-6 	{grid-column: span 6}
+.grid-7 	{grid-column: span 7}
+.grid-8 	{grid-column: span 8}
+.grid-9 	{grid-column: span 9}
+.grid-10 	{grid-column: span 10}

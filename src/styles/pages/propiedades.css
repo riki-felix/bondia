@@ -1,0 +1,38 @@
+.main-header {
+	display: flex;
+	flex-flow: row wrap;
+	align-items: center;
+}
+.main-row {
+	display: grid;
+	grid-template-columns: 1fr;
+}
+.main-row.col-2 {
+	grid-template-columns: 2fr 3fr;
+}	
+.page-actions {
+	margin-left: 1rem;
+}
+.cards-grid {
+	display: grid;
+	grid-template-columns: repeat(4,1fr);
+	gap: var(--space-l) var(--space-l);
+}
+.card-item {
+	background-color: rgba(255,255,255,0.5);
+	border-radius: 0.2rem;
+}
+.cards-title {}
+.cards-link {}
+.cards-img--link {}
+.cards-meta {}
+
+/* Propiedad */
+.movements {
+
+}
+.table-movements {
+	width: 100%;
+	border-collapse: collapse; /* quita espacios entre celdas */
+	  table-layout: auto;
+}

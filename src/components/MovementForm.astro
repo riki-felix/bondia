@@ -1,0 +1,416 @@
+---
+export interface Props {
+  mode?: 'create' | 'edit';
+  initial?: any | null;
+}
+const { mode = 'create', initial = null } = Astro.props;
+const isEdit = mode === 'edit';
+
+import { supabaseClient } from "../lib/supabaseClient";
+const sb = supabaseClient();
+
+/* Propiedades */
+const { data: propiedadesRaw } = await sb
+  .from('propiedades')
+  .select('id, titulo')
+  .order('created_at', { ascending: false });
+const propiedades = Array.isArray(propiedadesRaw) ? propiedadesRaw : [];
+
+/* Categorías */
+const { data: categoriasRaw } = await sb
+  .from('movimiento_categorias')
+  .select('id, nombre, slug')
+  .order('nombre', { ascending: true });
+const categorias = Array.isArray(categoriasRaw) ? categoriasRaw : [];
+
+const defaultCat = categorias.find(c => c.slug === 'general') ?? categorias[0] ?? null;
+const selectedCategoria = String(initial?.categoria_id ?? defaultCat?.id ?? '');
+
+/* Etiquetas */
+const { data: etiquetasRaw } = await sb
+  .from('movimiento_tags')
+  .select('id, nombre')
+  .order('nombre', { ascending: true });
+const etiquetas = Array.isArray(etiquetasRaw) ? etiquetasRaw : [];
+
+const etiquetasCount = etiquetas.length || 0;
+
+/* Preselecciones */
+const preProp = Astro.url.searchParams.get('prop');
+const selectedProp = String(initial?.propiedad_id ?? preProp ?? '');
+const selectedEstado = (initial?.estado ?? '').toLowerCase();
+const selectedFrecuencia = (initial?.frecuencia ?? '').toLowerCase();
+const selectedTags: string[] = Array.isArray(initial?.tags_ids)
+  ? initial.tags_ids.map((x: any) => String(x))
+  : [];
+---
+
+<form id="mov-form" method="post" action="" novalidate>
+  <h1>{isEdit ? 'Editar movimiento' : 'Nuevo movimiento'}</h1>
+
+  {isEdit && initial?.id && (
+	<input type="hidden" id="mov-id" name="id" value={initial.id} />
+  )}
+
+  <!-- Propiedad -->
+  <label for="propiedad_id">Propiedad</label>
+  <select id="propiedad_id" name="propiedad_id" required>
+	<option value="">— Selecciona —</option>
+	{propiedades.map((p) => (
+	  <option value={p.id} selected={String(selectedProp) === String(p.id)}>
+		{p.titulo}
+	  </option>
+	))}
+  </select>
+  <fieldset class="form-row">
+	<legend>Tipo de movimiento</legend>
+  
+	<label>
+	  <input
+		type="radio"
+		name="tipo_movimiento"
+		value="Gasto"
+		checked={(!initial?.tipo_movimiento || initial?.tipo_movimiento === 'Gasto')}
+	  />
+	  Gasto
+	</label>
+  
+	<label>
+	  <input
+		type="radio"
+		name="tipo_movimiento"
+		value="Aportación"
+		checked={initial?.tipo_movimiento === 'Aportación'}
+	  />
+	  Aportación
+	</label>
+  </fieldset>
+  
+  <!-- Concepto -->
+  <label for="concepto">Concepto</label>
+  <input
+	id="concepto"
+	name="concepto"
+	placeholder="Ej: Electricidad"
+	value={initial?.concepto ?? ''}
+	required
+  />
+
+  <!-- Fecha -->
+  <label for="fecha">Fecha</label>
+  <input
+	id="fecha"
+	name="fecha"
+	type="date"
+	value={initial?.fecha ?? ''}
+	required
+  />
+
+  <!-- Importe (coma decimal, sin miles) -->
+  <label for="importe">Importe (€)</label>
+  <input
+	id="importe"
+	name="importe"
+	type="text"
+	inputmode="decimal"
+	placeholder="Ej: 258,00"
+	value={initial?.importe_es ?? ''}
+	required
+  />
+  <p class="hint">Usa coma para decimales. No uses puntos para miles.</p>
+
+  <!-- Estado -->
+  <label for="estado">Estado</label>
+  <select id="estado" name="estado">
+	<option value="">— Selecciona —</option>
+	<option value="pendiente" selected={selectedEstado === 'pendiente'}>Pendiente</option>
+	<option value="pagado"    selected={selectedEstado === 'pagado'}>Pagado</option>
+  </select>
+
+  <!-- Frecuencia -->
+  <label for="frecuencia">Frecuencia</label>
+  <select id="frecuencia" name="frecuencia">
+	<option value="">Puntual</option>
+	<option value="semanal"    selected={selectedFrecuencia === 'semanal'}>Semanal</option>
+	<option value="mensual"    selected={selectedFrecuencia === 'mensual'}>Mensual</option>
+	<option value="bimensual"  selected={selectedFrecuencia === 'bimensual'}>Bimensual</option>
+	<option value="trimestral" selected={selectedFrecuencia === 'trimestral'}>Trimestral</option>
+	<option value="anual"      selected={selectedFrecuencia === 'anual'}>Anual</option>
+  </select>
+
+  <!-- Categoría (se llena en cliente via function) -->
+  <label for="categoria_id">Categoría</label>
+  <select
+	id="categoria_id"
+	name="categoria_id"
+	data-selected={String(selectedCategoria || '')}
+  >
+	<option value="">Cargando categorías…</option>
+  </select>
+
+  <!-- Etiquetas (multi) -->
+  <label for="tags_ids">Etiquetas</label>
+  
+  <!-- Filtro simple para “autocomplete” (no crea etiquetas nuevas) -->
+  <input
+	id="tags-filter"
+	type="text"
+	placeholder="Filtra y pulsa Enter para seleccionar la primera coincidencia…"
+	autocomplete="off"
+  />
+  
+  <select
+	id="tags_ids"
+	name="tags_ids"
+	multiple
+	size="6"
+	data-selected={JSON.stringify(selectedTags || [])}
+  >
+	<option value="">Cargando etiquetas…</option>
+  </select>
+  <p class="hint">Puedes seleccionar varias (Ctrl/Cmd + clic). Escribe en el filtro para reducir la lista y pulsa Enter para seleccionar la primera coincidencia.</p>
+
+  <!-- Documento -->
+  <label for="documento">Documento (PDF/JPG/PNG)</label>
+  <input
+	id="documento"
+	name="documento"
+	type="file"
+	accept="application/pdf,image/jpeg,image/png"
+  />
+
+  <button id="submitBtn" type="submit">
+	{isEdit ? 'Guardar cambios' : 'Crear movimiento'}
+  </button>
+  <p id="msg"></p>
+</form>
+
+<style>
+  form { display: grid; gap: .75rem; max-width: 720px; }
+  .hint { font-size: .9rem; opacity: .7; margin-top: -.35rem; }
+  .hint.danger { color: #b00020; }
+</style>
+
+<script is:inline type="module">
+  const form = document.getElementById('mov-form');
+  const msg  = document.getElementById('msg') || { textContent: '', className: '' };
+  const btn  = document.getElementById('submitBtn') || { disabled: false };
+  const catSelect = document.getElementById('categoria_id');
+  
+	async function loadCategories() {
+	  if (!catSelect) return;
+  
+	  try {
+		const res = await fetch('/.netlify/functions/listMovCategories');
+		const text = await res.text();
+		let out;
+		try { out = JSON.parse(text); } catch { out = []; }
+  
+		const cats = Array.isArray(out) ? out : (out?.data || []);
+		catSelect.innerHTML = '';
+  
+		// Placeholder
+		const optNone = document.createElement('option');
+		optNone.value = '';
+		optNone.textContent = '— Sin categoría —';
+		catSelect.appendChild(optNone);
+  
+		const sel = catSelect.getAttribute('data-selected') || '';
+		let selectedSet = false;
+  
+		for (const c of cats) {
+		  if (!c?.id || !c?.nombre) continue;
+  
+		  const opt = document.createElement('option');
+		  opt.value = String(c.id);
+		  opt.textContent = c.nombre;
+  
+		  // Selección: primero el valor existente (edición),
+		  // o por defecto la categoría "General"
+		  if (
+			sel && String(sel) === String(c.id)
+		  ) {
+			opt.selected = true;
+			selectedSet = true;
+		  } else if (
+			!sel &&
+			c.nombre.trim().toLowerCase() === 'general'
+		  ) {
+			opt.selected = true;
+			selectedSet = true;
+		  }
+  
+		  catSelect.appendChild(opt);
+		}
+  
+		// Si no existe ninguna "General" en BBDD, deja "Sin categoría"
+		if (!selectedSet && cats.length > 0) {
+		  catSelect.value = cats[0].id;
+		}
+	  } catch (e) {
+		catSelect.innerHTML = '';
+		const opt = document.createElement('option');
+		opt.value = '';
+		opt.textContent = '— Sin categoría —';
+		catSelect.appendChild(opt);
+		console.error('[categorías] load error:', e);
+	  }
+	}
+  
+	loadCategories();
+	// --- Etiquetas: cargar desde función segura y permitir “autocomplete” ligero ---
+	  const tagsSelect = document.getElementById('tags_ids');
+	  const tagsFilter = document.getElementById('tags-filter');
+	
+	  async function loadTags() {
+		if (!tagsSelect) return;
+	
+		try {
+		  const res = await fetch('/.netlify/functions/listMovTags');
+		  const text = await res.text();
+		  let out; try { out = JSON.parse(text); } catch { out = []; }
+	
+		  const tags = Array.isArray(out) ? out : (out?.data || []);
+		  const preselected = parseSelectedArray(tagsSelect.getAttribute('data-selected'));
+	
+		  // Limpia y vuelca opciones
+		  tagsSelect.innerHTML = '';
+		  for (const t of tags) {
+			if (!t?.id || !t?.nombre) continue;
+			const opt = document.createElement('option');
+			opt.value = String(t.id);
+			opt.textContent = t.nombre;
+			if (preselected.includes(String(t.id))) opt.selected = true;
+			tagsSelect.appendChild(opt);
+		  }
+		} catch (e) {
+		  console.error('[etiquetas] load error:', e);
+		  tagsSelect.innerHTML = '';
+		  const opt = document.createElement('option');
+		  opt.value = '';
+		  opt.textContent = '— Sin etiquetas —';
+		  tagsSelect.appendChild(opt);
+		}
+	  }
+	
+	  // Filtro simple: oculta opciones que no coinciden
+	  function filterTags() {
+		const q = (tagsFilter?.value || '').trim().toLowerCase();
+		if (!tagsSelect) return;
+		for (const opt of Array.from(tagsSelect.options)) {
+		  if (!q) { opt.hidden = false; continue; }
+		  const hay = (opt.textContent || '').toLowerCase().includes(q);
+		  opt.hidden = !hay;
+		}
+	  }
+	
+	  // “Autocomplete” ligero: ENTER selecciona la primera visible no seleccionada
+	  function enterSelectFirstVisible(e) {
+		if (e.key !== 'Enter') return;
+		if (!tagsSelect) return;
+		const firstVisible = Array.from(tagsSelect.options).find(o => !o.hidden);
+		if (firstVisible) {
+		  firstVisible.selected = !firstVisible.selected; // toggle
+		  // Dispara un cambio para que tu lógica (si escucha change) pueda reaccionar
+		  tagsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+		}
+		e.preventDefault();
+	  }
+	
+	  function parseSelectedArray(attr) {
+		if (!attr) return [];
+		try {
+		  const arr = JSON.parse(attr);
+		  return Array.isArray(arr) ? arr.map(String) : [];
+		} catch {
+		  return [];
+		}
+	  }
+	
+	  // Bindings
+	  loadTags();
+	  tagsFilter?.addEventListener('input', filterTags);
+	  tagsFilter?.addEventListener('keydown', enterSelectFirstVisible);
+	  
+  function el(id){ return document.getElementById(id); }
+  function get(id){ const e = el(id); return e ? e.value : ''; }
+  function getMulti(id){
+	const e = el(id);
+	return e ? Array.from(e.selectedOptions).map(o => o.value).filter(Boolean) : [];
+  }
+  function getRadio(name) {
+	const el = form?.querySelector(`input[name="${name}"]:checked`);
+	return el ? el.value : '';
+  }
+  form?.addEventListener('submit', async (e) => {
+	e.preventDefault();
+	msg.textContent = '';
+	msg.className = '';
+	btn.disabled = true;
+
+	try {
+		const get = (id) => document.getElementById(id)?.value ?? '';
+		const getMulti = (id) => {
+		  const el = document.getElementById(id);
+		  return el ? Array.from(el.selectedOptions).map(o => o.value).filter(Boolean) : [];
+		};
+	
+		const idEl         = document.getElementById('mov-id');
+		const isEdit       = !!(idEl && idEl.value);
+		const endpoint     = isEdit ? '/.netlify/functions/updateMovement'
+									: '/.netlify/functions/createMovement';
+	
+		const payload = {
+		  ...(isEdit ? { id: idEl.value } : {}),
+		  propiedad_id : get('propiedad_id'),
+		  concepto     : get('concepto').trim(),
+		  fecha        : get('fecha'),              // YYYY-MM-DD
+		  importe      : get('importe').trim(),     // con coma, sin miles
+		  estado       : get('estado') || '',
+		  frecuencia   : get('frecuencia') || '',
+		  categoria_id : get('categoria_id') || null,
+		  tags_ids     : getMulti('tags_ids'),
+		  tipo_movimiento: getRadio('tipo_movimiento') || 'Gasto',
+		};
+	
+		if (!payload.propiedad_id) throw new Error('Selecciona una propiedad');
+		if (!payload.concepto)     throw new Error('Introduce un concepto');
+		if (!payload.fecha)        throw new Error('Selecciona una fecha');
+		if (!payload.importe)      throw new Error('Introduce un importe (usa coma para decimales)');
+	
+		const res = await fetch(endpoint, {
+		  method: 'POST',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify(payload),
+		});
+	
+		const txt = await res.text();
+		let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
+		if (!res.ok) throw new Error(out?.error || `HTTP ${res.status}`);
+	
+		msg.textContent = isEdit ? 'Cambios guardados ✅' : 'Movimiento creado ✅';
+		msg.className = 'hint';
+		
+		if (isEdit) {
+		  msg.textContent = 'Movimiento actualizado correctamente ✅';
+		  msg.className = 'hint';
+		  // Espera un breve momento y redirige al listado
+		  setTimeout(() => {
+			window.location.href = '/admin/movimientos';
+		  }, 800);
+		} else {
+		  msg.textContent = 'Movimiento creado correctamente ✅';
+		  msg.className = 'hint';
+		  form.reset();
+		}
+		
+		if (!isEdit) form.reset();
+	  } catch (err) {
+		msg.textContent = `Error: ${err.message || err}`;
+		msg.className = 'hint danger';
+		console.error('[movimientos] submit error:', err);
+	  } finally {
+		btn.disabled = false;
+	  }
+	});
+</script>

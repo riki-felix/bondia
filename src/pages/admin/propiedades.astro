@@ -1,171 +1,219 @@
 ---
+import Admin from "../../components/Admin.astro";
 export const prerender = false;
 ---
+<Admin>
+<header>
+  <div>
+	<h1 style="margin:.25rem 0 .25rem">Propiedades</h1>
+  </div>
+  <div class="topbar">
+	<input id="q" type="search" placeholder="Buscar por título, estado o slug…" />
+	<div class="seg" id="tipo-seg" role="tablist" aria-label="Filtrar por tipo">
+	  <button type="button" class="is-active" data-tipo="all" role="tab" aria-selected="true">Todas</button>
+	  <button type="button" data-tipo="activos" role="tab" aria-selected="false">Activos</button>
+	  <button type="button" data-tipo="inversion" role="tab" aria-selected="false">Inversión</button>
+	</div>
+	<a class="btn" href="/admin/nueva">+ Nueva</a>
+  </div>
+</header>
 
-<html lang="es">
-  <head>
-	<meta charset="utf-8" />
-	<title>Tus propiedades</title>
-  </head>
-  <body>
-	<header>
-	  <div>
-		<h1 style="margin:.25rem 0 .25rem">Propiedades</h1>
-		<div class="muted" id="user-email"></div>
-	  </div>
-	  <div class="topbar">
-		<input id="q" type="search" placeholder="Buscar por título o dirección…" />
-		<a class="btn" href="/admin/new">+ Nueva</a>
-	  </div>
-	</header>
+<p id="msg" class="status" style="display:none"></p>
 
-	<p id="msg" class="status" style="display:none"></p>
+<table>
+  <thead>
+	<tr>
+	  <th>Imagen</th>
+	  <th>Título</th>
+	  <th>Estado</th>
+	  <th class="hide-sm">Valor compra</th>
+	  <th class="hide-sm">Creada</th>
+	  <th style="width:1%">Acciones</th>
+	</tr>
+  </thead>
+  <tbody id="rows">
+	<tr><td colspan="6" class="muted">Cargando…</td></tr>
+  </tbody>
+</table>
 
-	<table>
-	  <thead>
-		<tr>
-		  <th>Imagen</th>
-		  <th>Título</th>
-		  <th class="hide-sm">Dirección</th>
-		  <th class="hide-sm">Actualizada</th>
-		  <th style="width:1%">Acciones</th>
+<script is:inline type="module">
+  import { supabase } from '/src/scripts/supabaseClient.js';
+
+  // 🔹 Usa el nombre real del bucket
+  const DEFAULT_BUCKET = 'property-image'; // <-- aquí el singular
+
+  const rowsEl = document.getElementById('rows');
+  const msgEl  = document.getElementById('msg');
+  const qEl    = document.getElementById('q');
+  const segEl  = document.getElementById('tipo-seg');
+  const userEmailEl = document.getElementById('user-email');
+
+  let allRows = [];
+  let user = null;
+  let tipoFilter = 'all';
+
+  const fmtDate = (iso) => {
+	if (!iso) return '';
+	try {
+	  const d = new Date(iso);
+	  return d.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
+	} catch { return iso; }
+  };
+
+  const fmtMoney = (n) => {
+	if (n === null || n === undefined || n === '') return '';
+	const num = Number(n);
+	if (!Number.isFinite(num)) return String(n);
+	return num.toLocaleString('es-ES', { style:'currency', currency:'EUR' });
+  };
+
+  const setMsg = (text, kind = 'ok') => {
+	msgEl.textContent = text;
+	msgEl.className = 'status ' + kind;
+	msgEl.style.display = 'block';
+	if (kind === 'ok') setTimeout(() => (msgEl.style.display = 'none'), 2000);
+  };
+
+  const badgeClass = (estado) => {
+	const s = (estado || '').toLowerCase();
+	if (['activa','publicada','en venta','disponible'].includes(s)) return 'ok';
+	if (['borrador','pendiente','en revisión'].includes(s)) return 'neutral';
+	if (['reservada','pausada'].includes(s)) return 'warn';
+	if (['vendida','archivada','eliminada'].includes(s)) return 'err';
+	return 'neutral';
+  };
+
+  const normalize = (str='') =>
+	str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+  const matchTipo = (valorTipo) => {
+	if (tipoFilter === 'all') return true;
+	const t = normalize(valorTipo);
+	if (tipoFilter === 'activos')   return t === 'activo' || t === 'activos';
+	if (tipoFilter === 'inversion') return t === 'inversion' || t === 'de inversion';
+	return true;
+  };
+
+  // 🖼️ Resolver URL de imagen desde `foto_destacada_path`
+  async function resolveImageUrl(rawPath) {
+	if (!rawPath) return '';
+
+	// Si ya es una URL completa, devolver tal cual
+	if (/^https?:\/\//.test(rawPath)) return rawPath;
+
+	// Permitir que el path venga con "bucket/path/to/file"
+	// o sólo "path/to/file"
+	let bucket = DEFAULT_BUCKET;
+	let path = rawPath;
+
+	const firstSlash = rawPath.indexOf('/');
+	if (firstSlash > 0 && !rawPath.startsWith('public/')) {
+	  // Heurística: si el prefijo parece ser el nombre del bucket real
+	  const maybeBucket = rawPath.slice(0, firstSlash);
+	  const rest = rawPath.slice(firstSlash + 1);
+	  // buckets típicos que hemos usado: property-image, property-images
+	  if (['property-image', 'property-images', 'propiedades'].includes(maybeBucket)) {
+		bucket = maybeBucket;
+		path = rest;
+	  }
+	}
+
+	// 1) Intentar URL pública directa
+	const pub = supabase.storage.from(bucket).getPublicUrl(path);
+	if (pub?.data?.publicUrl) return pub.data.publicUrl;
+
+	// 2) Si el bucket es privado, generar una URL firmada
+	try {
+	  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600); // 1h
+	  if (!error && data?.signedUrl) return data.signedUrl;
+	} catch {}
+
+	return '';
+  }
+
+  const render = (list) => {
+	if (!Array.isArray(list) || list.length === 0) {
+	  rowsEl.innerHTML = '<tr><td colspan="6" class="muted">No hay propiedades todavía.</td></tr>';
+	  return;
+	}
+	rowsEl.innerHTML = list.map((r) => {
+	  const viewHref = r.slug ? `/propiedad/${encodeURIComponent(r.slug)}` : `/propiedad/${r.id}`;
+	  const editHref = r.slug ? `/admin/propiedad/${encodeURIComponent(r.slug)}/editar` : '';
+
+	  const img = r._img
+		? `<img class="thumb" src="${r._img}" alt="">`
+		: '<div class="thumb" style="border:1px solid #eee"></div>';
+
+	  const editBtn = editHref
+		? `<a class="btn" href="${editHref}">Editar</a>`
+		: `<button class="btn" disabled title="Falta slug">Editar</button>`;
+
+	  return `
+		<tr data-id="${r.id}" data-slug="${r.slug || ''}">
+		  <td>${img}</td>
+		  <td><a href="${viewHref}">${r.titulo || '(sin título)'}</a></td>
+		  <td><span class="badge ${badgeClass(r.estado)}">${r.estado || '—'}</span></td>
+		  <td class="hide-sm val">${fmtMoney(r.precio_compra)}</td>
+		  <td class="hide-sm">${fmtDate(r.created_at)}</td>
+		  <td><div class="actions">${editBtn}</div></td>
 		</tr>
-	  </thead>
-	  <tbody id="rows">
-		<tr><td colspan="5" class="muted">Cargando…</td></tr>
-	  </tbody>
-	</table>
+	  `;
+	}).join('');
+  };
 
-	<script is:inline type="module">
-	  import { supabase } from '/src/scripts/supabaseClient.js';
+  const applyFilters = () => {
+	const q = qEl.value.trim().toLowerCase();
+	const list = allRows.filter(r => {
+	  const matchesSearch =
+		!q ||
+		(r.titulo || '').toLowerCase().includes(q) ||
+		(r.estado || '').toLowerCase().includes(q) ||
+		(r.slug || '').toLowerCase().includes(q);
+	  const matchesTipo = matchTipo(r.tipo || '');
+	  return matchesSearch && matchesTipo;
+	});
+	render(list);
+  };
 
-	  const rowsEl = document.getElementById('rows');
-	  const msgEl  = document.getElementById('msg');
-	  const qEl    = document.getElementById('q');
-	  const userEmailEl = document.getElementById('user-email');
+  const load = async () => {
+	// include `tipo` para el switch
+	const { data, error } = await supabase
+	  .from('propiedades')
+	  .select('id, slug, titulo, estado, tipo, precio_compra, foto_destacada_path, created_at')
+	  .order('created_at', { ascending: false })
+	  .limit(200);
 
-	  let allRows = [];
-	  let user = null;
+	if (error) {
+	  rowsEl.innerHTML = '<tr><td colspan="6" class="muted">Error cargando propiedades.</td></tr>';
+	  setMsg('❌ ' + error.message, 'err');
+	  return;
+	}
 
-	  const fmtDate = (iso) => {
-		if (!iso) return '';
-		try {
-		  const d = new Date(iso);
-		  return d.toLocaleString();
-		} catch { return iso; }
-	  };
+	// 🔹 Resolver URLs de imagen de forma asíncrona (pública o firmada)
+	const withImg = await Promise.all(
+	  (data || []).map(async (r) => ({
+		...r,
+		_img: await resolveImageUrl(r.foto_destacada_path)
+	  }))
+	);
 
-	  const setMsg = (text, kind = 'ok') => {
-		msgEl.textContent = text;
-		msgEl.className = 'status ' + kind;
-		msgEl.style.display = 'block';
-		if (kind === 'ok') setTimeout(() => (msgEl.style.display = 'none'), 2000);
-	  };
+	allRows = withImg;
+	applyFilters();
+  };
 
-	  const render = (list) => {
-		if (!Array.isArray(list) || list.length === 0) {
-		  rowsEl.innerHTML = '<tr><td colspan="5" class="muted">No hay propiedades todavía.</td></tr>';
-		  return;
-		}
-		rowsEl.innerHTML = list.map((r) => {
-		  const viewHref = r.slug ? `/propiedad/${r.slug}` : `/propiedad/${r.id}`;
-		  const editHref = `/admin/propiedad/${r.id}/editar`;
-		  const img = r.image_url ? `<img class="thumb" src="${r.image_url}" alt="">` : '<div class="thumb" style="width:72px;height:54px;border:1px solid #eee;border-radius:6px"></div>';
-		  return `
-			<tr data-id="${r.id}" data-image-path="${r.image_path || ''}">
-			  <td>${img}</td>
-			  <td><a href="${viewHref}">${r.title || '(sin título)'}</a></td>
-			  <td class="hide-sm">${r.address || ''}</td>
-			  <td class="hide-sm">${fmtDate(r.updated_at || r.created_at)}</td>
-			  <td>
-				<div class="actions">
-				  <a class="btn" href="${viewHref}">Ver</a>
-				  <a class="btn" href="${editHref}">Editar</a>
-				  <button class="btn danger" data-action="del">Borrar</button>
-				</div>
-			  </td>
-			</tr>
-		  `;
-		}).join('');
-	  };
+  // búsqueda + switch
+  qEl.addEventListener('input', applyFilters);
+  segEl.addEventListener('click', (e) => {
+	const btn = e.target.closest('button[data-tipo]');
+	if (!btn) return;
+	tipoFilter = btn.dataset.tipo;
+	[...segEl.querySelectorAll('button')].forEach(b=>{
+	  b.classList.toggle('is-active', b === btn);
+	  b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+	});
+	applyFilters();
+  });
 
-	  const load = async () => {
-		// comprobar sesión
-		const { data: { session } } = await supabase.auth.getSession();
-		if (!session) {
-		  location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
-		  return;
-		}
-		user = session.user;
-		userEmailEl.textContent = 'Conectado: ' + (user.email || user.id);
-
-		// traer propiedades del usuario
-		const { data, error } = await supabase
-		  .from('properties')
-		  .select('id, title, address, slug, image_url, image_path, created_at, updated_at, created_by')
-		  .eq('created_by', user.id)
-		  .order('updated_at', { ascending: false })
-		  .limit(200);
-
-		if (error) {
-		  rowsEl.innerHTML = '<tr><td colspan="5" class="muted">Error cargando propiedades.</td></tr>';
-		  setMsg('❌ ' + error.message, 'err');
-		  return;
-		}
-
-		allRows = data || [];
-		render(allRows);
-	  };
-
-	  // Borrado (fila + imagen en Storage si existe)
-	  rowsEl.addEventListener('click', async (e) => {
-		const btn = e.target.closest('[data-action="del"]');
-		if (!btn) return;
-
-		const tr = btn.closest('tr');
-		const id = tr?.dataset?.id;
-		const imagePath = tr?.dataset?.imagePath || null;
-
-		if (!id) return;
-
-		const ok = confirm('¿Seguro que quieres borrar esta propiedad? Esta acción no se puede deshacer.');
-		if (!ok) return;
-
-		try {
-		  // 1) borrar registro
-		  const { error: delErr } = await supabase.from('properties').delete().eq('id', id);
-		  if (delErr) throw delErr;
-
-		  // 2) borrar imagen (si hay) del bucket property-images
-		  if (imagePath) {
-			const { error: storErr } = await supabase.storage.from('property-images').remove([imagePath]);
-			// No abortamos si falla la imagen; sólo informamos
-			if (storErr) console.warn('No se pudo borrar la imagen:', storErr.message);
-		  }
-
-		  // 3) refrescar tabla en memoria
-		  allRows = allRows.filter(r => r.id !== id);
-		  render(allRows);
-		  setMsg('✅ Propiedad borrada');
-		} catch (err) {
-		  setMsg('❌ ' + (err?.message || String(err)), 'err');
-		}
-	  });
-
-	  // Búsqueda client-side
-	  qEl.addEventListener('input', () => {
-		const q = qEl.value.trim().toLowerCase();
-		if (!q) return render(allRows);
-		const filtered = allRows.filter(r =>
-		  (r.title || '').toLowerCase().includes(q) ||
-		  (r.address || '').toLowerCase().includes(q) ||
-		  (r.slug || '').toLowerCase().includes(q)
-		);
-		render(filtered);
-	  });
-
-	  // Primera carga
-	  load();
-	</script>
-  </body>
-</html>
+  load();
+</script>
+</Admin>
