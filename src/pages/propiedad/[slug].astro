@@ -48,16 +48,6 @@ const { data: movimientos, error: movError } = await supabaseServer()
   .select("*")
   .eq("propiedad_id", propiedad.id);
 
-const totals = movimientos?.reduce(
-  (acc, m) => {
-	acc.total += Number(m.importe) || 0;
-	if (m.estado === "pagado") acc.pagado += Number(m.importe) || 0;
-	if (m.estado === "pendiente") acc.pendiente += Number(m.importe) || 0;
-	return acc;
-  },
-  { total: 0, pagado: 0, pendiente: 0 }
-);
-
 const fotoUrl = propiedad.foto_destacada_path
   ? `${base}/storage/v1/object/public/property-images/${propiedad.foto_destacada_path}`
   : null;
@@ -73,6 +63,21 @@ const planoUrl = propiedad.plano_path
   } else if (propiedad?.tipo === "activo") {
 	backUrl = "/sanyus/activos";        // ejemplo: página de activos
   }
+const movimientosGasto = movimientos?.filter(m => {
+	const tipo = (m.tipo_movimiento ?? "").normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+	return tipo !== "aportacion";
+  }) ?? [];
+  
+  const totals = movimientosGasto.reduce(
+	(acc, m) => {
+	  acc.total += Number(m.importe) || 0;
+	  if (m.estado === "pagado") acc.pagado += Number(m.importe) || 0;
+	  if (m.estado === "pendiente") acc.pendiente += Number(m.importe) || 0;
+	  return acc;
+	},
+	{ total: 0, pagado: 0, pendiente: 0 }
+  );
+
 ---
 
 <Layout title={propiedad.titulo}>

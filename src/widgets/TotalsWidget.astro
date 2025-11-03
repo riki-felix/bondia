@@ -1,4 +1,5 @@
 ---
+import '../../src/styles/components/widgets.css';
 import { fmt, round2 } from "../widgets/propContext";
 
 const { totals, movimientos } = Astro.props;
@@ -14,7 +15,6 @@ console.log("Totals en widget:", totals);
 ---
 
 <section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
-  <h2 id="wg-totals-title" class="widget-title">Resumen económico</h2>
   <div class="widget-row--totals">
 	<div class="widget-cell">
 	  <span class="data-label label-m">Total</span>

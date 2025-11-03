@@ -79,14 +79,17 @@
 .label-m	{
 	font-size: var(--font-size--m);
 	font-family: var(--font-heading-family);
+	text-transform: capitalize;
 }
 .label-l	{
 	font-size: var(--font-size--l);
 	font-family: var(--font-heading-family);
+	text-transform: capitalize;
 }
 .label-xl	{
 	font-size: var(--font-size--xl);
 	font-family: var(--font-heading-family);
+	text-transform: capitalize;
 }
 
 /* Widgets grid */

@@ -1,0 +1,51 @@
+---
+/*
+  SumWidget
+  Props:
+	- propiedades: array de propiedades
+	- tipo?: string           // filtro opcional por tipo
+	- campo: string           // campo a sumar (ejemplo: "precio_venta", "precio_compra")
+	- estado?: string         // filtro opcional (ejemplo: "vendido")
+	- label?: string          // text label personalizado
+*/
+
+const { propiedades = [], tipo = "", campo = "precio_venta", estado = "", label = "" } = Astro.props;
+
+function normalize(str) {
+  return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+// Filtrado genérico
+let filtered = propiedades;
+if (tipo)   filtered = filtered.filter(p => normalize(p.tipo)   === normalize(tipo));
+if (estado) filtered = filtered.filter(p => normalize(p.estado) === normalize(estado));
+
+// Sumar el campo elegido
+const suma = filtered.reduce((acc, p) => {
+  const v = Number(p?.[campo]);
+  return acc + (isFinite(v) ? v : 0);
+}, 0);
+
+const displayLabel = label || (
+  tipo && estado ? `Suma de "${campo}" en "${tipo}" con estado "${estado}"`
+  : tipo         ? `Suma de "${campo}" en "${tipo}"`
+  : estado       ? `Suma de "${campo}" con estado "${estado}"`
+  : `Suma de ${campo}`
+);
+
+function money(n) {
+  return isFinite(n)
+	? n.toLocaleString("es-ES", { style: "currency", currency: "EUR" })
+	: "—";
+}
+---
+
+<section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span class="data-label label-m">{displayLabel}</span>
+	  <span class="data-money data-xl">{money(suma)}</span>
+	  <span class="data-label label-xs"></span>
+	</div>
+  </div>
+</section>

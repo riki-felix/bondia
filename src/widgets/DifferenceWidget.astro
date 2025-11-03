@@ -1,59 +1,42 @@
 ---
 import '../../src/styles/components/widgets.css';
-import { fmt, round2 } from "../widgets/propContext";
+import { round2 } from "../widgets/propContext";
 
-const { precio_venta,precio_compra,movimientos, totals } = Astro.props;
+const { precio_venta, totals } = Astro.props;
 
-const total = round2(totals.total);
-const pagado = round2(totals.pagado);
-const pendiente = round2(totals.pendiente);
-
+// Calcula la diferencia usando solo los gastos (ya filtrados)
 const diferencia = round2(precio_venta - totals.total);
-const comision = round2(diferencia * 0.20);
-const mitad = round2((diferencia * 0.8) / 2);
-
+const comision = round2((precio_venta - totals.total) * 0.20);
+const mitad = round2(((precio_venta - totals.total) * 0.8) / 2);
 
 ---
 
 <section class="widget wg-size grid-3">
-	<div class="widget-row--totals">
-		<div class="widget-cell">
-			<span class="data-label label-m">
-				Margen
-			</span>			
-			<span class="data-money data-xl">
-				{diferencia} €
-			</span>
-			<span class="data-label label-xs">
-				Vendido por {precio_venta} €
-			</span>			
-		</div>
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span class="data-label label-m">
+		Margen
+	  </span>
+	  <span class="data-money data-xl">
+		{diferencia} €
+	  </span>
+	  <span class="data-label label-xs">
+		Vendido por {round2(precio_venta)} €
+	  </span>
 	</div>
-	<div class="widget-row wg--3col">
-		<div class="widget-cell">
-			<span class="data-money data-m">
-				{comision} €
-			</span>
-			<span class="data-label label-s">
-				JAPS
-			</span>
-		</div>
-		<div class="widget-cell">
-			<span class="data-money data-m">
-				{mitad} €
-			</span>
-			<span class="data-label label-s">
-				CBH
-			</span>
-		</div>
-		<div class="widget-cell">
-			<span class="data-money data-m">
-				{mitad} €
-			</span>
-			<span class="data-label label-s">
-				Sanyus
-			</span>
-		</div>
+  </div>
+  <div class="widget-row wg--3col">
+	<div class="widget-cell">
+	  <span class="data-money data-m">{comision} €</span>
+	  <span class="data-label label-s">JAPS</span>
 	</div>
-<!-- {movimientos.length} -->
+	<div class="widget-cell">
+	  <span class="data-money data-m">{mitad} €</span>
+	  <span class="data-label label-s">CBH</span>
+	</div>
+	<div class="widget-cell">
+	  <span class="data-money data-m">{mitad} €</span>
+	  <span class="data-label label-s">Sanyus</span>
+	</div>
+  </div>
 </section>

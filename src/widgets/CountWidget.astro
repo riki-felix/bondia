@@ -1,0 +1,50 @@
+---
+/* 
+  CountWidget
+  Props:
+	- propiedades: array de propiedades
+	- tipo?: string (ejemplo: "inversion")
+	- estado?: string (ejemplo: "vendido")
+	- label?: string (etiqueta personalizada para mostrar)
+*/
+import '../../src/styles/components/widgets.css';
+
+const { propiedades = [], tipo = "", estado = "", label = "" } = Astro.props;
+
+// Normalización sencilla de los valores recibidos (evita problemas de tildes, mayúsculas...)
+function normalize(str) {
+  return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+let filtered = propiedades;
+
+if (tipo) {
+  filtered = filtered.filter(p => normalize(p.tipo) === normalize(tipo));
+}
+if (estado) {
+  filtered = filtered.filter(p => normalize(p.estado) === normalize(estado));
+}
+
+const count = filtered.length;
+
+const displayLabel = label || (
+  tipo && estado
+	? `${estado}`
+	: tipo
+	  ? `${tipo}`
+	  : estado
+		? `${estado}`
+		: 'Total'
+);
+---
+
+
+<section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span class="data-label label-m">{displayLabel}</span>
+	  <span class="data-money data-xl">{count}</span>
+	  <span class="data-label label-xs"></span>
+	</div>
+  </div>
+</section>
