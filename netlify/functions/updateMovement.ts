@@ -141,12 +141,12 @@ export const handler: Handler = async (event) => {
 	  let tokens: string[] = [];
 
 	  if (hasTagsIds && Array.isArray(body.tags_ids)) {
-		tokens = body.tags_ids.map((x: any) => String(x)).filter(Boolean);
+		tokens = body.tags.split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
 	  } else if (hasTags) {
 		if (Array.isArray(body.tags)) {
 		  tokens = body.tags.map((x: any) => String(x)).filter(Boolean);
 		} else if (typeof body.tags === 'string') {
-		  tokens = body.tags.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+		  tokens = body.tags.split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
 		}
 	  }
 

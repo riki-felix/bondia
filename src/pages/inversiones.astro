@@ -15,7 +15,7 @@ const { data: properties, error } = await supabase
   .eq("tipo", "inversion")
   .order("created_at", { ascending: false });
 
-const imgUrl = (p) =>
+const imgUrl = (p: any) =>
   p?.foto_destacada_path
 	? `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${p.foto_destacada_path}`
 	: null;
@@ -37,13 +37,13 @@ const imgUrl = (p) =>
 
   {properties && properties.length > 0 && (
 	<div class="cards-grid">
-	  {properties.map((p) => (
+	  {properties.map((p: any) => (
 		<div class="card-item">
 		  {imgUrl(p) && (
-			  <a class="card-img--link" href={`/propiedad/${p.slug}`}>
+			<a class="card-img--link" href={`/propiedad/${p.slug}`}>
 				<img src={imgUrl(p)} alt={p.titulo} loading="lazy" />
-			  </a>
-			)}
+			</a>
+		  )}
 		  <h2 class="card-title">
 			<a class="card-link" href={`/propiedad/${p.slug}`}>{p.titulo}</a>
 		  </h2>

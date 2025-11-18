@@ -3,7 +3,7 @@
 	height: 100%;
 	min-width: 30.0rem;
 	max-height: 20.0rem;
-	marign: 0 auto;
+	margin: 0 auto;
 	place-content: center;
 	display: flex;
 	flex-flow: column wrap;

@@ -1,0 +1,120 @@
+---
+/*
+  RdsCalendarWidget
+  Props:
+	- anio: number
+	- meses: {
+		mes: number;
+		gastos: number;
+		ingresos: number;
+		promocion: number;
+		balance: number;
+		balanceAjustado: number;
+	  }[]
+*/
+
+import '../../styles/components/widgets.css';
+
+interface MesResumen {
+  mes: number;
+  gastos: number;
+  ingresos: number;
+  promocion: number;
+  balance: number;
+  balanceAjustado: number;
+}
+
+// Helpers locales
+const fmt = (value: number) =>
+  new Intl.NumberFormat('es-ES', {
+	style: 'currency',
+	currency: 'EUR',
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+  }).format(value ?? 0);
+
+const round2 = (value: number) =>
+  Math.round((value ?? 0) * 100) / 100;
+
+const { anio, meses = [] } = Astro.props as {
+  anio: number;
+  meses: MesResumen[];
+};
+
+const nombresMes = [
+  "Enero", "Febrero", "Marzo", "Abril",
+  "Mayo", "Junio", "Julio", "Agosto",
+  "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
+// Normalizamos a 12 meses, aunque vengan huecos
+const mapMeses: Record<number, MesResumen> = {};
+for (const m of meses) {
+  mapMeses[m.mes] = {
+	...m,
+	gastos: round2(m.gastos ?? 0),
+	ingresos: round2(m.ingresos ?? 0),
+	promocion: round2(m.promocion ?? 0),
+	balance: round2(
+	  m.balance ?? (m.ingresos - m.gastos)
+	),
+	balanceAjustado: round2(
+	  m.balanceAjustado ?? (m.ingresos - m.gastos - m.promocion)
+	),
+  };
+}
+
+const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
+  const mesNum = idx + 1;
+  return mapMeses[mesNum] ?? {
+	mes: mesNum,
+	gastos: 0,
+	ingresos: 0,
+	promocion: 0,
+	balance: 0,
+	balanceAjustado: 0,
+  };
+});
+---
+
+<section class="widget wg-size grid-3" aria-labelledby="wg-rds-calendar-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="wg-rds-calendar-title" class="data-label label-m">
+		Calendario {anio}
+	  </span>
+	  <span class="data-label label-xs">
+		Gastos, ingresos, balance y promoción por mes
+	  </span>
+	</div>
+  </div>
+
+  <div class="widget-row">
+	<div class="widget-cell">
+	  <table class="widget-table rds-calendar-table">
+		<thead>
+		  <tr>
+			<th>Mes</th>
+			<th>Gastos</th>
+			<th>Ingresos</th>
+			<th>Balance</th>
+			<th>Promoción</th>
+			<th>Balance ajustado</th>
+		  </tr>
+		</thead>
+		<tbody>
+		  {rows.map((m) => (
+			<tr>
+			  <td>{nombresMes[m.mes - 1]}</td>
+			  <td>{fmt(m.gastos)}</td>
+			  <td>{fmt(m.ingresos)}</td>
+			  <td>{fmt(m.balance)}</td>
+			  <td>{fmt(m.promocion * -1)}</td>
+			  <td>{fmt(m.balanceAjustado)}</td>
+			</tr>
+		  ))}
+		</tbody>
+	  </table>
+	</div>
+  </div>
+</section>

@@ -5,9 +5,10 @@ const { title = 'Mi sitio', description = 'Descripción genérica' } = Astro.pro
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>{title}</title>
+	<meta name="description" content={description} />
 	<link rel="preconnect" href="https://cdn.fonts.net">
 	
-	<script type="text/javascript" src="https://cdn.fonts.net/kit/ae9df8a4-a7e8-40fa-9afc-384d3283f848/ae9df8a4-a7e8-40fa-9afc-384d3283f848_enhanced.js" async></script>
+	<script is:inline type="text/javascript" src="https://cdn.fonts.net/kit/ae9df8a4-a7e8-40fa-9afc-384d3283f848/ae9df8a4-a7e8-40fa-9afc-384d3283f848_enhanced.js" async></script>
 	
 	<link rel="stylesheet" type="text/css" href="https://cdn.fonts.net/kit/ae9df8a4-a7e8-40fa-9afc-384d3283f848/ae9df8a4-a7e8-40fa-9afc-384d3283f848_enhanced.css" />
 </head>

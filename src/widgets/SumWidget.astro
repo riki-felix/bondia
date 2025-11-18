@@ -11,17 +11,17 @@
 
 const { propiedades = [], tipo = "", campo = "precio_venta", estado = "", label = "" } = Astro.props;
 
-function normalize(str) {
+function normalize(str: string): string {
   return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
 // Filtrado genérico
 let filtered = propiedades;
-if (tipo)   filtered = filtered.filter(p => normalize(p.tipo)   === normalize(tipo));
-if (estado) filtered = filtered.filter(p => normalize(p.estado) === normalize(estado));
+if (tipo)   filtered = filtered.filter((p: any) => normalize(p.tipo) === normalize(tipo));
+if (estado) filtered = filtered.filter((p: any) => normalize(p.estado) === normalize(estado));
 
 // Sumar el campo elegido
-const suma = filtered.reduce((acc, p) => {
+const suma = filtered.reduce((acc: number, p: any) => {
   const v = Number(p?.[campo]);
   return acc + (isFinite(v) ? v : 0);
 }, 0);
@@ -33,7 +33,7 @@ const displayLabel = label || (
   : `Suma de ${campo}`
 );
 
-function money(n) {
+function money(n: number): string {
   return isFinite(n)
 	? n.toLocaleString("es-ES", { style: "currency", currency: "EUR" })
 	: "—";

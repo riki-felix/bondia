@@ -1,0 +1,78 @@
+---
+/*
+  RdsTotalsWidget
+  Props:
+	- resumen: {
+		totalGastos: number;
+		totalIngresos: number;
+		totalPromos: number;
+	  }
+*/
+
+import '../../styles/components/widgets.css';
+
+interface RdsResumenGlobal {
+  totalGastos: number;
+  totalIngresos: number;
+  totalPromos: number;
+}
+
+// Helpers locales
+const fmt = (value: number) =>
+  new Intl.NumberFormat('es-ES', {
+	style: 'currency',
+	currency: 'EUR',
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+  }).format(value ?? 0);
+
+const round2 = (value: number) =>
+  Math.round((value ?? 0) * 100) / 100;
+
+const { resumen } = Astro.props as { resumen: RdsResumenGlobal };
+
+const totalGastos = round2(resumen?.totalGastos ?? 0);
+const totalIngresos = round2(resumen?.totalIngresos ?? 0);
+const totalPromos = round2(resumen?.totalPromos ?? 0);
+
+const beneficio = round2(totalIngresos - totalGastos);
+const beneficioAjustado = round2(beneficio - totalPromos);
+---
+
+<section class="widget wg-size grid-3" aria-labelledby="wg-rds-totals-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="wg-rds-totals-title" class="data-label label-m">
+		Beneficio total (año)
+	  </span>
+	  <span class="data-money data-xl">{fmt(beneficio)}</span>
+	  <span class="data-label label-xs">
+		Sin aplicar promoción
+	  </span>
+	</div>
+  </div>
+
+  <div class="widget-row wg--2col">
+	<div class="widget-cell">
+	  <span class="data-money data-m">{fmt(totalIngresos)}</span>
+	  <span class="data-label label-s">Ingresos</span>
+	</div>
+	<div class="widget-cell">
+	  <span class="data-money data-m">{fmt(totalGastos)}</span>
+	  <span class="data-label label-s">Gastos</span>
+	</div>
+  </div>
+
+  <div class="widget-row wg--2col">
+	<div class="widget-cell">
+	  <span class="data-money data-m">{fmt(totalPromos * -1)}</span>
+	  <span class="data-label label-s">Promoción (resta)</span>
+	</div>
+	<div class="widget-cell">
+	  <span class="data-money data-m">{fmt(beneficioAjustado)}</span>
+	  <span class="data-label label-s">
+		Beneficio ajustado (– promo)
+	  </span>
+	</div>
+  </div>
+</section>

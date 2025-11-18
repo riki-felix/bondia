@@ -10,30 +10,23 @@
 import '../../src/styles/components/widgets.css';
 
 const { propiedades = [], tipo = "", estado = "", label = "" } = Astro.props;
-
-// Normalización sencilla de los valores recibidos (evita problemas de tildes, mayúsculas...)
-function normalize(str) {
+function normalize(str: string): string {
   return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
 let filtered = propiedades;
-
-if (tipo) {
-  filtered = filtered.filter(p => normalize(p.tipo) === normalize(tipo));
-}
-if (estado) {
-  filtered = filtered.filter(p => normalize(p.estado) === normalize(estado));
-}
+if (tipo)    filtered = filtered.filter((p: any) => normalize(p.tipo) === normalize(tipo));
+if (estado)  filtered = filtered.filter((p: any) => normalize(p.estado) === normalize(estado));
 
 const count = filtered.length;
 
 const displayLabel = label || (
   tipo && estado
-	? `${estado}`
+	? `Total de "${tipo}" con estado "${estado}"`
 	: tipo
-	  ? `${tipo}`
+	  ? `Total de "${tipo}"`
 	  : estado
-		? `${estado}`
+		? `Total con estado "${estado}"`
 		: 'Total'
 );
 ---

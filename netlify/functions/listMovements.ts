@@ -1,6 +1,6 @@
 // netlify/functions/listMovements.ts
 import type { Handler } from '@netlify/functions';
-import { serviceSupabase, json, ok, parseBody } from './_shared';
+import { serviceSupabase, json, ok } from './_shared';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return ok();

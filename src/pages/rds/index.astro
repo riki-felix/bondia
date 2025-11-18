@@ -1,0 +1,286 @@
+---
+import Layout from "../../components/Layout.astro";
+import RdsCountWidget from "../../widgets/rds/RdsCountWidget.astro";
+import RdsTotalsWidget from "../../widgets/rds/RdsTotalsWidget.astro";
+import RdsCalendarWidget from "../../widgets/rds/RdsCalendarWidget.astro";
+export const prerender = false;
+import { supabaseServer } from "../../lib/supabaseServer";
+
+interface PisoRds {
+  id: string;
+  nombre: string;
+  direccion?: string;
+  fecha_creacion: string;
+}
+
+interface MovimientoRds {
+  id: string;
+  piso_id: string;
+  anio: number;
+  mes: number;
+  gasto: number;
+  ingreso: number;
+  promocion: number;
+}
+
+const url = Astro.url;
+const now = new Date();
+const currentYear = now.getFullYear();
+const selectedYear = Number(url.searchParams.get("year") ?? currentYear);
+
+const { data: pisosData } = await supabaseServer()
+  .from("rds_pisos")
+  .select("*")
+  .order("fecha_creacion", { ascending: true });
+
+const pisos = (pisosData ?? []) as PisoRds[];
+
+const { data: movsData } = await supabaseServer()
+  .from("rds_movimientos")
+  .select("*")
+  .eq("anio", selectedYear);
+
+const movimientos = (movsData ?? []) as MovimientoRds[];
+
+function resumenGlobal(movs: MovimientoRds[]) {
+  let totalGastos = 0;
+  let totalIngresos = 0;
+  let totalPromos = 0;
+
+  for (const m of movs) {
+	totalGastos += m.gasto ?? 0;
+	totalIngresos += m.ingreso ?? 0;
+	totalPromos += m.promocion ?? 0;
+  }
+
+  return { totalGastos, totalIngresos, totalPromos };
+}
+
+const resumen = resumenGlobal(movimientos);
+
+function buildMesesResumen(movs: MovimientoRds[], anio: number) {
+  const byMes: Record<number, { gastos: number; ingresos: number; promo: number }> = {};
+
+  for (const m of movs) {
+	if (m.anio !== anio) continue;
+	if (!byMes[m.mes]) {
+	  byMes[m.mes] = { gastos: 0, ingresos: 0, promo: 0 };
+	}
+	byMes[m.mes].gastos += m.gasto ?? 0;
+	byMes[m.mes].ingresos += m.ingreso ?? 0;
+	byMes[m.mes].promo += m.promocion ?? 0;
+  }
+
+  return Array.from({ length: 12 }, (_, idx) => {
+	const mesNum = idx + 1;
+	const base = byMes[mesNum] ?? { gastos: 0, ingresos: 0, promo: 0 };
+	const balance = base.ingresos - base.gastos;
+	const balanceAjustado = balance - base.promo;
+
+	return {
+	  mes: mesNum,
+	  gastos: base.gastos,
+	  ingresos: base.ingresos,
+	  promocion: base.promo,
+	  balance,
+	  balanceAjustado,
+	};
+  });
+}
+
+const mesesResumen = buildMesesResumen(movimientos, selectedYear);
+
+function resumenPorPiso(movs: MovimientoRds[], anio: number) {
+  const map: Record<string, { gastos: number; ingresos: number; promo: number }> = {};
+
+  for (const m of movs) {
+	if (m.anio !== anio) continue;
+	if (!map[m.piso_id]) {
+	  map[m.piso_id] = { gastos: 0, ingresos: 0, promo: 0 };
+	}
+	map[m.piso_id].gastos += m.gasto ?? 0;
+	map[m.piso_id].ingresos += m.ingreso ?? 0;
+	map[m.piso_id].promo += m.promocion ?? 0;
+  }
+
+  return map;
+}
+
+const resumenPisos = resumenPorPiso(movimientos, selectedYear);
+
+const nombresMes = [
+  "Ene", "Feb", "Mar", "Abr",
+  "May", "Jun", "Jul", "Ago",
+  "Sep", "Oct", "Nov", "Dic"
+];
+
+function mesesPorPiso(pisoId: string) {
+  const byMes: Record<number, { gasto: number; ingreso: number; promo: number }> = {};
+
+  for (const m of movimientos) {
+	if (m.piso_id !== pisoId || m.anio !== selectedYear) continue;
+	byMes[m.mes] = {
+	  gasto: m.gasto ?? 0,
+	  ingreso: m.ingreso ?? 0,
+	  promo: m.promocion ?? 0,
+	};
+  }
+
+  return Array.from({ length: 12 }, (_, idx) => {
+	const mesNum = idx + 1;
+	const base = byMes[mesNum] ?? { gasto: 0, ingreso: 0, promo: 0 };
+	const balance = base.ingreso - base.gasto;
+	const balanceAjustado = balance - base.promo;
+	return {
+	  mes: mesNum,
+	  ...base,
+	  balance,
+	  balanceAjustado,
+	};
+  });
+}
+---
+
+<Layout title="RDS">
+  <header class="rds-front-header">
+	<h1>RDS · Dashboard</h1>
+	<form method="get" class="year-filter">
+	  <label for="year">Año</label>
+	  <select id="year" name="year">
+		{Array.from({ length: 6 }, (_, i) => {
+		  const y = currentYear - 2 + i;
+		  return (
+			<option value={y} selected={y === selectedYear}>
+			  {y}
+			</option>
+		  );
+		})}
+	  </select>
+	  <noscript>
+		<button type="submit">Aplicar</button>
+	  </noscript>
+	</form>
+  </header>
+
+  <main class="rds-layout">
+	<section class="widgets">
+	  <RdsCountWidget pisos={pisos} />
+	  <RdsTotalsWidget resumen={resumen} />
+	  <RdsCalendarWidget anio={selectedYear} meses={mesesResumen} />
+	</section>
+
+	<section class="rds-listado">
+	  <h2>Pisos ({selectedYear})</h2>
+
+	  {pisos.length === 0 ? (
+		<p>No hay pisos RDS todavía.</p>
+	  ) : (
+		<table class="rds-table">
+		  <thead>
+			<tr>
+			  <th>Piso</th>
+			  <th>Dirección</th>
+			  <th>Gastos</th>
+			  <th>Ingresos</th>
+			  <th>Beneficio</th>
+			  <th>Beneficio ajustado (– promo)</th>
+			  <th>Meses</th>
+			</tr>
+		  </thead>
+		  <tbody>
+			{pisos.map((piso) => {
+			  const res = resumenPisos[piso.id] ?? {
+				gastos: 0,
+				ingresos: 0,
+				promo: 0,
+			  };
+			  const beneficio = res.ingresos - res.gastos;
+			  const beneficioAjustado = beneficio - res.promo;
+			  const mesesPiso = mesesPorPiso(piso.id);
+
+			  return (
+				<tr>
+				  <td>{piso.nombre}</td>
+				  <td>{piso.direccion}</td>
+				  <td>{res.gastos.toFixed(2)}</td>
+				  <td>{res.ingresos.toFixed(2)}</td>
+				  <td>{beneficio.toFixed(2)}</td>
+				  <td>{beneficioAjustado.toFixed(2)}</td>
+				  <td>
+					<details>
+					  <summary>Ver meses</summary>
+					  <table class="rds-mini-meses">
+						<thead>
+						  <tr>
+							<th>Mes</th>
+							<th>Gasto</th>
+							<th>Ingreso</th>
+							<th>Promo</th>
+							<th>Balance</th>
+							<th>Balance ajustado</th>
+						  </tr>
+						</thead>
+						<tbody>
+						  {mesesPiso.map((m) => (
+							<tr>
+							  <td>{nombresMes[m.mes - 1]}</td>
+							  <td>{m.gasto.toFixed(2)}</td>
+							  <td>{m.ingreso.toFixed(2)}</td>
+							  <td>{(-m.promo).toFixed(2)}</td>
+							  <td>{m.balance.toFixed(2)}</td>
+							  <td>{m.balanceAjustado.toFixed(2)}</td>
+							</tr>
+						  ))}
+						</tbody>
+					  </table>
+					</details>
+				  </td>
+				</tr>
+			  );
+			})}
+		  </tbody>
+		</table>
+	  )}
+	</section>
+  </main>
+</Layout>
+
+<style>
+  .rds-front-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 1.5rem;
+  }
+
+  .rds-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+	gap: 2rem;
+  }
+
+  .widgets {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+  }
+
+  .rds-table,
+  .rds-mini-meses {
+	width: 100%;
+	border-collapse: collapse;
+  }
+
+  .rds-table th,
+  .rds-table td,
+  .rds-mini-meses th,
+  .rds-mini-meses td {
+	border: 1px solid #ddd;
+	padding: .3rem .4rem;
+	font-size: .85rem;
+  }
+
+  .rds-mini-meses {
+	margin-top: .5rem;
+  }
+</style>

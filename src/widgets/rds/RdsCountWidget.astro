@@ -1,0 +1,41 @@
+---
+/*
+  RdsCountWidget
+  Props:
+	- pisos: array de pisos RDS
+	- label?: string (etiqueta personalizada)
+*/
+
+import '../../styles/components/widgets.css';
+
+type PisoRds = {
+  id: string;
+  nombre: string;
+  direccion?: string;
+  fecha_creacion: string;
+};
+
+const { pisos, label } = Astro.props as {
+  pisos?: PisoRds[];
+  label?: string;
+};
+
+const count = Array.isArray(pisos) ? pisos.length : 0;
+
+const displayLabel =
+  label && label.trim().length > 0
+	? label
+	: 'Pisos en RDS';
+---
+
+<section class="widget wg-size grid-3" aria-labelledby="wg-rds-count-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="wg-rds-count-title" class="data-label label-m">
+		{displayLabel}
+	  </span>
+	  <span class="data-money data-xl">{count}</span>
+	  <span class="data-label label-xs"></span>
+	</div>
+  </div>
+</section>

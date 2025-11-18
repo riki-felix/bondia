@@ -1,0 +1,194 @@
+---
+interface PisoRds {
+  id?: string;
+  nombre: string;
+  direccion?: string;
+  fecha_creacion?: string;
+}
+
+const { mode = "create", piso } = Astro.props as {
+  mode?: "create" | "edit";
+  piso?: PisoRds;
+};
+
+const isEdit = mode === "edit";
+
+const initialNombre = piso?.nombre ?? "";
+const initialDireccion = piso?.direccion ?? "";
+const initialFecha =
+  piso?.fecha_creacion ??
+  new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+---
+
+<section class="rds-piso-form">
+  <h1>{isEdit ? "Editar piso RDS" : "Nuevo piso RDS"}</h1>
+
+  <form id="rds-piso-form">
+	{isEdit && piso?.id && (
+	  <input type="hidden" name="id" value={piso.id} />
+	)}
+
+	<div class="form-row">
+	  <label for="nombre">Nombre del piso</label>
+	  <input
+		id="nombre"
+		name="nombre"
+		type="text"
+		required
+		value={initialNombre}
+	  />
+	</div>
+
+	<div class="form-row">
+	  <label for="direccion">Dirección</label>
+	  <input
+		id="direccion"
+		name="direccion"
+		type="text"
+		value={initialDireccion}
+	  />
+	</div>
+
+	<div class="form-row">
+	  <label for="fecha_creacion">Fecha de creación</label>
+	  <input
+		id="fecha_creacion"
+		name="fecha_creacion"
+		type="date"
+		required
+		value={initialFecha}
+	  />
+	</div>
+
+	<div class="form-actions">
+	  <button type="submit" class="btn btn-primary">
+		{isEdit ? "Guardar cambios" : "Crear piso"}
+	  </button>
+	  <a href="/admin/rds" class="btn btn-secondary">
+		Cancelar
+	  </a>
+	</div>
+
+	<p id="rds-piso-error" class="form-error" hidden></p>
+  </form>
+</section>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+	const formEl = document.querySelector('#rds-piso-form');
+	const errorElRaw = document.getElementById('rds-piso-error');
+	const statusElRaw = document.getElementById('rds-piso-status');
+
+	// Si no hay formulario, salimos
+	if (!formEl) return;
+
+	/** @type {HTMLFormElement} */
+	// @ts-ignore – JSDoc type assertion para el checker
+	const form = formEl;
+
+	/** @type {HTMLElement | null} */
+	// @ts-ignore
+	const errorEl = errorElRaw;
+
+	/** @type {HTMLElement | null} */
+	// @ts-ignore
+	const statusEl = statusElRaw;
+
+	form.addEventListener('submit', async (ev) => {
+	  ev.preventDefault();
+
+	  if (errorEl) {
+		errorEl.hidden = true;
+		errorEl.textContent = "";
+	  }
+	  if (statusEl) {
+		statusEl.textContent = "Guardando...";
+	  }
+
+	  const data = new FormData(form);
+
+	  const payload = {
+		id: data.get('id') || null,
+		nombre: data.get('nombre') || '',
+		direccion: data.get('direccion') || '',
+	  };
+
+	  try {
+		const resp = await fetch('/.netlify/functions/rds_piso_save', {
+		  method: 'POST',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify(payload),
+		});
+
+		if (!resp.ok) {
+		  const txt = await resp.text();
+		  throw new Error(txt || `Error HTTP ${resp.status}`);
+		}
+
+		const json = await resp.json();
+
+		if (json.error) {
+		  if (errorEl) {
+			errorEl.textContent = json.error || 'Error al guardar.';
+			errorEl.hidden = false;
+		  }
+		  if (statusEl) {
+			statusEl.textContent = '';
+		  }
+		  return;
+		}
+
+		if (statusEl) {
+		  statusEl.textContent = 'Guardado correctamente.';
+		}
+
+		// Redirección opcional tras crear/editar
+		if (json.redirect) {
+		  window.location.href = json.redirect;
+		}
+	  } catch (err) {
+		console.error(err);
+		if (errorEl) {
+		  errorEl.textContent = 'Error al guardar el piso.';
+		  errorEl.hidden = false;
+		}
+		if (statusEl) {
+		  statusEl.textContent = '';
+		}
+	  }
+	});
+  });
+</script>
+
+<style>
+  .rds-piso-form {
+	max-width: 640px;
+  }
+  .rds-piso-form h1 {
+	margin: 0 0 1rem;
+  }
+  .form-row {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-bottom: 0.75rem;
+  }
+  .form-row label {
+	font-size: 0.9rem;
+	font-weight: 500;
+  }
+  .form-row input {
+	padding: 0.4rem 0.6rem;
+  }
+  .form-actions {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	margin-top: 1rem;
+  }
+  .form-error {
+	color: #b00020;
+	margin-top: 0.75rem;
+	font-size: 0.9rem;
+  }
+</style>

@@ -1,48 +1,24 @@
-// src/pages/api/auth/set.ts
 export const prerender = false;
 
 import type { APIContext } from 'astro';
-import { createServerClient } from '@supabase/ssr';
-
-const URL  = import.meta.env.PUBLIC_SUPABASE_URL;
-const ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+import { supabaseServer } from '../../../lib/supabaseServer'; // Ajusta la ruta si es necesario
 
 export async function OPTIONS() {
-  // útil si haces peticiones fetch desde el cliente (CORS simple)
   return new Response(null, { status: 204 });
 }
 
 export async function POST(ctx: APIContext) {
   try {
-	if (!URL || !ANON) {
-	  return json({ error: 'Missing Supabase env (PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY)' }, 500);
-	}
+	const { request } = ctx;
 
-	const { request, cookies } = ctx;
-
-	// Aseguramos JSON y fallamos de forma clara si no lo es
 	if (!request.headers.get('content-type')?.includes('application/json')) {
 	  return json({ error: 'Content-Type must be application/json' }, 415);
 	}
 
 	const body = await request.json().catch(() => ({} as any));
 
-	const isProd = process.env.NODE_ENV === 'production';
-	const cookieBase = {
-	  path: '/',
-	  httpOnly: true,
-	  sameSite: 'lax' as const,
-	  secure: isProd, // cookies seguras en prod
-	};
-
-	const supabase = createServerClient(URL, ANON, {
-	  cookies: {
-		get: (k) => cookies.get(k)?.value,
-		set: (k, v, opts) => cookies.set(k, v, { ...cookieBase, ...opts }),
-		remove: (k, opts) => cookies.delete(k, { ...cookieBase, ...opts }),
-	  },
-	});
-
+	const supabase = supabaseServer();
+	
 	// 1) PKCE / OAuth (recibe la URL completa con el ?code=...)
 	if (typeof body.codeUrl === 'string' && body.codeUrl.startsWith('http')) {
 	  const { error } = await supabase.auth.exchangeCodeForSession(body.codeUrl);
@@ -68,7 +44,6 @@ export async function POST(ctx: APIContext) {
 	  return new Response(null, { status: 204 });
 	}
 
-	// Payload no reconocido
 	return json({ error: 'missing payload (expected codeUrl | token_hash | access_token+refresh_token)' }, 400);
   } catch (e: any) {
 	return json({ error: e?.message || 'unknown' }, 500);

@@ -1,6 +1,6 @@
 ---
 export const prerender = false;
-import '../../../src/styles/pages/propiedades.css';
+import '../../src/styles/pages/propiedades.css';
 import Layout from "../components/Layout.astro";
 import { publicImageUrl } from '../lib/imageUrl';
 
@@ -16,11 +16,9 @@ const { data: properties, error } = await supabase
   .order('created_at', { ascending: false });
 
 // Helper para construir una línea de dirección legible
-function formatDireccion(p) {
+function formatDireccion(p: any) {
   const linea1 = [p?.direccion_via, p?.direccion_numero].filter(Boolean).join(' ');
   const linea2 = [p?.codigo_postal, p?.ciudad, p?.provincia].filter(Boolean).join(' ');
-  // Si tienes 'direccion_linea' libre y quieres mostrarla, puedes añadirla:
-  // const extra = p?.direccion_linea ? ` · ${p.direccion_linea}` : '';
   return [linea1, linea2].filter(Boolean).join(', ');
 }
 ---
@@ -31,7 +29,7 @@ function formatDireccion(p) {
 	{error && <p class="">Error: {error.message}</p>}
 
 	<ul class="">
-	  {properties?.map((p) => {
+	  {properties?.map((p: any) => {
 		const img = publicImageUrl(p.foto_destacada_path); // antes: image_path
 		const direccion = formatDireccion(p);
 		return (

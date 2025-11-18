@@ -1,0 +1,513 @@
+---
+export const prerender = false;
+
+import Admin from "../../../components/Admin.astro";
+import { supabaseServer } from "../../../lib/supabaseServer";
+
+interface PisoRds {
+  id: string;
+  nombre: string;
+  direccion?: string;
+  fecha_creacion: string;
+}
+
+interface MovimientoRds {
+  id: string;
+  piso_id: string;
+  anio: number;
+  mes: number;
+  gasto: number;
+  ingreso: number;
+  promocion: number;
+}
+
+const { id } = Astro.params;
+
+const url = Astro.url;
+const now = new Date();
+const currentYear = now.getFullYear();
+const selectedYear = Number(url.searchParams.get("year") ?? currentYear);
+
+const supabase = supabaseServer();
+
+// Piso
+const { data: pisoData, error: pisoError } = await supabase
+  .from("rds_pisos")
+  .select("*")
+  .eq("id", id)
+  .single();
+
+if (pisoError || !pisoData) {
+  console.error("Error rds_pisos:", pisoError?.message);
+  throw new Error("Piso RDS no encontrado");
+}
+
+const piso = pisoData as PisoRds;
+
+// Movimientos de este piso y año
+const { data: movsData, error: movsError } = await supabase
+  .from("rds_movimientos")
+  .select("*")
+  .eq("piso_id", id)
+  .eq("anio", selectedYear);
+
+if (movsError) {
+  console.error("Error rds_movimientos:", movsError.message);
+}
+
+const movimientos = (movsData ?? []) as MovimientoRds[];
+
+// Mapa mes → datos
+const mapMes: Record<number, { gasto: number; ingreso: number; promocion: number }> = {};
+for (const m of movimientos) {
+  mapMes[m.mes] = {
+	gasto: m.gasto ?? 0,
+	ingreso: m.ingreso ?? 0,
+	promocion: m.promocion ?? 0,
+  };
+}
+
+const nombresMesLargo = [
+  "Enero", "Febrero", "Marzo", "Abril",
+  "Mayo", "Junio", "Julio", "Agosto",
+  "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+---
+
+<Admin>
+  <header>
+	<div>
+	  <h1 style="margin:.25rem 0 .25rem">{piso.nombre}</h1>
+	  {piso.direccion && <p class="muted">{piso.direccion}</p>}
+	</div>
+	<div class="topbar">
+	  <form method="get" class="year-filter">
+		<label for="year">Año</label>
+		<select id="year" name="year">
+		  {Array.from({ length: 6 }, (_, i) => {
+			const y = currentYear - 2 + i;
+			return (
+			  <option value={y} selected={y === selectedYear}>
+				{y}
+			  </option>
+			);
+		  })}
+		</select>
+		<noscript>
+		  <button type="submit">Aplicar</button>
+		</noscript>
+	  </form>
+
+	  <a href={`/admin/rds?year=${selectedYear}`} class="btn btn-secondary">
+		← Volver a RDS
+	  </a>
+	</div>
+  </header>
+
+  <main class="rds-detail-layout" data-piso-id={piso.id} data-year={selectedYear}>
+	<section>
+	  <h2>Movimientos por mes ({selectedYear})</h2>
+	  <p class="muted">
+		Un registro por mes. Los importes se guardan para el año seleccionado.
+	  </p>
+
+	  <form id="rds-mov-form">
+		<input type="hidden" name="piso_id" value={piso.id} />
+		<input type="hidden" name="anio" value={selectedYear} />
+
+		<table class="rds-table">
+		  <thead>
+			<tr>
+			  <th>Mes</th>
+			  <th>Gasto</th>
+			  <th>Ingreso</th>
+			  <th>Promoción</th>
+			</tr>
+		  </thead>
+		  <tbody>
+			{Array.from({ length: 12 }, (_, idx) => {
+			  const mesNum = idx + 1;
+			  const data = mapMes[mesNum] ?? {
+				gasto: 0,
+				ingreso: 0,
+				promocion: 0,
+			  };
+
+			  return (
+				<tr>
+				  <td>{nombresMesLargo[mesNum - 1]}</td>
+				  <td>
+					<input
+					  type="number"
+					  step="0.01"
+					  name={`mes_${mesNum}_gasto`}
+					  value={data.gasto}
+					/>
+				  </td>
+				  <td>
+					<input
+					  type="number"
+					  step="0.01"
+					  name={`mes_${mesNum}_ingreso`}
+					  value={data.ingreso}
+					/>
+				  </td>
+				  <td>
+					<input
+					  type="number"
+					  step="0.01"
+					  name={`mes_${mesNum}_promocion`}
+					  value={data.promocion}
+					/>
+				  </td>
+				</tr>
+			  );
+			})}
+		  </tbody>
+		</table>
+
+		<div class="form-actions">
+		  <button type="submit" class="btn">Guardar movimientos</button>
+		</div>
+
+		<p id="rds-mov-status" class="muted"></p>
+	  </form>
+	</section>
+
+	<section class="danger-zone">
+	  <h2>Peligro</h2>
+	  <p class="muted">
+		Borrar este piso RDS eliminará también sus movimientos asociados. 
+		Esta acción no se puede deshacer.
+	  </p>
+
+	  <div class="form-actions">
+		<button type="button" class="btn btn-danger" id="rds-delete-open">
+		  Borrar piso RDS
+		</button>
+	  </div>
+	</section>
+
+	{/* Modal de confirmación de borrado */}
+	<div class="rds-modal" id="rds-delete-modal" aria-hidden="true">
+	  <div class="rds-modal-backdrop"></div>
+	  <div class="rds-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="rds-delete-title">
+		<h2 id="rds-delete-title">Confirmar borrado</h2>
+		<p class="muted">
+		  Esta acción borrará el piso <strong>{piso.nombre}</strong> y todos sus movimientos 
+		  en todos los años. Escribe <code>borrar</code> para activar el botón de confirmación.
+		</p>
+
+		<label for="rds-delete-confirm" class="muted">
+		  Escribe <code>borrar</code>:
+		</label>
+		<input
+		  id="rds-delete-confirm"
+		  type="text"
+		  placeholder="borrar"
+		  autocomplete="off"
+		/>
+
+		<p id="rds-delete-status" class="muted"></p>
+
+		<div class="modal-actions">
+		  <button type="button" class="btn btn-secondary" id="rds-delete-cancel">
+			Cancelar
+		  </button>
+		  <button type="button" class="btn btn-danger" id="rds-delete-confirm-btn" disabled>
+			Confirmar borrado
+		  </button>
+		</div>
+	  </div>
+	</div>
+  </main>
+</Admin>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+	// Selector de año (GET)
+	const yearForm = document.querySelector('.year-filter');
+	if (yearForm) {
+	  const yearSelect = yearForm.querySelector('select[name="year"]');
+	  if (yearSelect) {
+		yearSelect.addEventListener('change', () => {
+		  yearForm.submit();
+		});
+	  }
+	}
+
+	// Guardado de movimientos vía Netlify Function
+	const form = document.getElementById('rds-mov-form');
+	const statusEl = document.getElementById('rds-mov-status');
+
+	if (form) {
+	  form.addEventListener('submit', async (ev) => {
+		ev.preventDefault();
+
+		if (statusEl) {
+		  statusEl.textContent = 'Guardando...';
+		}
+
+		const fd = new FormData(form);
+		const pisoId = fd.get('piso_id');
+		const anio = fd.get('anio');
+
+		const meses = [];
+		for (let mes = 1; mes <= 12; mes++) {
+		  const gasto = fd.get(`mes_${mes}_gasto`) || '0';
+		  const ingreso = fd.get(`mes_${mes}_ingreso`) || '0';
+		  const promocion = fd.get(`mes_${mes}_promocion`) || '0';
+
+		  meses.push({
+			mes,
+			gasto,
+			ingreso,
+			promocion,
+		  });
+		}
+
+		try {
+		  const resp = await fetch('/.netlify/functions/rds_movimientos_save', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+			  piso_id: pisoId,
+			  anio,
+			  meses,
+			}),
+		  });
+
+		  if (!resp.ok) {
+			const txt = await resp.text();
+			throw new Error(txt || 'Error HTTP ' + resp.status);
+		  }
+
+		  if (statusEl) {
+			statusEl.textContent = 'Guardado correctamente.';
+		  }
+
+		  // Opcional: volver al listado del mismo año
+		  if (anio) {
+			window.location.href = `/admin/rds?year=${anio}`;
+		  }
+		} catch (err) {
+		  console.error(err);
+		  if (statusEl) {
+			statusEl.textContent = 'Error al guardar movimientos.';
+		  }
+		  alert('Error al guardar movimientos. Revisa la consola.');
+		}
+	  });
+	}
+
+	// Danger zone: modal de borrado
+	const root = document.querySelector('.rds-detail-layout');
+	const pisoId = root?.getAttribute('data-piso-id') || '';
+	const yearStr = root?.getAttribute('data-year') || '';
+	const year = yearStr || '';
+
+	const openBtn = document.getElementById('rds-delete-open');
+	const modal = document.getElementById('rds-delete-modal');
+	const confirmInput = document.getElementById('rds-delete-confirm');
+	const confirmBtn = document.getElementById('rds-delete-confirm-btn');
+	const cancelBtn = document.getElementById('rds-delete-cancel');
+	const deleteStatus = document.getElementById('rds-delete-status');
+
+	function openModal() {
+	  if (!modal) return;
+	  modal.classList.add('is-active');
+	  modal.setAttribute('aria-hidden', 'false');
+	  if (confirmInput) {
+		confirmInput.value = '';
+		confirmInput.focus();
+	  }
+	  if (confirmBtn) {
+		confirmBtn.disabled = true;
+	  }
+	  if (deleteStatus) {
+		deleteStatus.textContent = '';
+	  }
+	}
+
+	function closeModal() {
+	  if (!modal) return;
+	  modal.classList.remove('is-active');
+	  modal.setAttribute('aria-hidden', 'true');
+	}
+
+	if (openBtn) {
+	  openBtn.addEventListener('click', () => {
+		openModal();
+	  });
+	}
+
+	if (cancelBtn) {
+	  cancelBtn.addEventListener('click', () => {
+		closeModal();
+	  });
+	}
+
+	if (modal) {
+	  const backdrop = modal.querySelector('.rds-modal-backdrop');
+	  if (backdrop) {
+		backdrop.addEventListener('click', () => {
+		  closeModal();
+		});
+	  }
+	}
+
+	if (confirmInput && confirmBtn) {
+	  confirmInput.addEventListener('input', () => {
+		const value = confirmInput.value.trim().toLowerCase();
+		confirmBtn.disabled = value !== 'borrar';
+		if (deleteStatus) deleteStatus.textContent = '';
+	  });
+
+	  confirmBtn.addEventListener('click', async () => {
+		if (!pisoId) {
+		  console.error('Falta piso_id para borrar');
+		  return;
+		}
+
+		confirmBtn.disabled = true;
+		if (deleteStatus) {
+		  deleteStatus.textContent = 'Borrando piso...';
+		}
+
+		try {
+		  const resp = await fetch('/.netlify/functions/rds_piso_save', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+			  id: pisoId,
+			  delete: true,
+			}),
+		  });
+
+		  if (!resp.ok) {
+			const txt = await resp.text();
+			throw new Error(txt || 'Error HTTP ' + resp.status);
+		  }
+
+		  if (deleteStatus) {
+			deleteStatus.textContent = 'Piso borrado correctamente.';
+		  }
+
+		  const redirectTo = year
+			? `/admin/rds?year=${encodeURIComponent(year)}`
+			: '/admin/rds';
+
+		  window.location.href = redirectTo;
+		} catch (err) {
+		  console.error(err);
+		  if (deleteStatus) {
+			deleteStatus.textContent = 'Error al borrar el piso.';
+		  }
+		  confirmBtn.disabled = false;
+		}
+	  });
+	}
+  });
+</script>
+
+<style>
+  .rds-detail-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+	gap: 2rem;
+	align-items: flex-start;
+  }
+
+  .rds-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 1rem;
+  }
+
+  .rds-table th,
+  .rds-table td {
+	border: 1px solid #ddd;
+	padding: .35rem .5rem;
+	font-size: .9rem;
+  }
+
+  .rds-table input[type="number"] {
+	width: 100%;
+	max-width: 7rem;
+  }
+
+  .form-actions {
+	margin-top: 1rem;
+  }
+
+  .muted {
+	color: #777;
+	font-size: .85rem;
+  }
+
+  .danger-zone {
+	border: 1px solid #f4b4b4;
+	background: #fff5f5;
+	padding: 1rem;
+	border-radius: .5rem;
+  }
+
+  .danger-zone h2 {
+	margin-top: 0;
+	color: #c0392b;
+  }
+
+  .btn-danger {
+	background-color: #c0392b;
+	color: white;
+  }
+
+  /* Modal */
+  .rds-modal {
+	position: fixed;
+	inset: 0;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	z-index: 50;
+  }
+
+  .rds-modal.is-active {
+	display: flex;
+  }
+
+  .rds-modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0,0,0,0.4);
+  }
+
+  .rds-modal-dialog {
+	position: relative;
+	background: #fff;
+	padding: 1.5rem;
+	border-radius: .75rem;
+	max-width: 480px;
+	width: 100%;
+	box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+	z-index: 51;
+  }
+
+  .rds-modal-dialog h2 {
+	margin-top: 0;
+  }
+
+  .rds-modal-dialog input[type="text"] {
+	width: 100%;
+	max-width: 12rem;
+	margin-top: .5rem;
+	margin-bottom: .5rem;
+  }
+
+  .modal-actions {
+	margin-top: 1rem;
+	display: flex;
+	gap: .5rem;
+	justify-content: flex-end;
+  }
+</style>

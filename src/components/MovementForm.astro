@@ -56,7 +56,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
   <label for="propiedad_id">Propiedad</label>
   <select id="propiedad_id" name="propiedad_id" required>
 	<option value="">— Selecciona —</option>
-	{propiedades.map((p) => (
+	{propiedades.map((p: any) => (
 	  <option value={p.id} selected={String(selectedProp) === String(p.id)}>
 		{p.titulo}
 	  </option>
