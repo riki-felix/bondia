@@ -36,23 +36,29 @@ const totalIngresos = round2(resumen?.totalIngresos ?? 0);
 const totalPromos = round2(resumen?.totalPromos ?? 0);
 
 const beneficio = round2(totalIngresos - totalGastos);
+const beneficioPart = beneficio / 2;
 const beneficioAjustado = round2(beneficio - totalPromos);
+const beneficioRealPart = beneficioAjustado / 2;
 ---
 
-<section class="widget wg-size grid-3" aria-labelledby="wg-rds-totals-title">
+<section class="widget wg-size grid-7" aria-labelledby="wg-rds-totals-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
+	  <span class="data-money data-xl">{fmt(beneficioAjustado)}</span>
 	  <span id="wg-rds-totals-title" class="data-label label-m">
-		Beneficio total (año)
+		Beneficio Real
 	  </span>
-	  <span class="data-money data-xl">{fmt(beneficio)}</span>
-	  <span class="data-label label-xs">
-		Sin aplicar promoción
-	  </span>
+	  <span class="data-label label-s">Mi parte <span class="data-money data-s">{fmt(beneficioRealPart)}</span></span>
 	</div>
   </div>
 
-  <div class="widget-row wg--2col">
+  <div class="widget-row wg--4col">
+	<div class="widget-cell">
+	  <span class="data-money data-m">{fmt(beneficio)}</span>
+	  <span class="data-label label-s">
+		Beneficio
+	  </span>
+	</div>
 	<div class="widget-cell">
 	  <span class="data-money data-m">{fmt(totalIngresos)}</span>
 	  <span class="data-label label-s">Ingresos</span>
@@ -61,18 +67,9 @@ const beneficioAjustado = round2(beneficio - totalPromos);
 	  <span class="data-money data-m">{fmt(totalGastos)}</span>
 	  <span class="data-label label-s">Gastos</span>
 	</div>
-  </div>
-
-  <div class="widget-row wg--2col">
 	<div class="widget-cell">
 	  <span class="data-money data-m">{fmt(totalPromos * -1)}</span>
-	  <span class="data-label label-s">Promoción (resta)</span>
-	</div>
-	<div class="widget-cell">
-	  <span class="data-money data-m">{fmt(beneficioAjustado)}</span>
-	  <span class="data-label label-s">
-		Beneficio ajustado (– promo)
-	  </span>
+	  <span class="data-label label-s">Promoción</span>
 	</div>
   </div>
 </section>

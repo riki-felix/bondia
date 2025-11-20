@@ -22,6 +22,7 @@ interface MesResumen {
   promocion: number;
   balance: number;
   balanceAjustado: number;
+  miParte: number;
 }
 
 // Helpers locales
@@ -42,9 +43,9 @@ const { anio, meses = [] } = Astro.props as {
 };
 
 const nombresMes = [
-  "Enero", "Febrero", "Marzo", "Abril",
-  "Mayo", "Junio", "Julio", "Agosto",
-  "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  "ENE", "FEB", "MAR", "ABR",
+  "MAY", "JUN", "JUL", "AGO",
+  "SEP", "OCT", "NOV", "DIC"
 ];
 
 // Normalizamos a 12 meses, aunque vengan huecos
@@ -61,6 +62,9 @@ for (const m of meses) {
 	balanceAjustado: round2(
 	  m.balanceAjustado ?? (m.ingresos - m.gastos - m.promocion)
 	),
+	miParte: round2(
+	  m.miParte ?? (m.balanceAjustado / 2)
+	),
   };
 }
 
@@ -75,16 +79,14 @@ const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
 	balanceAjustado: 0,
   };
 });
+
 ---
 
-<section class="widget wg-size grid-3" aria-labelledby="wg-rds-calendar-title">
+<section class="widget wg-size grid-10" aria-labelledby="wg-rds-calendar-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
-	  <span id="wg-rds-calendar-title" class="data-label label-m">
-		Calendario {anio}
-	  </span>
-	  <span class="data-label label-xs">
-		Gastos, ingresos, balance y promoción por mes
+	  <span id="wg-rds-calendar-title" class="data-label label-l">
+		Calendario
 	  </span>
 	</div>
   </div>
@@ -94,25 +96,56 @@ const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
 	  <table class="widget-table rds-calendar-table">
 		<thead>
 		  <tr>
-			<th>Mes</th>
-			<th>Gastos</th>
-			<th>Ingresos</th>
-			<th>Balance</th>
-			<th>Promoción</th>
-			<th>Balance ajustado</th>
+			<th></th>
+			{rows.map((m) => (
+			  <th>{nombresMes[m.mes - 1]}</th>
+			))}
 		  </tr>
 		</thead>
+	  
 		<tbody>
-		  {rows.map((m) => (
-			<tr>
-			  <td>{nombresMes[m.mes - 1]}</td>
+		  <tr>
+			<th class="row-title">Gastos</th>
+			{rows.map((m) => (
 			  <td>{fmt(m.gastos)}</td>
+			))}
+		  </tr>
+	  
+		  <tr>
+			<th class="row-title">Ingresos</th>
+			{rows.map((m) => (
 			  <td>{fmt(m.ingresos)}</td>
+			))}
+		  </tr>
+		 
+		  <tr>
+			<th class="row-title">Promoción</th>
+			{rows.map((m) => (
+			  <td>{fmt(-m.promocion)}</td>
+			))}
+		  </tr>
+	  
+		  <tr>
+			<th class="row-title">Balance</th>
+			{rows.map((m) => (
 			  <td>{fmt(m.balance)}</td>
-			  <td>{fmt(m.promocion * -1)}</td>
+			))}
+		  </tr>
+	  <tr class="spacer-row">
+		<td colspan="40"></td>
+	  </tr>
+		  <tr class="row-space">
+			<th class="row-title">Balance real</th>
+			{rows.map((m) => (
 			  <td>{fmt(m.balanceAjustado)}</td>
-			</tr>
-		  ))}
+			))}
+		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">Mi parte</th>
+			{rows.map((m) => (
+			  <td>{fmt(m.miParte)}</td>
+			))}
+		  </tr>
 		</tbody>
 	  </table>
 	</div>

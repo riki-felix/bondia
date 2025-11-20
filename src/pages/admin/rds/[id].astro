@@ -18,7 +18,7 @@ interface MovimientoRds {
   mes: number;
   gasto: number;
   ingreso: number;
-  promocion: number;
+  promocion: number; // sigue existiendo en la tabla, pero no lo usamos aquí
 }
 
 const { id } = Astro.params;
@@ -57,13 +57,12 @@ if (movsError) {
 
 const movimientos = (movsData ?? []) as MovimientoRds[];
 
-// Mapa mes → datos
-const mapMes: Record<number, { gasto: number; ingreso: number; promocion: number }> = {};
+// Mapa mes → datos (solo gasto / ingreso, sin promo)
+const mapMes: Record<number, { gasto: number; ingreso: number }> = {};
 for (const m of movimientos) {
   mapMes[m.mes] = {
 	gasto: m.gasto ?? 0,
 	ingreso: m.ingreso ?? 0,
-	promocion: m.promocion ?? 0,
   };
 }
 
@@ -72,16 +71,27 @@ const nombresMesLargo = [
   "Mayo", "Junio", "Julio", "Agosto",
   "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
+
+// Formateo a dinero en formato ES (1.234,56)
+function formatMoneyEs(n: number): string {
+  if (!Number.isFinite(n)) return "";
+  return new Intl.NumberFormat("es-ES", {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+  }).format(n);
+}
 ---
 
 <Admin>
   <header>
 	<div>
 	  <h1 style="margin:.25rem 0 .25rem">{piso.nombre}</h1>
-	  {piso.direccion && <p class="muted">{piso.direccion}</p>}
+	  <p class="muted">{piso.direccion}</p>
 	</div>
+
 	<div class="topbar">
 	  <form method="get" class="year-filter">
+		<input type="hidden" name="id" value={piso.id} />
 		<label for="year">Año</label>
 		<select id="year" name="year">
 		  {Array.from({ length: 6 }, (_, i) => {
@@ -97,10 +107,6 @@ const nombresMesLargo = [
 		  <button type="submit">Aplicar</button>
 		</noscript>
 	  </form>
-
-	  <a href={`/admin/rds?year=${selectedYear}`} class="btn btn-secondary">
-		← Volver a RDS
-	  </a>
 	</div>
   </header>
 
@@ -118,51 +124,55 @@ const nombresMesLargo = [
 		<table class="rds-table">
 		  <thead>
 			<tr>
-			  <th>Mes</th>
-			  <th>Gasto</th>
-			  <th>Ingreso</th>
-			  <th>Promoción</th>
+			  <th></th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				return <th>{nombresMesLargo[mes - 1]}</th>;
+			  })}
 			</tr>
 		  </thead>
 		  <tbody>
-			{Array.from({ length: 12 }, (_, idx) => {
-			  const mesNum = idx + 1;
-			  const data = mapMes[mesNum] ?? {
-				gasto: 0,
-				ingreso: 0,
-				promocion: 0,
-			  };
+			<tr>
+			  <th>Gasto</th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				const datos = mapMes[mes] ?? {
+				  gasto: 0,
+				  ingreso: 0,
+				};
+				return (
+				  <td>
+					<input
+					  type="text"
+					  inputmode="decimal"
+					  name={`mes_${mes}_gasto`}
+					  value={formatMoneyEs(datos.gasto)}
+					/>
+				  </td>
+				);
+			  })}
+			</tr>
 
-			  return (
-				<tr>
-				  <td>{nombresMesLargo[mesNum - 1]}</td>
+			<tr>
+			  <th>Ingreso</th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				const datos = mapMes[mes] ?? {
+				  gasto: 0,
+				  ingreso: 0,
+				};
+				return (
 				  <td>
 					<input
-					  type="number"
-					  step="0.01"
-					  name={`mes_${mesNum}_gasto`}
-					  value={data.gasto}
+					  type="text"
+					  inputmode="decimal"
+					  name={`mes_${mes}_ingreso`}
+					  value={formatMoneyEs(datos.ingreso)}
 					/>
 				  </td>
-				  <td>
-					<input
-					  type="number"
-					  step="0.01"
-					  name={`mes_${mesNum}_ingreso`}
-					  value={data.ingreso}
-					/>
-				  </td>
-				  <td>
-					<input
-					  type="number"
-					  step="0.01"
-					  name={`mes_${mesNum}_promocion`}
-					  value={data.promocion}
-					/>
-				  </td>
-				</tr>
-			  );
-			})}
+				);
+			  })}
+			</tr>
 		  </tbody>
 		</table>
 
@@ -208,16 +218,21 @@ const nombresMesLargo = [
 		  autocomplete="off"
 		/>
 
-		<p id="rds-delete-status" class="muted"></p>
-
 		<div class="modal-actions">
 		  <button type="button" class="btn btn-secondary" id="rds-delete-cancel">
 			Cancelar
 		  </button>
-		  <button type="button" class="btn btn-danger" id="rds-delete-confirm-btn" disabled>
+		  <button
+			type="button"
+			class="btn btn-danger"
+			id="rds-delete-confirm-btn"
+			disabled
+		  >
 			Confirmar borrado
 		  </button>
 		</div>
+
+		<p id="rds-delete-error" class="muted" hidden></p>
 	  </div>
 	</div>
   </main>
@@ -225,7 +240,7 @@ const nombresMesLargo = [
 
 <script is:inline>
   document.addEventListener('DOMContentLoaded', () => {
-	// Selector de año (GET)
+	// --- Filtro de año: recarga la página con ?year= ---
 	const yearForm = document.querySelector('.year-filter');
 	if (yearForm) {
 	  const yearSelect = yearForm.querySelector('select[name="year"]');
@@ -236,33 +251,78 @@ const nombresMesLargo = [
 	  }
 	}
 
-	// Guardado de movimientos vía Netlify Function
-	const form = document.getElementById('rds-mov-form');
+	// --- Helpers para dinero (igual estilo que en _shared.ts) ---
+	function normalizeMoneyLike(v) {
+	  if (v == null) return "0";
+	  let s = String(v).trim();
+	  if (!s) return "0";
+	  s = s.replace(/\s+/g, "");
+	  const hasComma = s.includes(",");
+	  if (hasComma) {
+		s = s.replace(/\./g, "");
+		const last = s.lastIndexOf(",");
+		const intPart = s.slice(0, last).replace(/,/g, "");
+		const decPart = s.slice(last + 1);
+		s = intPart + (decPart ? "." + decPart : "");
+	  } else {
+		const last = s.lastIndexOf(".");
+		if (last >= 0) {
+		  const intPart = s.slice(0, last).replace(/\./g, "");
+		  const decPart = s.slice(last + 1);
+		  s = intPart + (decPart ? "." + decPart : "");
+		}
+	  }
+	  if (!/^\d+(\.\d+)?$/.test(s)) return "0";
+	  return s;
+	}
+
+	function toMoneyOrZero(v) {
+	  const canon = normalizeMoneyLike(v);
+	  if (canon == null) return 0;
+	  const n = Number(canon);
+	  if (!Number.isFinite(n)) return 0;
+	  if (Math.trunc(Math.abs(n)) >= 1000000000) return 0;
+	  return Number(n.toFixed(2));
+	}
+
+	// --- Formulario de movimientos ---
+	const movForm = document.getElementById('rds-mov-form');
 	const statusEl = document.getElementById('rds-mov-status');
 
-	if (form) {
-	  form.addEventListener('submit', async (ev) => {
+	function setMovStatus(msg, isError) {
+	  if (!statusEl) return;
+	  statusEl.textContent = msg;
+	  statusEl.style.color = isError ? '#c00' : '#555';
+	}
+
+	if (movForm) {
+	  movForm.addEventListener('submit', async (ev) => {
 		ev.preventDefault();
+		setMovStatus('', false);
 
-		if (statusEl) {
-		  statusEl.textContent = 'Guardando...';
-		}
-
-		const fd = new FormData(form);
+		const fd = new FormData(movForm);
 		const pisoId = fd.get('piso_id');
-		const anio = fd.get('anio');
+		const anioStr = fd.get('anio');
+
+		const anio = Number(anioStr);
+		if (!pisoId || !anio || !Number.isFinite(anio)) {
+		  setMovStatus('Error: datos de piso/año inválidos', true);
+		  return;
+		}
 
 		const meses = [];
 		for (let mes = 1; mes <= 12; mes++) {
-		  const gasto = fd.get(`mes_${mes}_gasto`) || '0';
-		  const ingreso = fd.get(`mes_${mes}_ingreso`) || '0';
-		  const promocion = fd.get(`mes_${mes}_promocion`) || '0';
+		  const gastoRaw = fd.get(`mes_${mes}_gasto`) || '0';
+		  const ingresoRaw = fd.get(`mes_${mes}_ingreso`) || '0';
+
+		  const gasto = toMoneyOrZero(gastoRaw);
+		  const ingreso = toMoneyOrZero(ingresoRaw);
 
 		  meses.push({
 			mes,
 			gasto,
 			ingreso,
-			promocion,
+			// sin "promocion": en el backend se convertirá a 0 por defecto
 		  });
 		}
 
@@ -282,97 +342,87 @@ const nombresMesLargo = [
 			throw new Error(txt || 'Error HTTP ' + resp.status);
 		  }
 
-		  if (statusEl) {
-			statusEl.textContent = 'Guardado correctamente.';
+		  const json = await resp.json();
+		  if (json.error) {
+			throw new Error(json.error);
 		  }
 
-		  // Opcional: volver al listado del mismo año
-		  if (anio) {
-			window.location.href = `/admin/rds?year=${anio}`;
-		  }
+		  setMovStatus('Movimientos guardados correctamente.', false);
 		} catch (err) {
-		  console.error(err);
-		  if (statusEl) {
-			statusEl.textContent = 'Error al guardar movimientos.';
-		  }
-		  alert('Error al guardar movimientos. Revisa la consola.');
+		  console.error('Error guardando movimientos RDS:', err);
+		  setMovStatus('Error al guardar movimientos.', true);
 		}
 	  });
 	}
 
-	// Danger zone: modal de borrado
-	const root = document.querySelector('.rds-detail-layout');
-	const pisoId = root?.getAttribute('data-piso-id') || '';
-	const yearStr = root?.getAttribute('data-year') || '';
-	const year = yearStr || '';
+	// --- Modal de borrado ---
+	const deleteOpenBtn = document.getElementById('rds-delete-open');
+	const deleteModal = document.getElementById('rds-delete-modal');
+	const deleteCancelBtn = document.getElementById('rds-delete-cancel');
+	const deleteConfirmInput = document.getElementById('rds-delete-confirm');
+	const deleteConfirmBtn = document.getElementById('rds-delete-confirm-btn');
+	const deleteErrorEl = document.getElementById('rds-delete-error');
 
-	const openBtn = document.getElementById('rds-delete-open');
-	const modal = document.getElementById('rds-delete-modal');
-	const confirmInput = document.getElementById('rds-delete-confirm');
-	const confirmBtn = document.getElementById('rds-delete-confirm-btn');
-	const cancelBtn = document.getElementById('rds-delete-cancel');
-	const deleteStatus = document.getElementById('rds-delete-status');
-
-	function openModal() {
-	  if (!modal) return;
-	  modal.classList.add('is-active');
-	  modal.setAttribute('aria-hidden', 'false');
-	  if (confirmInput) {
-		confirmInput.value = '';
-		confirmInput.focus();
+	function openDeleteModal() {
+	  if (!deleteModal) return;
+	  deleteModal.setAttribute('aria-hidden', 'false');
+	  deleteModal.classList.add('is-open');
+	  if (deleteConfirmInput) {
+		deleteConfirmInput.value = '';
+		deleteConfirmInput.focus();
 	  }
-	  if (confirmBtn) {
-		confirmBtn.disabled = true;
+	  if (deleteConfirmBtn) {
+		deleteConfirmBtn.disabled = true;
 	  }
-	  if (deleteStatus) {
-		deleteStatus.textContent = '';
+	  if (deleteErrorEl) {
+		deleteErrorEl.hidden = true;
+		deleteErrorEl.textContent = '';
 	  }
+	  document.body.style.overflow = 'hidden';
 	}
 
-	function closeModal() {
-	  if (!modal) return;
-	  modal.classList.remove('is-active');
-	  modal.setAttribute('aria-hidden', 'true');
+	function closeDeleteModal() {
+	  if (!deleteModal) return;
+	  deleteModal.setAttribute('aria-hidden', 'true');
+	  deleteModal.classList.remove('is-open');
+	  document.body.style.overflow = '';
 	}
 
-	if (openBtn) {
-	  openBtn.addEventListener('click', () => {
-		openModal();
-	  });
+	if (deleteOpenBtn) {
+	  deleteOpenBtn.addEventListener('click', openDeleteModal);
 	}
 
-	if (cancelBtn) {
-	  cancelBtn.addEventListener('click', () => {
-		closeModal();
-	  });
+	if (deleteCancelBtn) {
+	  deleteCancelBtn.addEventListener('click', closeDeleteModal);
 	}
 
-	if (modal) {
-	  const backdrop = modal.querySelector('.rds-modal-backdrop');
+	if (deleteModal) {
+	  const backdrop = deleteModal.querySelector('.rds-modal-backdrop');
 	  if (backdrop) {
-		backdrop.addEventListener('click', () => {
-		  closeModal();
-		});
+		backdrop.addEventListener('click', closeDeleteModal);
 	  }
 	}
 
-	if (confirmInput && confirmBtn) {
-	  confirmInput.addEventListener('input', () => {
-		const value = confirmInput.value.trim().toLowerCase();
-		confirmBtn.disabled = value !== 'borrar';
-		if (deleteStatus) deleteStatus.textContent = '';
+	if (deleteConfirmInput && deleteConfirmBtn) {
+	  deleteConfirmInput.addEventListener('input', () => {
+		const value = deleteConfirmInput.value.trim().toLowerCase();
+		deleteConfirmBtn.disabled = value !== 'borrar';
 	  });
+	}
 
-	  confirmBtn.addEventListener('click', async () => {
+	if (deleteConfirmBtn && deleteErrorEl) {
+	  deleteConfirmBtn.addEventListener('click', async () => {
+		const datasetRoot = document.querySelector('.rds-detail-layout');
+		const pisoId = datasetRoot?.getAttribute('data-piso-id') || '';
 		if (!pisoId) {
-		  console.error('Falta piso_id para borrar');
+		  deleteErrorEl.hidden = false;
+		  deleteErrorEl.textContent = 'Error: ID de piso no encontrado.';
 		  return;
 		}
 
-		confirmBtn.disabled = true;
-		if (deleteStatus) {
-		  deleteStatus.textContent = 'Borrando piso...';
-		}
+		deleteConfirmBtn.disabled = true;
+		deleteErrorEl.hidden = true;
+		deleteErrorEl.textContent = '';
 
 		try {
 		  const resp = await fetch('/.netlify/functions/rds_piso_save', {
@@ -389,21 +439,17 @@ const nombresMesLargo = [
 			throw new Error(txt || 'Error HTTP ' + resp.status);
 		  }
 
-		  if (deleteStatus) {
-			deleteStatus.textContent = 'Piso borrado correctamente.';
+		  const json = await resp.json();
+		  if (json.error) {
+			throw new Error(json.error);
 		  }
 
-		  const redirectTo = year
-			? `/admin/rds?year=${encodeURIComponent(year)}`
-			: '/admin/rds';
-
-		  window.location.href = redirectTo;
+		  window.location.href = '/admin/rds';
 		} catch (err) {
-		  console.error(err);
-		  if (deleteStatus) {
-			deleteStatus.textContent = 'Error al borrar el piso.';
-		  }
-		  confirmBtn.disabled = false;
+		  console.error('Error borrando piso RDS:', err);
+		  deleteErrorEl.hidden = false;
+		  deleteErrorEl.textContent = 'Error al borrar el piso. Inténtalo de nuevo.';
+		  deleteConfirmBtn.disabled = false;
 		}
 	  });
 	}
@@ -421,45 +467,55 @@ const nombresMesLargo = [
   .rds-table {
 	width: 100%;
 	border-collapse: collapse;
-	margin-top: 1rem;
   }
 
   .rds-table th,
   .rds-table td {
 	border: 1px solid #ddd;
-	padding: .35rem .5rem;
-	font-size: .9rem;
+	padding: .3rem .4rem;
+	font-size: .85rem;
   }
 
-  .rds-table input[type="number"] {
+  .rds-table th {
+	background: #fafafa;
+	white-space: nowrap;
+  }
+
+  .rds-table input[type="text"] {
 	width: 100%;
-	max-width: 7rem;
+	box-sizing: border-box;
+	text-align: right;
   }
 
   .form-actions {
 	margin-top: 1rem;
-  }
-
-  .muted {
-	color: #777;
-	font-size: .85rem;
+	display: flex;
+	gap: .5rem;
+	align-items: center;
   }
 
   .danger-zone {
-	border: 1px solid #f4b4b4;
+	border: 1px solid #f5c2c7;
 	background: #fff5f5;
 	padding: 1rem;
 	border-radius: .5rem;
   }
 
   .danger-zone h2 {
+	color: #b02a37;
 	margin-top: 0;
-	color: #c0392b;
   }
 
-  .btn-danger {
-	background-color: #c0392b;
-	color: white;
+  .btn.btn-danger {
+	background: #b02a37;
+	border-color: #b02a37;
+	color: #fff;
+  }
+
+  .btn.btn-secondary {
+	background: #e0e0e0;
+	border-color: #ccc;
+	color: #333;
   }
 
   /* Modal */
@@ -467,13 +523,11 @@ const nombresMesLargo = [
 	position: fixed;
 	inset: 0;
 	display: none;
-	align-items: center;
-	justify-content: center;
-	z-index: 50;
+	z-index: 999;
   }
 
-  .rds-modal.is-active {
-	display: flex;
+  .rds-modal.is-open {
+	display: block;
   }
 
   .rds-modal-backdrop {
@@ -484,17 +538,19 @@ const nombresMesLargo = [
 
   .rds-modal-dialog {
 	position: relative;
+	max-width: 420px;
+	margin: 10vh auto;
 	background: #fff;
 	padding: 1.5rem;
 	border-radius: .75rem;
-	max-width: 480px;
-	width: 100%;
-	box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-	z-index: 51;
+	box-shadow:
+	  0 10px 15px -3px rgba(0,0,0,0.1),
+	  0 4px 6px -4px rgba(0,0,0,0.1);
   }
 
   .rds-modal-dialog h2 {
 	margin-top: 0;
+	margin-bottom: .5rem;
   }
 
   .rds-modal-dialog input[type="text"] {

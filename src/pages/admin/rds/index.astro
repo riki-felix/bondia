@@ -57,6 +57,36 @@ if (movsError) {
 const movimientos = (movsData ?? []) as MovimientoRds[];
 
 // --- Cálculos agregados ---
+interface PromoRds {
+  id: string;
+  anio: number;
+  mes: number;
+  importe: number;
+}
+
+// Gastos de promoción del año seleccionado
+const { data: promoData, error: promoError } = await supabase
+  .from("rds_promo")
+  .select("*")
+  .eq("anio", selectedYear);
+
+if (promoError) {
+  console.error("Error rds_promo:", promoError.message);
+}
+
+const promoByMes: Record<number, number> = {};
+for (const row of (promoData ?? []) as PromoRds[]) {
+  promoByMes[row.mes] = row.importe ?? 0;
+}
+
+// helper para mostrar decimales como ES
+function formatMoneyEs(n: number): string {
+  if (!Number.isFinite(n)) return "";
+  return new Intl.NumberFormat("es-ES", {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+  }).format(n);
+}
 
 function resumenGlobal(movs: MovimientoRds[]) {
   let totalGastos = 0;
@@ -108,16 +138,15 @@ const mesesResumen = buildMesesResumen(movimientos, selectedYear);
 
 // Mapa: piso_id → resumen anual
 function resumenPorPiso(movs: MovimientoRds[], anio: number) {
-  const map: Record<string, { gastos: number; ingresos: number; promo: number }> = {};
+  const map: Record<string, { gastos: number; ingresos: number }> = {};
 
   for (const m of movs) {
 	if (m.anio !== anio) continue;
 	if (!map[m.piso_id]) {
-	  map[m.piso_id] = { gastos: 0, ingresos: 0, promo: 0 };
+	  map[m.piso_id] = { gastos: 0, ingresos: 0 };
 	}
 	map[m.piso_id].gastos += m.gasto ?? 0;
 	map[m.piso_id].ingresos += m.ingreso ?? 0;
-	map[m.piso_id].promo += m.promocion ?? 0;
   }
 
   return map;
@@ -125,32 +154,26 @@ function resumenPorPiso(movs: MovimientoRds[], anio: number) {
 
 const resumenPisos = resumenPorPiso(movimientos, selectedYear);
 
-// Solo pisos que tienen movimientos en el año seleccionado
-const pisosConMovimientos = pisos.filter((p) => resumenPisos[p.id]);
-
 // Mapa: piso_id → array de 12 meses solo para ese piso y año
 function mesesPorPiso(pisoId: string) {
-  const byMes: Record<number, { gasto: number; ingreso: number; promo: number }> = {};
+  const byMes: Record<number, { gasto: number; ingreso: number }> = {};
 
   for (const m of movimientos) {
 	if (m.piso_id !== pisoId || m.anio !== selectedYear) continue;
 	byMes[m.mes] = {
 	  gasto: m.gasto ?? 0,
 	  ingreso: m.ingreso ?? 0,
-	  promo: m.promocion ?? 0,
 	};
   }
 
   return Array.from({ length: 12 }, (_, idx) => {
 	const mesNum = idx + 1;
-	const base = byMes[mesNum] ?? { gasto: 0, ingreso: 0, promo: 0 };
+	const base = byMes[mesNum] ?? { gasto: 0, ingreso: 0 };
 	const balance = base.ingreso - base.gasto;
-	const balanceAjustado = balance - base.promo;
 	return {
 	  mes: mesNum,
 	  ...base,
 	  balance,
-	  balanceAjustado,
 	};
   });
 }
@@ -165,7 +188,7 @@ const nombresMes = [
 <Admin>
   <header>
 	<div>
-	  <h1 style="margin:.25rem 0 .25rem">RDS · Pisos</h1>
+	  <h1>RDS · Pisos</h1>
 	</div>
 	<div class="topbar">
 	  <form method="get" class="year-filter">
@@ -192,84 +215,148 @@ const nombresMes = [
   </header>
 
   <main class="rds-layout">
-	<section class="widgets-area">
-	  <RdsCountWidget pisos={pisosConMovimientos} />
-	  <RdsTotalsWidget resumen={resumen} />
-	  <RdsCalendarWidget anio={selectedYear} meses={mesesResumen} />
-	</section>
 
 	<section class="rds-listado">
 	  <h2>Listado de pisos ({selectedYear})</h2>
 
-	  {pisosConMovimientos.length === 0 ? (
-		<p>No hay pisos con movimientos en {selectedYear}.</p>
-	  ) : (
+
 		<table class="rds-table">
 		  <thead>
 			<tr>
 			  <th>Piso</th>
-			  <th>Dirección</th>
 			  <th>Gastos</th>
 			  <th>Ingresos</th>
 			  <th>Beneficio</th>
-			  <th>Beneficio ajustado (– promo)</th>
-			  <th>Meses</th>
 			  <th></th>
 			</tr>
 		  </thead>
 		  <tbody>
-			{pisosConMovimientos.map((piso) => {
-			  const res = resumenPisos[piso.id]!;
-			  const beneficio = res.ingresos - res.gastos;
-			  const beneficioAjustado = beneficio - res.promo;
+			{pisos.map((piso) => {
+			  const res = resumenPisos[piso.id];
+		  
+			  const tieneDatos = !!res;
+			  const gastos = tieneDatos ? res.gastos : 0;
+			  const ingresos = tieneDatos ? res.ingresos : 0;
+			  const beneficio = ingresos - gastos;
+		  
 			  const mesesPiso = mesesPorPiso(piso.id);
-
+		  
 			  return (
-				<tr>
-				  <td>{piso.nombre}</td>
-				  <td>{piso.direccion}</td>
-				  <td>{res.gastos.toFixed(2)}</td>
-				  <td>{res.ingresos.toFixed(2)}</td>
-				  <td>{beneficio.toFixed(2)}</td>
-				  <td>{beneficioAjustado.toFixed(2)}</td>
-				  <td>
-					<details>
-					  <summary>Ver meses</summary>
-					  <table class="rds-mini-meses">
-						<thead>
-						  <tr>
-							<th>Mes</th>
-							<th>Gasto</th>
-							<th>Ingreso</th>
-							<th>Promo</th>
-							<th>Balance</th>
-							<th>Balance ajustado</th>
-						  </tr>
-						</thead>
-						<tbody>
-						  {mesesPiso.map((m) => (
+				<>
+				  <tr class={tieneDatos ? '' : 'rds-row-sin-datos'}>
+					<td>
+					  {piso.nombre}
+					  <br />
+					  {piso.direccion}
+					</td>
+					<td>{gastos.toFixed(2)}</td>
+					<td>{ingresos.toFixed(2)}</td>
+					<td>{beneficio.toFixed(2)}</td>
+					{/* si ya no usas beneficio ajustado, puedes igualarlo al beneficio */}
+					<td>{beneficio.toFixed(2)}</td>
+					<td>
+					  <a href={`/admin/rds/${piso.id}?year=${selectedYear}`}>Gestionar</a>
+					</td>
+				  </tr>
+		  
+				  <tr>
+					<td colspan={6}>
+					  <details>
+						<summary>
+						  Ver meses
+						  {!tieneDatos && (
+							<span class="rds-sin-datos-tag">
+							  {' '}
+							  · sin movimientos en {selectedYear}
+							</span>
+						  )}
+						</summary>
+		  
+						<table class="rds-mini-meses">
+						  <thead>
 							<tr>
-							  <td>{nombresMes[m.mes - 1]}</td>
-							  <td>{m.gasto.toFixed(2)}</td>
-							  <td>{m.ingreso.toFixed(2)}</td>
-							  <td>{(-m.promo).toFixed(2)}</td>
-							  <td>{m.balance.toFixed(2)}</td>
-							  <td>{m.balanceAjustado.toFixed(2)}</td>
+							  <th></th>
+							  {mesesPiso.map((m) => (
+								<th>{nombresMes[m.mes - 1]}</th>
+							  ))}
 							</tr>
-						  ))}
-						</tbody>
-					  </table>
-					</details>
-				  </td>
-				  <td>
-					<a href={`/admin/rds/${piso.id}?year=${selectedYear}`}>Gestionar</a>
-				  </td>
-				</tr>
+						  </thead>
+						  <tbody>
+							<tr>
+							  <th>Gasto</th>
+							  {mesesPiso.map((m) => (
+								<td>{m.gasto.toFixed(2)}</td>
+							  ))}
+							</tr>
+							<tr>
+							  <th>Ingreso</th>
+							  {mesesPiso.map((m) => (
+								<td>{m.ingreso.toFixed(2)}</td>
+							  ))}
+							</tr>
+							<tr>
+							  <th>Balance</th>
+							  {mesesPiso.map((m) => (
+								<td>{m.balance.toFixed(2)}</td>
+							  ))}
+							</tr>
+						  </tbody>
+						</table>
+					  </details>
+					</td>
+				  </tr>
+				</>
 			  );
 			})}
 		  </tbody>
 		</table>
-	  )}
+		
+	</section>
+	<section class="rds-promo">
+	  <h2>Gastos promoción ({selectedYear})</h2>
+	  <p class="muted">
+		Gastos globales de promoción, aplicados al año completo. No pertenecen a un piso concreto.
+	  </p>
+	
+	  <form id="rds-promo-form">
+		<input type="hidden" name="anio" value={selectedYear} />
+	
+		<table class="rds-mini-meses">
+		  <thead>
+			<tr>
+			  <th></th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				return <th>{nombresMes[mes - 1]}</th>;
+			  })}
+			</tr>
+		  </thead>
+		  <tbody>
+			<tr>
+			  <th>Promoción</th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				const valor = promoByMes[mes] ?? 0;
+				return (
+				  <td>
+					<input
+					  type="text"
+					  inputmode="decimal"
+					  name={`mes_${mes}_promo`}
+					  value={formatMoneyEs(valor)}
+					/>
+				  </td>
+				);
+			  })}
+			</tr>
+		  </tbody>
+		</table>
+	
+		<div class="form-actions">
+		  <button type="submit" class="btn">Guardar promoción</button>
+		</div>
+		<p id="rds-promo-status" class="muted"></p>
+	  </form>
 	</section>
   </main>
 </Admin>
@@ -285,12 +372,101 @@ const nombresMes = [
 	  form.submit();
 	});
   });
+  // --- Helpers dinero (igual estilo que en [id].astro) ---
+	function normalizeMoneyLike(v) {
+	  if (v == null) return "0";
+	  let s = String(v).trim();
+	  if (!s) return "0";
+	  s = s.replace(/\s+/g, "");
+	  const hasComma = s.includes(",");
+	  if (hasComma) {
+		s = s.replace(/\./g, "");
+		const last = s.lastIndexOf(",");
+		const intPart = s.slice(0, last).replace(/,/g, "");
+		const decPart = s.slice(last + 1);
+		s = intPart + (decPart ? "." + decPart : "");
+	  } else {
+		const last = s.lastIndexOf(".");
+		if (last >= 0) {
+		  const intPart = s.slice(0, last).replace(/\./g, "");
+		  const decPart = s.slice(last + 1);
+		  s = intPart + (decPart ? "." + decPart : "");
+		}
+	  }
+	  if (!/^\d+(\.\d+)?$/.test(s)) return "0";
+	  return s;
+	}
+  
+	function toMoneyOrZero(v) {
+	  const canon = normalizeMoneyLike(v);
+	  if (canon == null) return 0;
+	  const n = Number(canon);
+	  if (!Number.isFinite(n)) return 0;
+	  if (Math.trunc(Math.abs(n)) >= 1000000000) return 0;
+	  return Number(n.toFixed(2));
+	}
+  
+	// --- Formulario de gastos de promoción ---
+	const promoForm = document.getElementById('rds-promo-form');
+	const promoStatus = document.getElementById('rds-promo-status');
+  
+	function setPromoStatus(msg, isError) {
+	  if (!promoStatus) return;
+	  promoStatus.textContent = msg;
+	  promoStatus.style.color = isError ? '#c00' : '#555';
+	}
+  
+	if (promoForm) {
+	  promoForm.addEventListener('submit', async (ev) => {
+		ev.preventDefault();
+		setPromoStatus('', false);
+  
+		const fd = new FormData(promoForm);
+		const anioStr = fd.get('anio');
+		const anio = Number(anioStr);
+  
+		if (!anio || !Number.isFinite(anio)) {
+		  setPromoStatus('Error: año inválido.', true);
+		  return;
+		}
+  
+		const meses = [];
+		for (let mes = 1; mes <= 12; mes++) {
+		  const raw = fd.get(`mes_${mes}_promo`) || '0';
+		  const importe = toMoneyOrZero(raw);
+		  meses.push({ mes, importe });
+		}
+  
+		try {
+		  const resp = await fetch('/.netlify/functions/rds_promo_save', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ anio, meses }),
+		  });
+  
+		  if (!resp.ok) {
+			const txt = await resp.text();
+			throw new Error(txt || 'Error HTTP ' + resp.status);
+		  }
+  
+		  const json = await resp.json();
+		  if (json.error) {
+			throw new Error(json.error);
+		  }
+  
+		  setPromoStatus('Gastos de promoción guardados correctamente.', false);
+		} catch (err) {
+		  console.error('Error guardando gastos de promoción:', err);
+		  setPromoStatus('Error al guardar gastos de promoción.', true);
+		}
+	  });
+	}
 </script>
 
 <style>
   .rds-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+	grid-template-columns: 1fr;
 	gap: 2rem;
   }
   .widgets-area {
@@ -306,7 +482,6 @@ const nombresMes = [
   .rds-mini-meses th, .rds-mini-meses td {
 	border: 1px solid #ddd;
 	padding: .3rem .4rem;
-	font-size: .85rem;
   }
   .rds-mini-meses {
 	margin-top: .5rem;
