@@ -58,3 +58,7 @@ body {
   @media (prefers-reduced-motion: reduce) {
 	:root { --speed: 0; }
   }
+  
+  table {
+	  font-family: var(--font-data-family);
+  }

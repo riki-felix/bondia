@@ -5,6 +5,7 @@ import Admin from "../../../components/Admin.astro";
 import RdsCountWidget from "../../../widgets/rds/RdsCountWidget.astro";
 import RdsTotalsWidget from "../../../widgets/rds/RdsTotalsWidget.astro";
 import RdsCalendarWidget from "../../../widgets/rds/RdsCalendarWidget.astro";
+import { fmt, round2 } from "../../widgets/propContext";
 
 import { supabaseServer } from "../../../lib/supabaseServer";
 
@@ -334,6 +335,66 @@ const nombresMes = [
 		  <tbody>
 			<tr>
 			  <th>Promoción</th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				const valor = promoByMes[mes] ?? 0;
+				return (
+				  <td>
+					<input
+					  type="text"
+					  inputmode="decimal"
+					  name={`mes_${mes}_promo`}
+					  value={formatMoneyEs(valor)}
+					/>
+				  </td>
+				);
+			  })}
+			</tr>
+		  </tbody>
+		</table>
+		<table class="rds-mini-meses">
+		  <thead>
+			<tr>
+			  <th></th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				return <th>{nombresMes[mes - 1]}</th>;
+			  })}
+			</tr>
+		  </thead>
+		  <tbody>
+			<tr>
+			  <th>Alquiler</th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				const valor = promoByMes[mes] ?? 0;
+				return (
+				  <td>
+					<input
+					  type="text"
+					  inputmode="decimal"
+					  name={`mes_${mes}_promo`}
+					  value={formatMoneyEs(valor)}
+					/>
+				  </td>
+				);
+			  })}
+			</tr>
+		  </tbody>
+		</table>
+		<table class="rds-mini-meses">
+		  <thead>
+			<tr>
+			  <th></th>
+			  {Array.from({ length: 12 }, (_, idx) => {
+				const mes = idx + 1;
+				return <th>{nombresMes[mes - 1]}</th>;
+			  })}
+			</tr>
+		  </thead>
+		  <tbody>
+			<tr>
+			  <th>Derrama</th>
 			  {Array.from({ length: 12 }, (_, idx) => {
 				const mes = idx + 1;
 				const valor = promoByMes[mes] ?? 0;

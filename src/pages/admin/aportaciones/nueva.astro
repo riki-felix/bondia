@@ -1,0 +1,18 @@
+---
+export const prerender = false;
+
+import Admin from "../../../components/Admin.astro";
+import AportacionForm from "../../../components/AportacionForm.astro";
+import { supabaseClient } from "../../../lib/supabaseClient";
+
+const supabase = supabaseClient();
+
+const { data: propiedades } = await supabase
+  .from("propiedades")
+  .select("id, titulo")
+  .order("titulo");
+---
+
+<Admin>
+  <AportacionForm mode="create" propiedades={propiedades ?? []} />
+</Admin>

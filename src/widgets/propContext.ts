@@ -1,4 +1,5 @@
 import { supabaseClient } from "../lib/supabaseClient";
+import { toNum } from "../lib/money";
 
 export type Movimiento = {
   id: string;
@@ -45,41 +46,24 @@ export function getProp(): Prop {
 // ---------- Formateadores comunes ----------
 export const fmt = {
   money(v: number | string | null | undefined): string {
-	const n = toNum(v);
-	return isFinite(n)
-	  ? n.toLocaleString("es-ES", { style: "currency", currency: "EUR" })
-	  : "—";
+    return formatEuro(v);
   },
   date(iso?: string | null): string {
-	if (!iso) return "—";
-	try {
-	  return new Date(iso).toLocaleDateString("es-ES", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-	  });
-	} catch {
-	  return String(iso);
-	}
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch {
+      return String(iso);
+    }
   },
   cap(s?: string | null): string {
-	return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "—";
-  }
+    return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "—";
+  },
 };
-
-// ---------- Parsing robusto ----------
-export function toNum(v: unknown): number {
-  if (v == null) return 0;
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-  let s = String(v).trim();
-  let negative = false;
-  if (s.startsWith("(") && s.endsWith(")")) { negative = true; s = s.slice(1, -1); }
-  s = s.replace(/\s+/g, "").replace(/[€$£]/g, "").replace(/[^0-9,.\-]/g, "");
-  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
-  else if (s.includes(",") && !s.includes(".")) s = s.replace(",", ".");
-  const n = Number(s);
-  return Number.isFinite(n) ? (negative ? -n : n) : 0;
-}
 
 // ---------- Estado de movimientos ----------
 function getEstado(m: Movimiento): "pagado" | "pendiente" {

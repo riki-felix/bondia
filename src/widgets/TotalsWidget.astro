@@ -1,35 +1,68 @@
 ---
-import '../../src/styles/components/widgets.css';
-import { fmt, round2 } from "../widgets/propContext";
+/*
+  TotalsWidget
+  Props:
+	- totals: {
+		total: number;
+		pagado: number;
+		pendiente: number;
+		countPaid: number;
+		countPend: number;
+	  }
+	- movimientos?: array (solo para contar)
+	- size?: number | string
+*/
 
-const { totals, movimientos } = Astro.props;
+import WidgetShell from "./WidgetShell.astro";
+import { toNum, formatEuro } from "../lib/money";
 
-const total = round2(totals?.total ?? 0);
-const pagado = round2(totals?.pagado ?? 0);
-const pendiente = round2(totals?.pendiente ?? 0);
+interface Totals {
+  total: number;
+  pagado: number;
+  pendiente: number;
+  countPaid: number;
+  countPend: number;
+}
+
+interface Props {
+  totals: Totals;
+  movimientos?: any[];
+  size?: number | string;
+}
+
+const {
+  totals,
+  movimientos = [],
+  size = 3
+} = Astro.props as Props;
+
+const total = toNum(totals?.total ?? 0);
+const pagado = toNum(totals?.pagado ?? 0);
+const pendiente = toNum(totals?.pendiente ?? 0);
+
 const countPaid = totals?.countPaid ?? 0;
 const countPend = totals?.countPend ?? 0;
-const movCount = movimientos?.length ?? 0;
-console.log("Totals en widget:", totals);
 
+const movCount = movimientos.length ?? 0;
 ---
 
-<section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
+<WidgetShell size={size} ariaLabelledBy="wg-totals-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
 	  <span class="data-label label-m">Total</span>
-	  <span class="data-money data-xl">{total} €</span>
+	  <span class="data-money data-xl">{formatEuro(total)}</span>
 	  <span class="data-label label-xs">{movCount} movimientos</span>
 	</div>
   </div>
+
   <div class="widget-row wg--2col">
 	<div class="widget-cell">
-	  <span class="data-money data-m">{pagado} €</span>
+	  <span class="data-money data-m">{formatEuro(pagado)}</span>
 	  <span class="data-label label-s">Pagado ({countPaid})</span>
 	</div>
 	<div class="widget-cell">
-	  <span class="data-money data-m">{pendiente} €</span>
+	  <span class="data-money data-m">{formatEuro(pendiente)}</span>
 	  <span class="data-label label-s">Pendiente ({countPend})</span>
 	</div>
   </div>
-</section>
+</WidgetShell>

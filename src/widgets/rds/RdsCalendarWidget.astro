@@ -10,10 +10,12 @@
 		promocion: number;
 		balance: number;
 		balanceAjustado: number;
+		miParte?: number;
 	  }[]
 */
 
-import '../../styles/components/widgets.css';
+import WidgetShell from "../WidgetShell.astro";
+import { toNum, formatEuro } from "../../lib/money";
 
 interface MesResumen {
   mes: number;
@@ -23,19 +25,8 @@ interface MesResumen {
   balance: number;
   balanceAjustado: number;
   miParte: number;
+  miParteSubtotal: number;
 }
-
-// Helpers locales
-const fmt = (value: number) =>
-  new Intl.NumberFormat('es-ES', {
-	style: 'currency',
-	currency: 'EUR',
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 2,
-  }).format(value ?? 0);
-
-const round2 = (value: number) =>
-  Math.round((value ?? 0) * 100) / 100;
 
 const { anio, meses = [] } = Astro.props as {
   anio: number;
@@ -48,23 +39,41 @@ const nombresMes = [
   "SEP", "OCT", "NOV", "DIC"
 ];
 
+// Pequeño helper para redondear a 2 decimales usando el parser global
+const round2 = (value: unknown): number =>
+  Math.round(toNum(value) * 100) / 100;
+
 // Normalizamos a 12 meses, aunque vengan huecos
 const mapMeses: Record<number, MesResumen> = {};
 for (const m of meses) {
+  const gastos = round2(m.gastos ?? 0);
+  const ingresos = round2(m.ingresos ?? 0);
+  const promocion = round2(m.promocion ?? 0);
+
+  const balance = round2(
+	m.balance ?? (ingresos - gastos)
+  );
+
+  const balanceAjustado = round2(
+	m.balanceAjustado ?? (ingresos - gastos - promocion)
+  );
+
+  const miParte = round2(
+	m.miParte ?? (balanceAjustado / 4)
+  );
+  const miParteSubtotal = round2(
+	m.miParteSubtotal ?? (miParte - 400 + 450)
+  );
+
   mapMeses[m.mes] = {
-	...m,
-	gastos: round2(m.gastos ?? 0),
-	ingresos: round2(m.ingresos ?? 0),
-	promocion: round2(m.promocion ?? 0),
-	balance: round2(
-	  m.balance ?? (m.ingresos - m.gastos)
-	),
-	balanceAjustado: round2(
-	  m.balanceAjustado ?? (m.ingresos - m.gastos - m.promocion)
-	),
-	miParte: round2(
-	  m.miParte ?? (m.balanceAjustado / 2)
-	),
+	mes: m.mes,
+	gastos,
+	ingresos,
+	promocion,
+	balance,
+	balanceAjustado,
+	miParte,
+	miParteSubtotal,
   };
 }
 
@@ -77,12 +86,15 @@ const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
 	promocion: 0,
 	balance: 0,
 	balanceAjustado: 0,
+	miParte: 0,
   };
 });
 
+// Formateador común de dinero (símbolo €, miles, decimales coherentes)
+const fmt = (value: number): string => formatEuro(value);
 ---
 
-<section class="widget wg-size grid-10" aria-labelledby="wg-rds-calendar-title">
+<WidgetShell size={10} ariaLabelledBy="wg-rds-calendar-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
 	  <span id="wg-rds-calendar-title" class="data-label label-l">
@@ -102,7 +114,7 @@ const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
 			))}
 		  </tr>
 		</thead>
-	  
+
 		<tbody>
 		  <tr>
 			<th class="row-title">Gastos</th>
@@ -110,44 +122,78 @@ const rows: MesResumen[] = Array.from({ length: 12 }, (_, idx) => {
 			  <td>{fmt(m.gastos)}</td>
 			))}
 		  </tr>
-	  
+
 		  <tr>
 			<th class="row-title">Ingresos</th>
 			{rows.map((m) => (
 			  <td>{fmt(m.ingresos)}</td>
 			))}
 		  </tr>
-		 
+
 		  <tr>
 			<th class="row-title">Promoción</th>
 			{rows.map((m) => (
 			  <td>{fmt(-m.promocion)}</td>
 			))}
 		  </tr>
-	  
+
 		  <tr>
 			<th class="row-title">Balance</th>
 			{rows.map((m) => (
 			  <td>{fmt(m.balance)}</td>
 			))}
 		  </tr>
-	  <tr class="spacer-row">
-		<td colspan="40"></td>
-	  </tr>
+
+		  <tr class="spacer-row">
+			<td colspan="40"></td>
+		  </tr>
+
 		  <tr class="row-space">
 			<th class="row-title">Balance real</th>
 			{rows.map((m) => (
 			  <td>{fmt(m.balanceAjustado)}</td>
 			))}
 		  </tr>
+
 		  <tr class="row-space">
 			<th class="row-title">Mi parte</th>
 			{rows.map((m) => (
 			  <td>{fmt(m.miParte)}</td>
 			))}
 		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">HC</th>
+			{rows.map((m) => (
+			  <td>{fmt(m.miParte)}</td>
+			))}
+		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">SUBTOTAL</th>
+			{rows.map((m) => (
+			  <td>{fmt(m.balanceAjustado)}</td>
+			))}
+		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">Alquiler</th>
+			{rows.map((m) => (
+			  <td>-400€</td>
+			))}
+		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">Derrama</th>
+			{rows.map((m) => (
+			  <td>450€</td>
+			))}
+		  </tr>
+		  <tr class="row-space">
+			<th class="row-title">Subtotal</th>
+			{rows.map((m) => (
+			  <td>{fmt(m.miParteSubtotal)}</td>
+			))}
+		  </tr>
+		  
 		</tbody>
 	  </table>
 	</div>
   </div>
-</section>
+</WidgetShell>

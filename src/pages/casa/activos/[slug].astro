@@ -1,0 +1,221 @@
+---
+export const prerender = false;
+
+import "../../../../src/styles/pages/propiedades.css";
+import Layout from "../../../components/Layout.astro";
+import { supabaseServer } from "../../../lib/supabaseServer";
+import { formatEuro } from "../../../lib/money";
+
+const supabase = supabaseServer();
+const { slug } = Astro.params;
+
+// 1) Cargar activo por slug, con categoría y propiedad vinculada
+const { data: activo, error } = await supabase
+  .from("casa_activos")
+  .select(`
+	id,
+	slug,
+	nombre,
+	descripcion,
+	valor_estimado,
+	fecha_compra,
+	created_at,
+	updated_at,
+	categoria_id,
+	propiedad_id,
+	casa_activo_categorias (
+	  id,
+	  nombre,
+	  slug
+	),
+	propiedades (
+	  id,
+	  slug,
+	  titulo
+	)
+  `)
+  .eq("slug", slug)
+  .maybeSingle();
+
+if (error || !activo) {
+  console.error("[casa/activos/[slug]] Error cargando activo:", error);
+  Astro.response.status = 404;
+  throw new Error("Activo no encontrado");
+}
+
+// Helpers
+const categoria = activo.casa_activo_categorias;
+const propiedad = activo.propiedades;
+
+const fechaCompra =
+  activo.fecha_compra
+	? new Date(activo.fecha_compra).toLocaleDateString("es-ES")
+	: "—";
+
+const createdAt = activo.created_at
+  ? new Date(activo.created_at).toLocaleString("es-ES")
+  : "—";
+
+const updatedAt = activo.updated_at
+  ? new Date(activo.updated_at).toLocaleString("es-ES")
+  : "—";
+
+// Importe principal
+const valorDisplay =
+  activo.valor_estimado != null
+	? formatEuro(activo.valor_estimado)
+	: "—";
+---
+
+<Layout title={`Activo | ${activo.nombre ?? "Sin nombre"}`}>
+  <header class="main-header">
+	<div>
+	  <p style="margin:0 0 .35rem;">
+		<a href="/casa/activos">← Volver a activos</a>
+	  </p>
+	  <h1 style="margin:0 0 .25rem;">
+		{activo.nombre ?? "Activo sin nombre"}
+	  </h1>
+	  <p class="muted" style="margin:0;">
+		Creado el {createdAt}
+	  </p>
+	</div>
+
+	<div class="page-actions">
+	  <a
+		class="button--small"
+		href={`/admin/casa/activos/${activo.slug}/editar`}
+	  >
+		Editar
+	  </a>
+	</div>
+  </header>
+
+  <div class="main-row col-2">
+	{/* Bloque principal de datos */}
+	<section class="leading-block">
+	  <div class="block">
+		<h2>Resumen del activo</h2>
+
+		<dl class="prop-dl">
+		  <div class="prop-dl__row">
+			<dt>Nombre</dt>
+			<dd>{activo.nombre ?? "—"}</dd>
+		  </div>
+
+		  <div class="prop-dl__row">
+			<dt>Importe / valor estimado</dt>
+			<dd>{valorDisplay}</dd>
+		  </div>
+
+		  <div class="prop-dl__row">
+			<dt>Fecha de compra</dt>
+			<dd>{fechaCompra}</dd>
+		  </div>
+
+		  <div class="prop-dl__row">
+			<dt>Categoría</dt>
+			<dd>{categoria?.nombre ?? "Sin categoría"}</dd>
+		  </div>
+
+		  <div class="prop-dl__row">
+			<dt>Vinculado a propiedad</dt>
+			<dd>
+			  {propiedad ? (
+				<a href={`/propiedades/${propiedad.slug ?? propiedad.id}`}>
+				  {propiedad.titulo ?? "Ver propiedad"}
+				</a>
+			  ) : (
+				"Ninguna"
+			  )}
+			</dd>
+		  </div>
+		</dl>
+	  </div>
+
+	  {activo.descripcion && (
+		<div class="block">
+		  <h2>Descripción</h2>
+		  <p style="white-space:pre-wrap; margin:0;">
+			{activo.descripcion}
+		  </p>
+		</div>
+	  )}
+	</section>
+
+	{/* Bloque lateral: meta + documentos */}
+	<section class="trailing-block">
+	  <div class="block">
+		<h3>Metadatos</h3>
+		<dl class="prop-dl">
+		  <div class="prop-dl__row">
+			<dt>ID</dt>
+			<dd>{activo.id}</dd>
+		  </div>
+		  <div class="prop-dl__row">
+			<dt>Slug</dt>
+			<dd>{activo.slug}</dd>
+		  </div>
+		  <div class="prop-dl__row">
+			<dt>Creado</dt>
+			<dd>{createdAt}</dd>
+		  </div>
+		  <div class="prop-dl__row">
+			<dt>Actualizado</dt>
+			<dd>{updatedAt}</dd>
+		  </div>
+		</dl>
+	  </div>
+
+	  <div class="block">
+		<h3>Documentos asociados</h3>
+		<p class="muted" style="margin:0;">
+		  Aún no hay documentos asociados a este activo.
+		  {/* Cuando implementemos documentos:
+			 - listaremos aquí los ficheros vinculados al activo
+			 - con enlaces de descarga / visualización
+		  */}
+		</p>
+	  </div>
+	</section>
+  </div>
+</Layout>
+
+<style>
+  .muted {
+	color: #777;
+  }
+
+  .prop-dl {
+	margin: 0;
+  }
+
+  .prop-dl__row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+	gap: 0.5rem 1rem;
+	padding: 0.4rem 0;
+	border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+
+  .prop-dl__row:last-child {
+	border-bottom: none;
+  }
+
+  .prop-dl dt {
+	font-size: 0.85rem;
+	font-weight: 500;
+	color: #555;
+  }
+
+  .prop-dl dd {
+	margin: 0;
+	font-size: 0.9rem;
+  }
+
+  @media (max-width: 800px) {
+	.prop-dl__row {
+	  grid-template-columns: 1fr;
+	}
+  }
+</style>

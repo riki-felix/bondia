@@ -30,15 +30,25 @@ function formatDireccion(p: any) {
 
 	<ul class="">
 	  {properties?.map((p: any) => {
-		const img = publicImageUrl(p.foto_destacada_path); // antes: image_path
+		const img = publicImageUrl(p.foto_destacada_path);
 		const direccion = formatDireccion(p);
+		const fallback =
+		  "https://zcezehuuxkravxjfdrbm.supabase.co/storage/v1/object/public/property-images/b73d9021-c747-45af-888a-e6caaddda308/1762017591772_casa_2.png";
+	  
 		return (
 		  <li class="">
-			{img && <img src={img} alt={p.titulo} class="" loading="lazy" />}
-			<h2 class="">
+			<img
+			  src={img || fallback}
+			  alt={p.titulo}
+			  class=""
+			  loading="lazy"
+			/>
+	  
+			<h2>
 			  <a href={`/propiedad/${p.slug}`}>{p.titulo}</a>
 			</h2>
-			{direccion && <p class="">{direccion}</p>}
+	  
+			{direccion && <p>{direccion}</p>}
 		  </li>
 		);
 	  })}

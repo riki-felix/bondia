@@ -1,164 +1,385 @@
 ---
-// src/pages/admin/movimientos/index.astro
 export const prerender = false;
 
 import Admin from "../../../components/Admin.astro";
+import { supabaseServer } from "../../../lib/supabaseServer";
+
+const { data: fechas, error } = await supabaseServer()
+  .from("movimientos")
+  .select("fecha")
+  .not("fecha", "is", null);
+
+const yearSet = new Set<number>();
+if (fechas) {
+  for (const row of fechas) {
+	if (!row.fecha) continue;
+	const d = new Date(row.fecha as string);
+	if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  }
+}
+const years = Array.from(yearSet).sort((a, b) => b - a);
+const currentYear = new Date().getFullYear();
 ---
 
 <Admin title="Movimientos">
-  <nav style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-	<h1 style="margin:0;">Movimientos</h1>
-	<a href="/admin/movimientos/nuevo" style="padding:.6rem .9rem; border:1px solid #ddd; border-radius:.5rem;">+ Nuevo movimiento</a>
-  </nav>
+  <header class="main-header">
+	<h1>Movimientos</h1>
+	<div class="page-actions">
+	  <a class="button--small" href="/admin/movimientos/nuevo">+ Nuevo</a>
+	</div>
+  </header>
+
+  {error && (
+	<p class="error">
+	  Error cargando años de movimientos: {error.message}
+	</p>
+  )}
+
+  <!-- Filtros: año + ámbito + buscador -->
+  <form
+	id="mov-filters"
+	class="mov-filters"
+	onsubmit="return false;"
+  >
+	<div class="mov-filter-field">
+	  <label for="mov-year" class="mov-label">Año</label>
+	  <select id="mov-year" name="year" class="mov-select">
+		<option value="">Todos</option>
+		{years.map((y) => (
+		  <option value={y} selected={y === currentYear}>
+			{y}
+		  </option>
+		))}
+	  </select>
+	</div>
+
+	<div class="mov-filter-field">
+	  <label for="mov-ambito" class="mov-label">Ámbito</label>
+	  <select id="mov-ambito" name="ambito" class="mov-select">
+		<option value="">Todos</option>
+		<option value="inversion">Inversión</option>
+		<option value="casa">Casa</option>
+		<option value="otro">Otro</option>
+	  </select>
+	</div>
+
+	<div class="mov-filter-field mov-filter-search">
+	  <label for="mov-search" class="mov-label">Buscar por concepto</label>
+	  <input
+		id="mov-search"
+		name="q"
+		type="search"
+		placeholder="Ej. arras, comunidad, precarios…"
+		class="mov-input"
+	  />
+	</div>
+  </form>
 
   <div id="mov-list-wrap">
-	<table id="mov-table" style="width:100%; border-collapse:collapse;">
+	<table id="mov-table" class="mov-table">
 	  <thead>
 		<tr>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Fecha</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Concepto</th>
-		  <th style="text-align:right; border-bottom:1px solid #eee; padding:.5rem;">Importe</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Estado</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Propiedad</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Categoría</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Etiquetas</th>
-		  <th style="text-align:left; border-bottom:1px solid #eee; padding:.5rem;">Acciones</th>
+		  <th>Fecha</th>
+		  <th>Concepto</th>
+		  <th>Propiedad</th>
+		  <th class="text-right">Importe</th>
+		  <th>Tipo</th>
+		  <th>Autor</th>
+		  <th>Ámbito</th>
+		  <th class="text-right">Acciones</th>
 		</tr>
 	  </thead>
-	  <tbody id="mov-tbody">
-		<tr><td colspan="8" style="padding:.75rem; opacity:.7;">Cargando…</td></tr>
+	  <tbody>
+		<!-- Se rellena por JS -->
 	  </tbody>
 	</table>
 
-	<div style="margin-top:1rem; display:flex; gap:.5rem;">
-	  <button id="loadMore" type="button" style="padding:.5rem .8rem; border:1px solid #ddd; border-radius:.4rem;">Cargar más</button>
-	  <span id="status" style="align-self:center; opacity:.7;"></span>
+	<div class="mov-footer">
+	  <button
+		id="mov-load-more"
+		type="button"
+		class="mov-load-btn"
+	  >
+		Cargar más
+	  </button>
+	  <span id="mov-status" class="mov-status"></span>
 	</div>
   </div>
 </Admin>
 
-<script is:inline type="module">
-  const tbody = document.getElementById('mov-tbody');
-  const btnMore = document.getElementById('loadMore');
-  const statusEl = document.getElementById('status');
+<script is:inline>
+  const tableBody   = document.querySelector("#mov-table tbody");
+  const loadMoreBtn = document.getElementById("mov-load-more");
+  const statusEl    = document.getElementById("mov-status");
 
-  let offset = 0;
+  const yearSelect   = document.getElementById("mov-year");
+  const ambitoSelect = document.getElementById("mov-ambito");
+  const searchInput  = document.getElementById("mov-search");
+
   const limit = 100;
+  let offset = 0;
+  let total  = 0;
   let loading = false;
-  let reachedEnd = false;
 
-  function fmtDate(iso) {
-	if (!iso) return '';
-	const d = iso.length === 10 ? new Date(iso + 'T00:00:00') : new Date(iso);
-	return isNaN(d) ? iso : d.toLocaleDateString('es-ES');
-  }
-  function fmtEUR(val) {
-	if (val == null || val === '') return '';
-	const n = typeof val === 'number' ? val : Number(String(val).replace(',', '.'));
-	if (!Number.isFinite(n)) return String(val);
-	return n.toLocaleString('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  function text(x) {
-	return (x ?? '').toString();
-  }
-  function escapeHtml(s) {
-	return String(s ?? '')
-	  .replaceAll('&','&amp;')
-	  .replaceAll('<','&lt;')
-	  .replaceAll('>','&gt;')
-	  .replaceAll('"','&quot;')
-	  .replaceAll("'",'&#039;');
-  }
-  function clearRows() {
-	tbody.innerHTML = '';
+  let currentYear   = yearSelect?.value || "";
+  let currentAmbito = ambitoSelect?.value || "";
+  let currentQuery  = "";
+
+  const moneyFmt = new Intl.NumberFormat("es-ES", {
+	style: "currency",
+	currency: "EUR",
+  });
+
+  function formatMoney(v) {
+	if (v == null || v === "") return "—";
+	const n = Number(v);
+	if (!Number.isFinite(n)) return String(v);
+	return moneyFmt.format(n);
   }
 
-  function renderRows(items) {
-	if (!Array.isArray(items) || items.length === 0) return;
+  function formatDate(iso) {
+	if (!iso) return "—";
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	return d.toLocaleDateString("es-ES");
+  }
 
-	const frag = document.createDocumentFragment();
-	for (const it of items) {
-	  const fecha = fmtDate(it.fecha);
-	  const concepto = text(it.concepto);
-	  const importe = fmtEUR(it.importe);
-	  const estado = text(it.estado);
+  function renderRows(rows, { append = false } = {}) {
+	if (!append) {
+	  tableBody.innerHTML = "";
+	}
 
-	  const propiedadNombre = text(it.propiedad_titulo || it.propiedad_nombre || it.propiedad || it.propiedad_id);
-	  const categoriaNombre = text(it.categoria_nombre || it.categoria || it.categoria_id);
+	if (!rows.length && !append) {
+	  tableBody.innerHTML = `
+		<tr>
+		  <td colspan="8" class="muted">No hay movimientos para este filtro.</td>
+		</tr>
+	  `;
+	  return;
+	}
 
-	  // Etiquetas: {nombre}[] | string[]
-	  let tagsTxt = '';
-	  if (Array.isArray(it.etiquetas)) {
-		tagsTxt = it.etiquetas.map(e => text(e.nombre || e)).filter(Boolean).join(', ');
-	  } else if (Array.isArray(it.tags)) {
-		tagsTxt = it.tags.map(e => text(e.nombre || e)).filter(Boolean).join(', ');
-	  } else if (Array.isArray(it.tag_nombres)) {
-		tagsTxt = it.tag_nombres.map(text).join(', ');
-	  }
+	for (const m of rows) {
+	  const tr = document.createElement("tr");
 
-	  // URL segura para Editar: slug || id
-	  const slugSafe = (it.slug && String(it.slug).trim()) || String(it.id ?? '');
-	  const dupHref  = `/admin/movimientos/nuevo?dupId=${encodeURIComponent(String(it.id ?? ''))}`;
-	  const editHref = it.slug ? `/admin/movimientos/${encodeURIComponent(String(it.slug))}/editar` : '';
-	  const tr = document.createElement('tr');
+	  const fecha = formatDate(m.fecha);
+	  const concepto = m.concepto || "—";
+	  const propTitulo = m.propiedad_titulo || "—";
+	  const importe = formatMoney(m.importe);
+	  const tipo = m.tipo_movimiento || "—";
+	  const autor = m.autor || "—";
+	  const ambito = m.ambito || "—";
+	  const slug = m.slug || m.id;
+
 	  tr.innerHTML = `
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${fecha}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(concepto)}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3; text-align:right;">${importe}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(estado)}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(propiedadNombre)}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(categoriaNombre)}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">${escapeHtml(tagsTxt)}</td>
-		<td style="padding:.5rem; border-bottom:1px solid #f3f3f3;">
-		  <a href="${dupHref}" style="margin-right:.5rem;">Duplicar</a>
-		  ${ editHref ? `<a href="${editHref}">Editar</a>` : '' }
+		<td>${fecha}</td>
+		<td> <a href="/admin/movimientos/${m.id}/editar">${concepto}</a></td>
+		<td>${propTitulo}</td>
+		<td class="text-right">${importe}</td>
+		<td>${tipo}</td>
+		<td>${autor}</td>
+		<td>${ambito}</td>
+		<td class="text-right">
+		  <a href="/admin/movimientos/${m.id}/editar">Editar</a>
 		</td>
 	  `;
-	  frag.appendChild(tr);
+	  tableBody.appendChild(tr);
 	}
-	tbody.appendChild(frag);
   }
 
-  async function loadPage() {
-	if (loading || reachedEnd) return;
+  function updateStatus() {
+	if (!statusEl) return;
+	if (total === 0) {
+	  statusEl.textContent = "0 resultados";
+	  return;
+	}
+	const shown = Math.min(offset, total);
+	statusEl.textContent = `${shown} de ${total}`;
+  }
+
+  function updateLoadMore(hasMore) {
+	if (!loadMoreBtn) return;
+	loadMoreBtn.style.display = hasMore ? "inline-flex" : "none";
+	loadMoreBtn.disabled = !hasMore || loading;
+  }
+
+  async function fetchMovements({ reset = false } = {}) {
+	if (loading) return;
 	loading = true;
-	statusEl.textContent = 'Cargando…';
+	if (loadMoreBtn) loadMoreBtn.disabled = true;
+
+	if (reset) {
+	  offset = 0;
+	  total = 0;
+	  renderRows([], { append: false });
+	  updateStatus();
+	}
 
 	try {
-	  const url = `/.netlify/functions/listMovements?limit=${limit}&offset=${offset}`;
-	  const res = await fetch(url);
-	  const txt = await res.text();
-	  let out; try { out = JSON.parse(txt); } catch { out = { data: [] }; }
+	  const params = new URLSearchParams();
+	  params.set("limit", String(limit));
+	  params.set("offset", String(offset));
+	  if (currentYear)   params.set("year", currentYear);
+	  if (currentQuery)  params.set("q", currentQuery);
+	  if (currentAmbito) params.set("ambito", currentAmbito);
 
-	  const items = Array.isArray(out) ? out : (out.data || []);
-	  if (offset === 0) clearRows();
-	  if (items.length === 0 && offset === 0) {
-		tbody.innerHTML = `<tr><td colspan="8" style="padding:.75rem; opacity:.7;">No hay movimientos.</td></tr>`;
-		reachedEnd = true;
-		statusEl.textContent = '';
+	  const res = await fetch(`/.netlify/functions/listMovements?${params.toString()}`);
+	  const txt = await res.text();
+	  let out; try { out = JSON.parse(txt); } catch { out = {}; }
+
+	  if (!res.ok) {
+		console.error("[movimientos] error:", out);
+		if (!offset) {
+		  tableBody.innerHTML = `
+			<tr>
+			  <td colspan="8" class="muted">
+				Error cargando movimientos.
+			  </td>
+			</tr>
+		  `;
+		}
 		return;
 	  }
 
-	  renderRows(items);
+	  const rows = Array.isArray(out.data) ? out.data : [];
+	  total = typeof out.count === "number" ? out.count : (offset + rows.length);
+	  const hasMore = !!out.hasMore;
 
-	  if (items.length < limit) {
-		reachedEnd = true;
-		statusEl.textContent = 'Fin de la lista';
-	  } else {
-		offset += limit;
-		statusEl.textContent = '';
+	  renderRows(rows, { append: !reset });
+	  offset += rows.length;
+	  updateStatus();
+	  updateLoadMore(hasMore);
+	} catch (err) {
+	  console.error("[movimientos] fetchMovements error:", err);
+	  if (!offset) {
+		tableBody.innerHTML = `
+		  <tr>
+			<td colspan="8" class="muted">
+			  Error inesperado cargando movimientos.
+			</td>
+		  </tr>
+		`;
 	  }
-	} catch (e) {
-	  console.error('[mov-list] load error:', e);
-	  if (offset === 0) {
-		tbody.innerHTML = `<tr><td colspan="8" style="padding:.75rem; color:#b00020;">Error cargando movimientos</td></tr>`;
-	  }
-	  statusEl.textContent = 'Error';
 	} finally {
 	  loading = false;
+	  if (loadMoreBtn) loadMoreBtn.disabled = false;
 	}
   }
 
-  btnMore?.addEventListener('click', loadPage);
-  loadPage();
+  // Eventos filtros
+  yearSelect?.addEventListener("change", () => {
+	currentYear = yearSelect.value;
+	fetchMovements({ reset: true });
+  });
+
+  ambitoSelect?.addEventListener("change", () => {
+	currentAmbito = ambitoSelect.value;
+	fetchMovements({ reset: true });
+  });
+
+  let searchTimeout;
+  searchInput?.addEventListener("input", () => {
+	const val = searchInput.value.trim();
+	currentQuery = val;
+	if (searchTimeout) clearTimeout(searchTimeout);
+	searchTimeout = setTimeout(() => {
+	  fetchMovements({ reset: true });
+	}, 300);
+  });
+
+  loadMoreBtn?.addEventListener("click", () => {
+	fetchMovements({ reset: false });
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+	currentYear   = yearSelect?.value || "";
+	currentAmbito = ambitoSelect?.value || "";
+	currentQuery  = searchInput?.value?.trim() || "";
+	fetchMovements({ reset: true });
+  });
 </script>
+
+<style>
+.mov-table {}
+  .mov-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: flex-end;
+	margin-bottom: 1rem;
+  }
+
+  .mov-filter-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+  }
+
+  .mov-filter-search {
+	flex: 1;
+	min-width: 200px;
+  }
+
+  .mov-label {
+	font-size: 0.85rem;
+	color: #555;
+  }
+
+  .mov-select,
+  .mov-input {
+	padding: 0.25rem 0.4rem;
+	border-radius: 0.35rem;
+	border: 1px solid #ccc;
+	font-size: var(--font-size--s);
+  }
+
+  .mov-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-size--s);
+	font-family: var(--font-data-family);
+  }
+
+  .mov-table th,
+  .mov-table td {
+	border-bottom: 1px solid #ddd;
+	padding: 0.4rem 0.2rem;
+	text-align: left;
+  }
+
+  .mov-table th.text-right,
+  .mov-table td.text-right {
+	text-align: right;
+  }
+
+  .mov-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 0.75rem;
+  }
+
+  .mov-load-btn {
+	padding: 0.45rem 0.85rem;
+	border-radius: 0.45rem;
+	border: 1px solid #ccc;
+	background: #f7f7f7;
+	font-size: 0.85rem;
+	cursor: pointer;
+  }
+
+  .mov-status {
+	font-size: 0.8rem;
+	color: #666;
+  }
+
+  .muted {
+	text-align: center;
+	font-size: 0.85rem;
+	color: #777;
+  }
+
+  .error {
+	color: #b00020;
+	font-size: var(--font-size--s);
+  }
+</style>

@@ -7,9 +7,11 @@
 		totalIngresos: number;
 		totalPromos: number;
 	  }
+	- size?: number | string
 */
 
-import '../../styles/components/widgets.css';
+import WidgetShell from "../WidgetShell.astro";
+import { toNum, formatEuro } from "../../lib/money";
 
 interface RdsResumenGlobal {
   totalGastos: number;
@@ -17,38 +19,39 @@ interface RdsResumenGlobal {
   totalPromos: number;
 }
 
-// Helpers locales
-const fmt = (value: number) =>
-  new Intl.NumberFormat('es-ES', {
-	style: 'currency',
-	currency: 'EUR',
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 2,
-  }).format(value ?? 0);
+interface Props {
+  resumen: RdsResumenGlobal;
+  size?: number | string;
+}
 
-const round2 = (value: number) =>
-  Math.round((value ?? 0) * 100) / 100;
+const { resumen, size = 7 } = Astro.props as Props;
 
-const { resumen } = Astro.props as { resumen: RdsResumenGlobal };
+// Normalizamos a número con el parser global
+const totalGastos = toNum(resumen?.totalGastos ?? 0);
+const totalIngresos = toNum(resumen?.totalIngresos ?? 0);
+const totalPromos = toNum(resumen?.totalPromos ?? 0);
 
-const totalGastos = round2(resumen?.totalGastos ?? 0);
-const totalIngresos = round2(resumen?.totalIngresos ?? 0);
-const totalPromos = round2(resumen?.totalPromos ?? 0);
-
-const beneficio = round2(totalIngresos - totalGastos);
+// Beneficios
+const beneficio = totalIngresos - totalGastos;
 const beneficioPart = beneficio / 2;
-const beneficioAjustado = round2(beneficio - totalPromos);
-const beneficioRealPart = beneficioAjustado / 2;
+
+const beneficioAjustado = beneficio - totalPromos;
+const beneficioRealPart = beneficioAjustado / 4;
+
+// Formateador común de dinero
+const fmt = (value: number) => formatEuro(value);
 ---
 
-<section class="widget wg-size grid-7" aria-labelledby="wg-rds-totals-title">
+<WidgetShell size={size} ariaLabelledBy="wg-rds-totals-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
 	  <span class="data-money data-xl">{fmt(beneficioAjustado)}</span>
 	  <span id="wg-rds-totals-title" class="data-label label-m">
 		Beneficio Real
 	  </span>
-	  <span class="data-label label-s">Mi parte <span class="data-money data-s">{fmt(beneficioRealPart)}</span></span>
+	  <span class="data-label label-s">
+		Mi parte <span class="data-money data-s">{fmt(beneficioRealPart)}</span>
+	  </span>
 	</div>
   </div>
 
@@ -72,4 +75,4 @@ const beneficioRealPart = beneficioAjustado / 2;
 	  <span class="data-label label-s">Promoción</span>
 	</div>
   </div>
-</section>
+</WidgetShell>

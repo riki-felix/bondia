@@ -1,0 +1,390 @@
+---
+// ACTUALIZADO CORRECTAMENTE
+export const prerender = false;
+
+import "../../../../src/styles/pages/propiedades.css";
+import Layout from "../../../components/Layout.astro";
+import { supabaseServer } from "../../../lib/supabaseServer";
+import { formatEuro, toNum } from "../../../lib/money";
+
+import ActivosCountWidget from "../../../widgets/ActivosCountWidget.astro";
+import ActivosTotalWidget from "../../../widgets/ActivosTotalWidget.astro";
+import ActivosPropsValueWidget from "../../../widgets/ActivosPropsValueWidget.astro";
+import ActivosOtrosValueWidget from "../../../widgets/ActivosOtrosValueWidget.astro";
+
+const supabase = supabaseServer();
+const url = Astro.url;
+
+// ----------------------
+// 1) Filtros desde la URL
+// ----------------------
+const qParam = (url.searchParams.get("q") || "").trim();
+const yearParam = url.searchParams.get("year");
+const monthParam = url.searchParams.get("month");
+const catParam = url.searchParams.get("cat");
+
+const selectedYear = yearParam && yearParam !== "" ? Number(yearParam) : null;
+const selectedMonth = monthParam && monthParam !== "" ? Number(monthParam) : null;
+const selectedCat = catParam && catParam !== "" ? catParam : null;
+
+// ----------------------
+// 2) Datos de categorías
+// ----------------------
+const { data: catRows, error: catError } = await supabase
+  .from("casa_activo_categorias")
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+if (catError) {
+  console.error("[casa/activos] Error cargando categorías:", catError);
+}
+
+type Categoria = {
+  id: string;
+  nombre: string;
+  slug: string;
+};
+
+const categorias: Categoria[] = Array.isArray(catRows)
+  ? (catRows as Categoria[])
+  : [];
+
+const catById = new Map<string, Categoria>();
+for (const c of categorias) {
+  if (c?.id) catById.set(c.id, c);
+}
+
+// ----------------------
+// 3) Activos "casa_activos"
+// ----------------------
+const { data: activosCasaRaw, error: activosError } = await supabase
+  .from("casa_activos")
+  .select("*")
+  .order("created_at", { ascending: false });
+
+if (activosError) {
+  console.error("[casa/activos] Error cargando casa_activos:", activosError);
+}
+
+const activosCasa: any[] = Array.isArray(activosCasaRaw) ? activosCasaRaw : [];
+
+// ----------------------
+// 4) Propiedades marcadas como "activo"
+// ----------------------
+const { data: propsActivasRaw, error: propsError } = await supabase
+  .from("propiedades")
+  .select(
+	"id, slug, titulo, tipo, estado, fecha_compra, created_at, precio_compra, precio_venta"
+  )
+  .eq("tipo", "activo")
+  .order("created_at", { ascending: false });
+
+if (propsError) {
+  console.error(
+	"[casa/activos] Error cargando propiedades tipo activo:",
+	propsError
+  );
+}
+
+const propsActivas: any[] = Array.isArray(propsActivasRaw)
+  ? propsActivasRaw
+  : [];
+
+// ----------------------
+// 5) Normalización conjunto
+// ----------------------
+type ListItem = {
+  id: string;
+  slug: string;
+  origen: "activo" | "propiedad";
+  nombre: string;
+  categoriaNombre: string;
+  categoriaSlug: string;
+  fechaClave: string | null;
+  valorPrincipal: number | null;
+};
+
+function getFechaClave(row: any): string | null {
+  return (
+	(row.fecha as string | null) ||
+	(row.fecha_compra as string | null) ||
+	(row.created_at as string | null) ||
+	null
+  );
+}
+
+function getValorPrincipal(
+  row: any,
+  origen: "activo" | "propiedad"
+): number | null {
+  if (origen === "activo") {
+	const v =
+	  row.valor_actual ??
+	  row.valor_estimado ??
+	  row.valor ??
+	  null;
+	return v != null ? toNum(v) : null;
+  } else {
+	const v =
+	  row.precio_venta ??
+	  row.precio_compra ??
+	  null;
+	return v != null ? toNum(v) : null;
+  }
+}
+
+// Activos
+const activosItems: ListItem[] = activosCasa.map((a) => {
+  // Aseguramos que usamos la clave correcta y la convertimos a string
+  const catKey = a.categoria_id ?? a.categoria ?? null;
+  const cat = catKey ? catById.get(String(catKey)) : null;
+
+  return {
+	id: a.id,
+	slug: a.slug,
+	origen: "activo",
+	nombre: a.nombre ?? "(Activo sin nombre)",
+	categoriaNombre: cat?.nombre ?? "Sin categoría",
+	categoriaSlug: cat?.slug ?? "sin-categoria",
+	fechaClave: getFechaClave(a),
+	valorPrincipal: getValorPrincipal(a, "activo"),
+  };
+});
+
+// Propiedades marcadas como activo
+const propsItems: ListItem[] = propsActivas.map((p) => ({
+  id: p.id,
+  slug: p.slug,
+  origen: "propiedad",
+  nombre: p.titulo ?? "(Propiedad sin título)",
+  categoriaNombre: "Propiedad",
+  categoriaSlug: "propiedad",
+  fechaClave: getFechaClave(p),
+  valorPrincipal: getValorPrincipal(p, "propiedad"),
+}));
+
+const allItems: ListItem[] = [...activosItems, ...propsItems];
+
+// ----------------------
+// 6) Años disponibles
+// ----------------------
+const yearSet = new Set<number>();
+for (const item of allItems) {
+  if (!item.fechaClave) continue;
+  const d = new Date(item.fechaClave);
+  if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+}
+const years = [...yearSet].sort((a, b) => b - a);
+
+// ----------------------
+// 7) FILTROS
+// ----------------------
+let filtered = allItems;
+
+// Filtro año/mes
+if (selectedYear || selectedMonth) {
+  filtered = filtered.filter((x) => {
+	if (!x.fechaClave) return false;
+	const d = new Date(x.fechaClave);
+	if (Number.isNaN(d.getTime())) return false;
+
+	const y = d.getFullYear();
+	const m = d.getMonth() + 1;
+
+	if (selectedYear && selectedMonth) return y === selectedYear && m === selectedMonth;
+	if (selectedYear) return y === selectedYear;
+	if (selectedMonth) return m === selectedMonth;
+	return true;
+  });
+}
+
+// Filtro categoría
+if (selectedCat) {
+  filtered = filtered.filter((x) => x.categoriaSlug === selectedCat);
+}
+
+// Filtro búsqueda
+if (qParam) {
+  const q = qParam.toLowerCase();
+  filtered = filtered.filter(
+	(x) =>
+	  x.nombre.toLowerCase().includes(q) ||
+	  x.categoriaNombre.toLowerCase().includes(q)
+  );
+}
+
+// Orden fecha descendente
+filtered.sort((a, b) => {
+  const da = a.fechaClave ? new Date(a.fechaClave).getTime() : 0;
+  const db = b.fechaClave ? new Date(b.fechaClave).getTime() : 0;
+  return db - da;
+});
+
+const totalCount = allItems.length;
+const filteredCount = filtered.length;
+
+// Meses
+const monthNames = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+// Opciones categoría
+const catOptions = categorias.map((c) => ({
+  slug: c.slug,
+  nombre: c.nombre,
+}));
+
+if (propsItems.length > 0) {
+  catOptions.push({ slug: "propiedad", nombre: "Propiedades" });
+}
+---
+
+<Layout title="Activos | Casa">
+  <header class="main-header">
+	<h1>Activos (Casa)</h1>
+	<p class="muted">
+	  Activos personales + propiedades marcadas como <strong>activo</strong>.
+	</p>
+  </header>
+
+  {/* Filtros */}
+  {totalCount > 0 && (
+	<section class="inv-year-filter" style="margin-bottom:1.25rem;">
+	  <form method="get" class="filters" style="display:flex; gap:.75rem; flex-wrap:wrap;">
+
+		{/* Año */}
+		<div style="display:flex; flex-direction:column;">
+		  <label>Año</label>
+		  <select name="year">
+			<option value="">Todos</option>
+			{years.map((y) => (
+			  <option value={y} selected={selectedYear === y}>
+				{y}
+			  </option>
+			))}
+		  </select>
+		</div>
+
+		{/* Mes */}
+		<div style="display:flex; flex-direction:column;">
+		  <label>Mes</label>
+		  <select name="month">
+			<option value="">Todos</option>
+			{monthNames.map((m, i) => (
+			  <option value={i + 1} selected={selectedMonth === i + 1}>
+				{m}
+			  </option>
+			))}
+		  </select>
+		</div>
+
+		{/* Categoría */}
+		<div style="display:flex; flex-direction:column;">
+		  <label>Categoría</label>
+		  <select name="cat">
+			<option value="">Todas</option>
+			{catOptions.map((c) => (
+			  <option value={c.slug} selected={selectedCat === c.slug}>
+				{c.nombre}
+			  </option>
+			))}
+		  </select>
+		</div>
+
+		{/* Buscador */}
+		<div style="display:flex; flex-direction:column; flex:1;">
+		  <label>Buscar</label>
+		  <input
+			name="q"
+			type="search"
+			placeholder="Nombre o categoría…"
+			value={qParam}
+		  />
+		</div>
+
+		<div style="display:flex; flex-direction:column; justify-content:flex-end;">
+		  <button class="button--small" type="submit">
+			Filtrar
+		  </button>
+		</div>
+	  </form>
+
+	  <p class="muted" style="margin-top:.4rem; font-size:.85rem;">
+		Mostrando <strong>{filteredCount}</strong> de{" "}
+		<strong>{totalCount}</strong> activos.
+	  </p>
+	</section>
+  )}
+
+  {/* Widgets */}
+  {filteredCount > 0 && (
+	<section class="widgets" style="margin-bottom:1.5rem;">
+	  <ActivosCountWidget size={2} items={filtered} />
+	  <ActivosTotalWidget size={3} items={filtered} />
+	  <ActivosPropsValueWidget size={3} items={filtered} />
+	  <ActivosOtrosValueWidget size={2} items={filtered} />
+	</section>
+  )}
+
+  {/* Tabla */}
+  {filteredCount > 0 && (
+	<section class="block">
+	  <table class="table-movements">
+		<thead>
+		  <tr>
+			<th>Nombre</th>
+			<th>Origen</th>
+			<th>Categoría</th>
+			<th>Fecha</th>
+			<th style="text-align:right;">Valor</th>
+		  </tr>
+		</thead>
+		<tbody>
+		  {filtered.map((item) => (
+			<tr>
+			  <td>
+				{item.origen === "activo" ? (
+				  <a href={`/casa/activos/${item.slug}`}>{item.nombre}</a>
+				) : (
+				  <a href={`/propiedades/${item.slug}`}>{item.nombre}</a>
+				)}
+			  </td>
+			  <td>{item.origen === "activo" ? "Activo" : "Propiedad"}</td>
+			  <td>{item.categoriaNombre}</td>
+			  <td>
+				{item.fechaClave
+				  ? new Date(item.fechaClave).toLocaleDateString("es-ES")
+				  : "—"}
+			  </td>
+			  <td style="text-align:right;">
+				{item.valorPrincipal != null
+				  ? formatEuro(item.valorPrincipal)
+				  : "—"}
+			  </td>
+			</tr>
+		  ))}
+		</tbody>
+	  </table>
+	</section>
+  )}
+</Layout>
+
+<style>
+  .muted { color:#777; }
+  select, input {
+	padding: .25rem .4rem;
+	border: 1px solid #ccc;
+	border-radius: .3rem;
+  }
+</style>

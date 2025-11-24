@@ -1,0 +1,46 @@
+---
+import { formatEuro } from "../lib/money";
+import { normalize } from "../lib/text";
+import WidgetShell from "./WidgetShell.astro";
+import '../../src/styles/components/widgets.css';
+
+interface Props {
+  aportaciones: {
+	importe: number | null;
+	modo_pago: 'transferencia' | 'efectivo';
+	size?: number | string;
+  }[];
+}
+
+const {
+	aportaciones = [],
+	size = 2,
+	} = Astro.props;
+
+const total = aportaciones.reduce((acc, a) => acc + (Number(a.importe) || 0), 0);
+const totalTransfer = aportaciones
+  .filter((a) => a.modo_pago === 'transferencia')
+  .reduce((acc, a) => acc + (Number(a.importe) || 0), 0);
+const totalEfectivo = aportaciones
+  .filter((a) => a.modo_pago === 'efectivo')
+  .reduce((acc, a) => acc + (Number(a.importe) || 0), 0);
+---
+
+<WidgetShell size={size} ariaLabelledBy="wg-totals-title">
+  <div class="widget-row--totals">
+	  <div class="widget-cell">
+		<span class="data-label label-m">Total</span>
+		<span class="data-money data-xl">{formatEuro(total)}</span>
+	  </div>
+	</div>
+	<div class="widget-row wg--2col">
+	  <div class="widget-cell">
+		<span class="data-money data-m">{formatEuro(totalTransfer)}</span>
+		<span class="data-label label-s">Transferencias</span>
+	  </div>
+	  <div class="widget-cell">
+		<span class="data-money data-m">{formatEuro(totalEfectivo)}</span>
+		<span class="data-label label-s">Efectivo</span>
+	  </div>
+	</div>
+</WidgetShell>

@@ -1,0 +1,29 @@
+---
+import Admin from "../../../../components/Admin.astro";
+import { supabaseClient } from "../../../../lib/supabaseClient";
+import CasaActivoForm from "../../../../components/CasaActivoForm.astro";
+
+const supabase = supabaseClient();
+
+const { data: categorias = [] } = await supabase
+  .from("casa_activo_categorias")
+  .select("id, nombre")
+  .order("nombre");
+
+const { data: propiedadesActivas = [] } = await supabase
+  .from("propiedades")
+  .select("id, titulo")
+  .eq('tipo', 'activo')
+  .order("titulo");
+---
+
+<Admin title="Nuevo activo">
+  <h1 class="admin-title">Nuevo activo</h1>
+
+  <CasaActivoForm
+    mode="create"
+    categorias={categorias}
+    propiedadesActivas={propiedadesActivas}
+    action="/.netlify/functions/casa-activo-save"
+  />
+</Admin>

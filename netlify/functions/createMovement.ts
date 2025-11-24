@@ -8,8 +8,12 @@ import {
 
 const ESTADO = new Set(['pendiente','pagado']);
 const FREQ   = new Set(['puntual','semanal','mensual','bimensual','trimestral','anual']);
+
 // Valores EXACTOS del ENUM en la DB
 const MOV_TIPO_ENUM = new Set(['Gasto', 'Aportación']);
+
+// Ámbitos permitidos en la columna ambito
+const AMBITO = new Set(['inversion', 'casa', 'otro']);
 
 // Normaliza cualquier entrada a uno de los dos valores del ENUM
 function normalizeTipoMovimiento(v: unknown): 'Gasto' | 'Aportación' {
@@ -30,7 +34,6 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-	// ✅ todo lo asíncrono va DENTRO del handler
 	ensureConfig();
 	const supabase = serviceSupabase();
 	const body = parseBody(event.body);
@@ -53,19 +56,27 @@ export const handler: Handler = async (event) => {
 
 	// Documento opcional (path ya subido)
 	const documento_path = emptyOrNull(body.documento_path);
-	
-	// NUEVO: tipo_movimiento (ENUM)
-	// Aceptamos body.tipo_movimiento o body.tipo, normalizamos y forzamos a valores del ENUM
-	const tipo_movimiento = normalizeTipoMovimiento(body.tipo_movimiento ?? body.tipo ?? 'Gasto');
 
-	
+	// NUEVO: tipo_movimiento (ENUM)
+	const tipo_movimiento = normalizeTipoMovimiento(
+	  body.tipo_movimiento ?? body.tipo ?? 'Gasto'
+	);
+
+	// NUEVO: ámbito (inversion | casa | otro) con fallback a 'inversion'
+	const ambitoRaw = emptyOrNull(body.ambito);
+	const ambito =
+	  ambitoRaw && AMBITO.has(ambitoRaw)
+		? ambitoRaw
+		: 'inversion';
+
 	// Generar slug único a partir del concepto
 	const base = slugifyEs(concepto || 'movimiento');
-	// Busca colisiones y genera siguiente libre
+
 	const { data: existing } = await supabase
 	  .from('movimientos')
 	  .select('slug')
 	  .ilike('slug', `${base}%`);
+
 	const taken = new Set((existing || []).map((r: any) => r.slug));
 	let slug = base;
 	if (taken.has(slug)) {
@@ -80,11 +91,15 @@ export const handler: Handler = async (event) => {
 	  .insert({
 		slug,
 		propiedad_id,
-		concepto, fecha, importe,
-		estado, frecuencia,
+		concepto,
+		fecha,
+		importe,
+		estado,
+		frecuencia,
 		categoria_id,
 		tipo_movimiento,
-		documento_path
+		ambito,          // 👈 IMPORTANTE: grabamos el ámbito
+		documento_path,
 	  })
 	  .select('id')
 	  .single();
@@ -97,7 +112,10 @@ export const handler: Handler = async (event) => {
 	if (Array.isArray(body.tags_ids)) rawTags = body.tags_ids;
 	else if (Array.isArray(body.tags)) rawTags = body.tags;
 	else if (typeof body.tags === 'string') {
-	  rawTags = body.tags.split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+	  rawTags = body.tags
+		.split(/[,\s]+/)
+		.map((s: string) => s.trim())
+		.filter(Boolean);
 	}
 
 	if (rawTags.length) {
@@ -107,7 +125,11 @@ export const handler: Handler = async (event) => {
 		if (!token) continue;
 
 		// UUID?
-		if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token)) {
+		if (
+		  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+			token
+		  )
+		) {
 		  tagIds.push(token);
 		  continue;
 		}
@@ -136,8 +158,13 @@ export const handler: Handler = async (event) => {
 	  }
 
 	  if (tagIds.length) {
-		const rows = tagIds.map((tid) => ({ movimiento_id: movement_id, tag_id: tid }));
-		const { error: mErr } = await supabase.from('movimiento_tag_map').insert(rows);
+		const rows = tagIds.map((tid) => ({
+		  movimiento_id: movement_id,
+		  tag_id: tid,
+		}));
+		const { error: mErr } = await supabase
+		  .from('movimiento_tag_map')
+		  .insert(rows);
 		if (mErr) return json({ error: mErr.message }, 500);
 	  }
 	}

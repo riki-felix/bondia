@@ -114,6 +114,7 @@ export const handler: Handler = async (event) => {
 	  if (t) updates.tipo = t; // permite ponerlo a null si quisieras; si no, usa "if (t) updates.tipo = t;"
 	}
 	if (body.titulo != null) updates.titulo = String(body.titulo).trim();
+	if (body.direccion != null) updates.direccion = String(body.direccion).trim();
 	if (body.superficie_m2 != null) updates.superficie_m2 = toIntOrNull(body.superficie_m2);
 	if (body.anio_construccion != null) updates.anio_construccion = toYearOrNull(body.anio_construccion);
 	if (body.numero_catastro != null) updates.numero_catastro = emptyOrNull(body.numero_catastro);

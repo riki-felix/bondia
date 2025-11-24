@@ -1,0 +1,302 @@
+---
+import { formatEuroPlain } from "../lib/money";
+
+interface CategoriaActivo {
+  id: string;
+  nombre: string;
+}
+
+interface PropiedadActiva {
+  id: string;
+  titulo: string;
+}
+
+interface CasaActivo {
+  id?: string;
+  nombre?: string;
+  descripcion?: string;
+  categoria_id?: string | null;
+  propiedad_id?: string | null;
+  valor_estimado?: number | null;
+  fecha_compra?: string | null; // "YYYY-MM-DD"
+}
+
+interface Props {
+  mode: "create" | "edit";
+  activo?: CasaActivo | null;
+  categorias: CategoriaActivo[];
+  propiedadesActivas: PropiedadActiva[];
+  action?: string;        // endpoint save
+  deleteAction?: string | null; // endpoint delete
+}
+
+const {
+  mode = "create",
+  activo: rawActivo = null,
+  categorias = [],
+  propiedadesActivas = [],
+  action = "/.netlify/functions/casa-activo-save",
+  deleteAction = "/.netlify/functions/casa-activo-delete",
+} = Astro.props as Props;
+
+const isEdit = mode === "edit";
+const activo: CasaActivo = rawActivo ?? {};
+
+const valorEstimadoDisplay =
+  activo.valor_estimado != null ? formatEuroPlain(activo.valor_estimado) : "";
+
+const fechaCompraValue = activo.fecha_compra ?? "";
+---
+
+<form id="casa-activo-form" novalidate>
+  <h1>{isEdit ? "Editar activo de casa" : "Nuevo activo de casa"}</h1>
+
+  {isEdit && activo.id && (
+	<input type="hidden" id="activo_id" name="id" value={activo.id} />
+  )}
+
+  <div class="row">
+	<div>
+	  <label for="nombre">Nombre del activo</label>
+	  <input
+		id="nombre"
+		name="nombre"
+		type="text"
+		required
+		value={activo.nombre ?? ""}
+		placeholder="Ej. Coche familiar, colección de arte…"
+	  />
+	</div>
+
+	<div>
+	  <label for="categoria_id">Categoría</label>
+	  <select id="categoria_id" name="categoria_id">
+		<option value="">Sin categoría</option>
+		{categorias.map((c) => (
+		  <option
+			value={c.id}
+			selected={activo.categoria_id === c.id}
+		  >
+			{c.nombre}
+		  </option>
+		))}
+	  </select>
+	</div>
+  </div>
+
+  <label htmlFor="descripcion">Descripción</label>
+  <textarea
+	id="descripcion"
+	name="descripcion"
+	rows={3}
+	placeholder="Notas adicionales sobre el activo (estado, detalles, etc.)"
+  >{activo.descripcion ?? ""}</textarea>
+
+  <div class="row">
+	<div>
+	  <label htmlFor="propiedad_id">Vincular a propiedad (opcional)</label>
+	  <select id="propiedad_id" name="propiedad_id">
+		<option value="">Ninguna</option>
+		{propiedadesActivas.map((p) => (
+		  <option
+			value={p.id}
+			selected={activo.propiedad_id === p.id}
+		  >
+			{p.titulo}
+		  </option>
+		))}
+	  </select>
+	  <p class="hint">
+		Solo aparecen propiedades marcadas como activo de casa.
+	  </p>
+	</div>
+
+	<div>
+	  <label htmlFor="valor_estimado">Valor estimado</label>
+	  <input
+		id="valor_estimado"
+		name="valor_estimado"
+		type="text"
+		inputmode="decimal"
+		placeholder="Ej. 10.000,00"
+		value={valorEstimadoDisplay}
+	  />
+	  <p class="hint">
+		Puedes usar formato 10.000,00. Si lo dejas vacío no se guardará valor.
+	  </p>
+	</div>
+  </div>
+
+  <div class="row">
+	<div>
+	  <label htmlFor="fecha_compra">Fecha de compra</label>
+	  <input
+		id="fecha_compra"
+		name="fecha_compra"
+		type="date"
+		value={fechaCompraValue}
+	  />
+	</div>
+  </div>
+
+  <div class="actions">
+	<button type="submit" id="casa-activo-submit">
+	  {isEdit ? "Guardar cambios" : "Crear activo"}
+	</button>
+
+	{isEdit && activo.id && deleteAction && (
+	  <button type="button" id="casa-activo-delete" class="danger">
+		Eliminar activo
+	  </button>
+	)}
+  </div>
+
+  <p id="casa-activo-msg"></p>
+</form>
+
+<style>
+  .row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+	margin-bottom: 1rem;
+  }
+  .hint {
+	font-size: .85rem;
+	opacity: .7;
+	margin:.25rem 0 0;
+  }
+  .actions {
+	display:flex;
+	gap:.75rem;
+	align-items:center;
+	margin-top:.75rem;
+  }
+  .danger {
+	background:#b00020;
+	color:#fff;
+	border:none;
+	padding:.55rem .9rem;
+	border-radius:.5rem;
+	cursor:pointer;
+  }
+  .danger:hover { opacity:.9; }
+</style>
+
+<script
+  type="module"
+  is:inline
+  define:vars={{
+	IS_EDIT: isEdit,
+	SAVE_ENDPOINT: action,
+	DELETE_ENDPOINT: deleteAction,
+  }}
+>
+  const form = document.getElementById('casa-activo-form');
+  const msg  = document.getElementById('casa-activo-msg');
+  const btn  = document.getElementById('casa-activo-submit');
+  const deleteBtn = document.getElementById('casa-activo-delete');
+
+  function emptyOrNull(v) {
+	if (v == null) return null;
+	const s = String(v).trim();
+	return s ? s : null;
+  }
+
+  async function handleSubmit(e) {
+	e.preventDefault();
+	msg.textContent = '';
+	msg.style.color = '';
+	btn.disabled = true;
+
+	try {
+	  const nombre = form.nombre.value.trim();
+	  if (!nombre) {
+		msg.textContent = 'Introduce un nombre para el activo.';
+		msg.style.color = 'red';
+		btn.disabled = false;
+		return;
+	  }
+
+	  const payload = {
+		id: IS_EDIT ? (form.id?.value || form.querySelector('#activo_id')?.value || null) : null,
+		nombre,
+		descripcion: emptyOrNull(form.descripcion.value),
+		categoria_id: emptyOrNull(form.categoria_id.value),
+		propiedad_id: emptyOrNull(form.propiedad_id.value),
+		valor_estimado: emptyOrNull(form.valor_estimado.value),
+		fecha_compra: emptyOrNull(form.fecha_compra.value),
+	  };
+
+	  const res = await fetch(SAVE_ENDPOINT, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload),
+	  });
+
+	  const raw = await res.text();
+	  let data = {};
+	  try { data = JSON.parse(raw || '{}'); } catch {}
+
+	  if (!res.ok) {
+		throw new Error(data.error || raw || 'Error al guardar el activo');
+	  }
+
+	  msg.textContent = '✅ Activo guardado correctamente. Redirigiendo…';
+	  msg.style.color = 'green';
+
+	  // Redirigimos al listado de activos de casa
+	  window.location.href = '/admin/casa/activos';
+	} catch (err) {
+	  console.error('[Guardar activo casa] Error:', err);
+	  msg.textContent = `❌ Error: ${err.message || err}`;
+	  msg.style.color = 'red';
+	  btn.disabled = false;
+	}
+  }
+
+  if (form && btn) {
+	form.addEventListener('submit', handleSubmit);
+  }
+
+  if (deleteBtn) {
+	deleteBtn.addEventListener('click', async () => {
+	  if (!confirm('¿Seguro que quieres eliminar este activo? Esta acción no se puede deshacer.')) {
+		return;
+	  }
+	  deleteBtn.disabled = true;
+	  btn.disabled = true;
+	  msg.textContent = 'Eliminando activo…';
+	  msg.style.color = '';
+
+	  try {
+		const idInput = document.getElementById('activo_id');
+		const id = idInput?.value || null;
+		if (!id) throw new Error('Falta ID del activo.');
+
+		const res = await fetch(DELETE_ENDPOINT, {
+		  method: 'POST',
+		  headers: { 'Content-Type': 'application/json' },
+		  body: JSON.stringify({ id }),
+		});
+
+		const raw = await res.text();
+		let data = {};
+		try { data = JSON.parse(raw || '{}'); } catch {}
+		if (!res.ok) {
+		  throw new Error(data.error || raw || 'Error al eliminar el activo');
+		}
+
+		msg.textContent = '✅ Activo eliminado. Redirigiendo…';
+		msg.style.color = 'green';
+		window.location.href = '/admin/casa/activos';
+	  } catch (err) {
+		console.error('[Eliminar activo casa] Error:', err);
+		msg.textContent = `❌ Error: ${err.message || err}`;
+		msg.style.color = 'red';
+		deleteBtn.disabled = false;
+		btn.disabled = false;
+	  }
+	});
+  }
+</script>

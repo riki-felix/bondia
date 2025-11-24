@@ -1,42 +1,68 @@
 ---
-import '../../src/styles/components/widgets.css';
-import { round2 } from "../widgets/propContext";
+import WidgetShell from "./WidgetShell.astro";
+import { formatEuro, toNum } from "../lib/money";
 
-const { precio_venta, totals } = Astro.props;
+interface Totals {
+  total: number | null;
+}
 
-// Calcula la diferencia usando solo los gastos (ya filtrados)
-const diferencia = round2(precio_venta - totals.total);
-const comision = round2((precio_venta - totals.total) * 0.20);
-const mitad = round2(((precio_venta - totals.total) * 0.8) / 2);
+interface Props {
+  precio_venta?: number | string | null;
+  totals: Totals;
+  size?: number | string;
+}
 
+const {
+  precio_venta,
+  totals,
+  size = 4,
+} = Astro.props as Props;
+
+// Normalizamos valores numéricos con helper global
+const pv = toNum(precio_venta);
+const gastos = toNum(totals?.total);
+
+// Margen
+const margen = pv - gastos;
+
+// JAPS: 20% del margen
+const comision = margen * 0.20;
+
+// CBH / Sanyus: 40% cada uno
+const mitad = margen * 0.40;
 ---
 
-<section class="widget wg-size grid-4">
+<WidgetShell size={size} ariaLabelledBy="wg-margen-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
-	  <span class="data-label label-m">
+	  <span id="wg-margen-title" class="data-label label-m">
 		Margen
 	  </span>
+
 	  <span class="data-money data-xl">
-		{diferencia} €
+		{formatEuro(margen)}
 	  </span>
+
 	  <span class="data-label label-xs">
-		Vendido por {round2(precio_venta)} €
+		Vendido por {formatEuro(pv)}
 	  </span>
 	</div>
   </div>
+
   <div class="widget-row wg--3col">
 	<div class="widget-cell">
-	  <span class="data-money data-m">{comision} €</span>
+	  <span class="data-money data-m">{formatEuro(comision)}</span>
 	  <span class="data-label label-s">JAPS</span>
 	</div>
+
 	<div class="widget-cell">
-	  <span class="data-money data-m">{mitad} €</span>
+	  <span class="data-money data-m">{formatEuro(mitad)}</span>
 	  <span class="data-label label-s">CBH</span>
 	</div>
+
 	<div class="widget-cell">
-	  <span class="data-money data-m">{mitad} €</span>
+	  <span class="data-money data-m">{formatEuro(mitad)}</span>
 	  <span class="data-label label-s">Sanyus</span>
 	</div>
   </div>
-</section>
+</WidgetShell>

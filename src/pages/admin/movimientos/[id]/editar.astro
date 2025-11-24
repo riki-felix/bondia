@@ -22,12 +22,12 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
 // Param slug de la ruta
 const rawSlug = Astro.params.slug || "";
 const slug = decodeURIComponent(rawSlug);
-
+const { id } = Astro.params;
 // Busca el movimiento por slug (1 fila)
 const { data: movement, error: movErr } = await admin
   .from("movimientos")
   .select("id, slug, propiedad_id, concepto, fecha, importe, estado, frecuencia, categoria_id,tipo_movimiento")
-  .eq("slug", slug)
+  .eq("id", id)
   .maybeSingle();
 
 // Si no lo encuentra, muestra un mensaje claro

@@ -1,5 +1,7 @@
 ---
 export const prerender = false;
+import CountWidget from "../../widgets/CountWidget.astro";
+import SumWidget from "../../widgets/SumWidget.astro";
 
 import '../../../src/styles/pages/propiedades.css';
 
@@ -23,16 +25,22 @@ const imgUrl = (p: any) =>
 
 <Layout title="Inversiones">
   <header class="main-header">
-	<h1>Inversiones</h1>
+	<h1>Activos</h1>
 	<div class="page-actions">
-	  <a class="button--small" href="/admin/nueva">+ Nueva</a>
+	  <a class="button--small" href="/admin/nueva">+ Nuevo Activo</a>
 	</div>
   </header>
-
+  <section class="widgets">
+	<CountWidget propiedades={properties} tipo="activo" label="Activos Sanyus" />
+	<CountWidget propiedades={properties} tipo="activo" estado="vendido" label="Activos Sanyus Vendidos" />
+	<CountWidget propiedades={properties} tipo="activo" estado="alquiler" label="Alquilados" />
+	<SumWidget propiedades={properties} tipo="activo" campo="precio_venta" estado="vendido" label="Total Ventas" />
+	<SumWidget propiedades={properties} tipo="activo" campo="precio_compra" label="Total compras" />
+  </section>
   {error && <p>❌ {error.message}</p>}
 
   {(!error && (!properties || properties.length === 0)) && (
-	<p>No hay propiedades de tipo <em>Inversión</em>.</p>
+	<p>No hay Activos</p>
   )}
 
   {properties && properties.length > 0 && (

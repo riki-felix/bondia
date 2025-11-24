@@ -1,43 +1,61 @@
 ---
-/* 
+/*
   CountWidget
   Props:
 	- propiedades: array de propiedades
-	- tipo?: string (ejemplo: "inversion")
-	- estado?: string (ejemplo: "vendido")
-	- label?: string (etiqueta personalizada para mostrar)
+	- tipo?: string
+	- estado?: string
+	- label?: string
+	- size?: number | string   // NUEVO: controla grid-X via WidgetShell
 */
-import '../../src/styles/components/widgets.css';
+import WidgetShell from "./WidgetShell.astro";
+import { normalize } from "../lib/text";
 
-const { propiedades = [], tipo = "", estado = "", label = "" } = Astro.props;
-function normalize(str: string): string {
-  return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+interface Props {
+  propiedades: any[];
+  tipo?: string;
+  estado?: string;
+  label?: string;
+  size?: number | string;
 }
 
-let filtered = propiedades;
-if (tipo)    filtered = filtered.filter((p: any) => normalize(p.tipo) === normalize(tipo));
-if (estado)  filtered = filtered.filter((p: any) => normalize(p.estado) === normalize(estado));
+const {
+  propiedades = [],
+  tipo = "",
+  estado = "",
+  label = "",
+  size = 2,
+} = Astro.props as Props;
+
+const norm = (s: string) => normalize(s);
+
+const filtered = propiedades.filter((p: any) => {
+  if (tipo && norm(p.tipo ?? "") !== norm(tipo)) return false;
+  if (estado && norm(p.estado ?? "") !== norm(estado)) return false;
+  return true;
+});
 
 const count = filtered.length;
 
-const displayLabel = label || (
-  tipo && estado
-	? `Total de "${tipo}" con estado "${estado}"`
+const displayLabel =
+  label ||
+  (tipo && estado
+	? `Total ${tipo} (${estado})`
 	: tipo
-	  ? `Total de "${tipo}"`
-	  : estado
-		? `Total con estado "${estado}"`
-		: 'Total'
-);
+	? `Total ${tipo}`
+	: estado
+	? `Total con estado "${estado}"`
+	: "Total");
 ---
 
-
-<section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
+<WidgetShell size={size} ariaLabelledBy="wg-count-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
-	  <span class="data-label label-m">{displayLabel}</span>
+	  <span id="wg-count-title" class="data-label label-m">
+		{displayLabel}
+	  </span>
 	  <span class="data-money data-xl">{count}</span>
 	  <span class="data-label label-xs"></span>
 	</div>
   </div>
-</section>
+</WidgetShell>

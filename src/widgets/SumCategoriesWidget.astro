@@ -1,0 +1,381 @@
+---
+/*
+  SumCategoriesWidget
+  Props:
+	- rows: {
+		categoria_id: string | null;
+		categoria_nombre: string | null;
+		num_movimientos: number | null;
+		total_importe: number | null;
+	  }[]
+	- size?: number | string
+	- modeTotals?: boolean     // true = TOTALES (todos los años)
+	- selectedYear?: number | null
+*/
+
+import WidgetShell from "./WidgetShell.astro";
+import { formatEuro } from "../lib/money";
+
+interface CategoriaRow {
+  categoria_id: string | null;
+  categoria_nombre: string | null;
+  num_movimientos: number | null;
+  total_importe: number | null;
+}
+
+interface Props {
+  rows?: CategoriaRow[];
+  size?: number | string;
+  modeTotals?: boolean;
+  selectedYear?: number | null;
+}
+
+const {
+  rows = [],
+  size = 4,
+  modeTotals = false,
+  selectedYear = null,
+} = Astro.props as Props;
+
+// Ordenamos por importe descendente
+const ordered = [...rows].sort(
+  (a, b) => Number(b.total_importe ?? 0) - Number(a.total_importe ?? 0)
+);
+
+// Subtítulo
+const subtitle = modeTotals
+  ? "TOTALES (todos los años)"
+  : selectedYear
+	? `Año ${selectedYear}`
+	: "";
+
+// Total global
+const totalGlobal = ordered.reduce(
+  (acc, r) => acc + Number(r.total_importe ?? 0),
+  0
+);
+
+// Función helper para limpiar labels (por si algún día hay cosas raras)
+function cleanLabel(str: string | null | undefined): string {
+  return String(str ?? "")
+	.replace(/\r?\n/g, " ")
+	.trim();
+}
+
+// Datos para el gráfico
+const chartLabels = ordered.map((r) => cleanLabel(r.categoria_nombre));
+const chartValues = ordered.map((r) => Number(r.total_importe ?? 0));
+
+// ID fijo para el canvas (asumimos un widget por página)
+const canvasId = "sumcat-chart";
+const chartPayload = JSON.stringify({
+  labels: chartLabels,
+  values: chartValues,
+});
+---
+
+<WidgetShell size={size} ariaLabelledBy="sumcat-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="sumcat-title" class="data-label label-m">
+		Suma por categorías
+	  </span>
+	  <span class="data-label label-xs">
+		{subtitle || "Resumen por categoría de movimiento"}
+	  </span>
+	  {totalGlobal > 0 && (
+		<span class="data-label label-xs">
+		  Total: {formatEuro(totalGlobal)}
+		</span>
+	  )}
+	</div>
+  </div>
+
+  {ordered.length === 0 ? (
+	<div class="widget-row">
+	  <div class="widget-cell">
+		<p class="sumcat-empty">Sin movimientos para este filtro.</p>
+	  </div>
+	</div>
+  ) : (
+	<div class="widget-row sumcat-layout">
+	  {/* Lista + toggles */}
+	  <div class="widget-cell sumcat-list-wrap">
+		<ol class="sumcat-list">
+		  {ordered.map((r, idx) => (
+			<li class="sumcat-item">
+			  <div class="sumcat-item-main">
+				<span class="sumcat-name">
+				  {r.categoria_nombre || "Sin categoría"}
+				</span>
+				<span class="sumcat-count">
+				  {r.num_movimientos ?? 0} mov
+				</span>
+			  </div>
+			  <div class="sumcat-item-right">
+				<span class="sumcat-item-value">
+				  {formatEuro(r.total_importe ?? 0)}
+				</span>
+
+				<label class="sumcat-toggle">
+				  <input
+					type="checkbox"
+					class="sumcat-toggle-input"
+					data-idx={idx}
+					checked
+				  />
+				  <span class="sumcat-toggle-visual"></span>
+				</label>
+			  </div>
+			</li>
+		  ))}
+		</ol>
+	  </div>
+
+	  {/* Gráfico */}
+	  <div class="widget-cell sumcat-chart-wrap">
+		<canvas
+		  id={canvasId}
+		  data-chart={chartPayload}
+		  aria-label="Gráfico de importes por categoría"
+		  role="img"
+		></canvas>
+	  </div>
+	</div>
+  )}
+</WidgetShell>
+
+{ordered.length > 0 && (
+  <script is:inline>
+	document.addEventListener("DOMContentLoaded", function () {
+	  if (!window.Chart) {
+		console.warn("Chart.js no está en window.Chart");
+		return;
+	  }
+
+	  const canvas = document.getElementById("sumcat-chart");
+	  if (!canvas) {
+		console.warn("Canvas #sumcat-chart no encontrado");
+		return;
+	  }
+
+	  const raw = canvas.dataset.chart;
+	  if (!raw) {
+		console.warn("data-chart vacío en #sumcat-chart");
+		return;
+	  }
+
+	  let payload;
+	  try {
+		payload = JSON.parse(raw);
+	  } catch (e) {
+		console.error("Error parseando JSON de sumcat:", e, raw);
+		return;
+	  }
+
+	  const labels = payload.labels || [];
+	  const values = payload.values || [];
+
+	  console.log("[SumCategoriesWidget] labels:", labels);
+	  console.log("[SumCategoriesWidget] values:", values);
+
+	  if (!labels.length || !values.length) {
+		console.warn("Sin datos para el gráfico de categorías");
+		return;
+	  }
+
+	  const baseColors = [
+		"#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51",
+		"#8ab17d", "#457b9d", "#a8dadc", "#ffafcc", "#ffb703", "#219ebc",
+	  ];
+
+	  const backgroundColor = values.map(function (_v, idx) {
+		return baseColors[idx % baseColors.length];
+	  });
+
+	  const chart = new window.Chart(canvas, {
+		type: "doughnut",
+		data: {
+		  labels: labels,
+		  datasets: [
+			{
+			  data: values.slice(), // copia
+			  backgroundColor: backgroundColor,
+			},
+		  ],
+		},
+		options: {
+		  responsive: true,
+		  maintainAspectRatio: false,
+		  plugins: {
+			legend: { display: false },
+			tooltip: {
+			  callbacks: {
+				label: function (context) {
+				  const label = context.label || "";
+				  const value = context.parsed;
+				  const fmt = new Intl.NumberFormat("es-ES", {
+					style: "currency",
+					currency: "EUR",
+				  }).format(value);
+				  return label + ": " + fmt;
+				},
+			  },
+			},
+		  },
+		},
+	  });
+
+	  // --- Toggle por categoría ---
+	  const originalValues = values.slice();
+	  const layout = canvas.closest(".sumcat-layout");
+	  if (!layout) return;
+
+	  const toggles = layout.querySelectorAll(".sumcat-toggle-input");
+
+	  toggles.forEach(function (input) {
+		input.addEventListener("change", function () {
+		  const idxStr = input.getAttribute("data-idx");
+		  const idx = Number(idxStr);
+		  if (!Number.isInteger(idx) || idx < 0 || idx >= originalValues.length) {
+			return;
+		  }
+
+		  const dataset = chart.data.datasets[0];
+		  if (!dataset || !Array.isArray(dataset.data)) return;
+
+		  // Si está desmarcado → valor 0, si está marcado → valor original
+		  dataset.data[idx] = input.checked ? originalValues[idx] : 0;
+
+		  chart.update();
+		});
+	  });
+	});
+  </script>
+)}
+
+<style>
+  .sumcat-empty {
+	margin: 0.25rem 0 0;
+	font-size: var(--font-size--s);
+  }
+
+  .sumcat-layout {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+	align-items: stretch;
+  }
+
+  .sumcat-list-wrap {
+	padding: var(--space-xxl);
+  }
+
+  .sumcat-list {
+	list-style: decimal;
+	margin: 0;
+	padding-left: 1.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+  }
+
+  .sumcat-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1em;
+	font-size: var(--font-size--s);
+  }
+
+  .sumcat-item-main {
+	display: flex;
+	flex-direction: column;
+  }
+
+  .sumcat-name {
+	font-weight: 500;
+  }
+
+  .sumcat-count {
+	font-size: 0.75rem;
+	color: #777;
+  }
+
+  .sumcat-item-right {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+  }
+
+  .sumcat-item-value {
+	font-variant-numeric: tabular-nums;
+	font-weight: 500;
+	white-space: nowrap;
+  }
+
+  /* Toggle estilo pill */
+  .sumcat-toggle {
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+  }
+
+  .sumcat-toggle-input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+  }
+
+  .sumcat-toggle-visual {
+	width: 32px;
+	height: 18px;
+	border-radius: 999px;
+	background: #ddd;
+	position: relative;
+	transition: background 0.2s ease;
+  }
+
+  .sumcat-toggle-visual::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: 0 0 2px rgba(0, 0, 0, 0.25);
+	transition: transform 0.2s ease;
+  }
+
+  .sumcat-toggle-input:checked + .sumcat-toggle-visual {
+	background: #2563eb;
+  }
+
+  .sumcat-toggle-input:checked + .sumcat-toggle-visual::after {
+	transform: translateX(14px);
+  }
+
+  .sumcat-chart-wrap {
+	min-height: 220px;
+	position: relative;
+  }
+
+  .sumcat-chart-wrap canvas {
+	width: 100%;
+	height: 100%;
+  }
+
+  @media (max-width: 800px) {
+	.sumcat-layout {
+	  grid-template-columns: minmax(0, 1fr);
+	}
+	.sumcat-list-wrap {
+	  border-right: none;
+	  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+	  padding-bottom: 0.75rem;
+	  margin-bottom: 0.5rem;
+	}
+  }
+</style>

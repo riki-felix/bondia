@@ -1,0 +1,71 @@
+---
+import Admin from "../../../../components/Admin.astro";
+import { supabaseClient } from "../../../../lib/supabaseClient";
+import { formatEuro } from "../../../../lib/money";
+
+const supabase = supabaseClient();
+
+// Activos
+const { data: activos = [] } = await supabase
+  .from("casa_activos")
+  .select("id, nombre, descripcion, categoria_id, propiedad_id, valor_estimado, fecha_compra")
+  .order("nombre", { ascending: true });
+
+// Categorías
+const { data: categorias = [] } = await supabase
+  .from("casa_activo_categorias")
+  .select("id, nombre")
+  .order("nombre");
+
+// Propiedades marcadas como activos de casa
+const { data: propiedadesActivas = [] } = await supabase
+  .from("propiedades")
+  .select("id, titulo")
+  .eq("es_activo_casa", true)
+  .order("titulo");
+
+const catById = new Map(categorias.map(c => [c.id, c.nombre]));
+const propById = new Map(propiedadesActivas.map(p => [p.id, p.titulo]));
+---
+
+<Admin title="Activos de casa">
+  <h1 class="admin-title">Activos de casa</h1>
+
+  <div style="text-align:right; margin:1rem 0;">
+	<a href="/admin/casa/activos/nuevo" class="btn btn-primary">
+	  + Nuevo activo
+	</a>
+  </div>
+
+  <table class="admin-table">
+	<thead>
+	  <tr>
+		<th>Nombre</th>
+		<th>Categoría</th>
+		<th>Propiedad</th>
+		<th>Valor estimado</th>
+		<th>Fecha compra</th>
+		<th></th>
+	  </tr>
+	</thead>
+	<tbody>
+	  {activos.map(a => (
+		<tr>
+		  <td>
+			<strong>{a.nombre}</strong>
+			{a.descripcion && <div class="admin-sub">{a.descripcion}</div>}
+		  </td>
+		  <td>{catById.get(a.categoria_id) ?? "—"}</td>
+		  <td>{propById.get(a.propiedad_id) ?? "—"}</td>
+		  <td style="text-align:right;">{a.valor_estimado ? formatEuro(a.valor_estimado) : "—"}</td>
+		  <td>{a.fecha_compra ?? "—"}</td>
+		  <td style="text-align:right;">
+			<a href={`/admin/casa/activos/${a.id}/editar`} class="btn btn-small">
+			  Editar
+			</a>
+		  </td>
+		</tr>
+	  ))}
+	</tbody>
+  </table>
+</Admin>

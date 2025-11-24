@@ -1,0 +1,215 @@
+---
+export const prerender = false;
+
+import CountWidget from "../../widgets/CountWidget.astro";
+import SumWidget from "../../widgets/SumWidget.astro";
+import SumCategoriesWidget from "../../widgets/SumCategoriesWidget.astro";
+
+import "../../../src/styles/pages/propiedades.css";
+
+import Layout from "../../components/Layout.astro";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { loadCategoriasResumen } from "../../lib/movimientosCategorias";
+
+const supabase = supabaseClient();
+
+/* -------------------------------------------------------
+   1) PROPIEDADES DE INVERSIÓN
+--------------------------------------------------------- */
+const { data: allProperties, error } = await supabase
+  .from("propiedades")
+  .select("id, titulo, tipo, estado, fecha_compra, precio_compra, precio_venta")
+  .eq("tipo", "inversion");
+
+/* -------------------------------------------------------
+   2) AÑOS DISPONIBLES (desde fecha_compra)
+--------------------------------------------------------- */
+const yearSet = new Set<number>();
+
+(allProperties ?? []).forEach((p) => {
+  if (p.fecha_compra) {
+	const d = new Date(p.fecha_compra as string);
+	if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  }
+});
+
+const years = Array.from(yearSet).sort((a, b) => b - a);
+
+/* -------------------------------------------------------
+   3) MODO AÑO vs TOTALES
+--------------------------------------------------------- */
+const url = Astro.url;
+const yearParam = url.searchParams.get("year");
+const currentYear = new Date().getFullYear();
+
+let selectedYear: number | null = null;
+let modeTotals = false;
+
+if (!yearParam) {
+  // Por defecto: año actual
+  selectedYear = currentYear;
+} else if (yearParam === "all") {
+  modeTotals = true;
+  selectedYear = null;
+} else {
+  const parsed = Number(yearParam);
+  selectedYear = Number.isFinite(parsed) ? parsed : currentYear;
+}
+
+/* -------------------------------------------------------
+   4) PROPIEDADES FILTRADAS
+--------------------------------------------------------- */
+const properties =
+  modeTotals || !allProperties
+	? allProperties ?? []
+	: allProperties.filter((p) => {
+		if (!p.fecha_compra) return false;
+		const d = new Date(p.fecha_compra as string);
+		return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
+	  });
+
+/* -------------------------------------------------------
+		 5) RESUMEN DE CATEGORÍAS (helper reutilizable)
+	  --------------------------------------------------------- */
+	 const { rows: categoriasResumen, error: catError } =
+	   await loadCategoriasResumen({
+		 supabase,
+		 year: modeTotals ? null : selectedYear,
+		 modeTotals,
+	   });
+---
+
+<Layout title="Inversiones">
+  <header class="main-header">
+	<h1>Inversiones</h1>
+	<div class="page-actions">
+	  <a class="button--small" href="/admin/nueva">+ Nueva</a>
+	</div>
+  </header>
+
+  {error && <p>❌ {error.message}</p>}
+  {catError && <p>⚠️ Error categorías: {catError.message}</p>}
+
+  {/* Filtro de año / totales */}
+  {allProperties && allProperties.length > 0 && (
+	<section class="inv-year-filter">
+	  <label for="inv-year" class="inv-year-filter__label">
+		Año de compra
+	  </label>
+
+	  <select id="inv-year" class="inv-year-filter__select">
+		<option value="all" selected={modeTotals}>TOTALES</option>
+		{years.map((y) => (
+		  <option
+			value={y}
+			selected={!modeTotals && selectedYear === y}
+		  >
+			{y}
+		  </option>
+		))}
+	  </select>
+	</section>
+  )}
+
+  {/* Sin inversiones */}
+  {!error && (!allProperties || allProperties.length === 0) && (
+	<p>
+	  No hay propiedades de tipo <em>Inversión</em>.
+	</p>
+  )}
+
+  {/* Widgets */}
+  {properties && properties.length > 0 && (
+	<section class="widgets">
+	  <CountWidget
+		size="4"
+		propiedades={properties}
+		tipo="inversion"
+		label="Inversiones"
+	  />
+	  <CountWidget
+		size="2"
+		propiedades={properties}
+		tipo="inversion"
+		estado="vendido"
+		label="Vendidas"
+	  />
+	  <CountWidget
+		size="2"
+		propiedades={properties}
+		tipo="inversion"
+		estado="tanteo"
+		label="Tanteo"
+	  />
+	  <CountWidget
+		size="2"
+		propiedades={properties}
+		tipo="inversion"
+		estado="liquidado"
+		label="Liquidados"
+	  />
+
+	  <SumWidget
+		size="5"
+		propiedades={properties}
+		tipo="inversion"
+		campo="precio_venta"
+		label={modeTotals ? "Total Ventas (TOTALES)" : "Total Ventas"}
+	  />
+	  <SumWidget
+		size="5"
+		propiedades={properties}
+		tipo="inversion"
+		campo="precio_compra"
+		label={modeTotals ? "Total Compras (TOTALES)" : "Total Compras"}
+	  />
+
+	  <SumCategoriesWidget
+		size="10"
+		rows={categoriasResumen}
+		modeTotals={modeTotals}
+		selectedYear={selectedYear}
+	  />
+	</section>
+  )}
+</Layout>
+
+<script is:inline>
+  const yearSelect = document.getElementById("inv-year");
+
+  if (yearSelect) {
+	yearSelect.addEventListener("change", () => {
+	  const value = yearSelect.value;
+	  const url = new URL(window.location.href);
+
+	  if (value === "all") {
+		url.searchParams.set("year", "all");
+	  } else {
+		url.searchParams.set("year", value);
+	  }
+
+	  window.location.href = url.toString();
+	});
+  }
+</script>
+
+<style>
+  .inv-year-filter {
+	margin-bottom: 1rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+  }
+
+  .inv-year-filter__label {
+	font-size: 0.9rem;
+	color: #555;
+  }
+
+  .inv-year-filter__select {
+	padding: 0.25rem 0.4rem;
+	border-radius: 0.35rem;
+	border: 1px solid #ccc;
+	font-size: 0.9rem;
+  }
+</style>

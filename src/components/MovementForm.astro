@@ -16,14 +16,17 @@ const { data: propiedadesRaw } = await sb
   .order('created_at', { ascending: false });
 const propiedades = Array.isArray(propiedadesRaw) ? propiedadesRaw : [];
 
-/* Categorías */
+/* Categorías (solo para preselección por defecto) */
 const { data: categoriasRaw } = await sb
   .from('movimiento_categorias')
   .select('id, nombre, slug')
   .order('nombre', { ascending: true });
 const categorias = Array.isArray(categoriasRaw) ? categoriasRaw : [];
 
-const defaultCat = categorias.find(c => c.slug === 'general') ?? categorias[0] ?? null;
+const defaultCat =
+  categorias.find((c: any) => c.slug === 'general') ??
+  categorias[0] ??
+  null;
 const selectedCategoria = String(initial?.categoria_id ?? defaultCat?.id ?? '');
 
 /* Etiquetas */
@@ -32,8 +35,6 @@ const { data: etiquetasRaw } = await sb
   .select('id, nombre')
   .order('nombre', { ascending: true });
 const etiquetas = Array.isArray(etiquetasRaw) ? etiquetasRaw : [];
-
-const etiquetasCount = etiquetas.length || 0;
 
 /* Preselecciones */
 const preProp = Astro.url.searchParams.get('prop');
@@ -52,6 +53,20 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	<input type="hidden" id="mov-id" name="id" value={initial.id} />
   )}
 
+  <!-- Ámbito -->
+  <label for="ambito">Ámbito</label>
+  <select id="ambito" name="ambito">
+	<option value="inversion" selected={initial?.ambito === 'inversion' || !initial?.ambito}>
+	  Inversión
+	</option>
+	<option value="casa" selected={initial?.ambito === 'casa'}>
+	  Casa
+	</option>
+	<option value="otro" selected={initial?.ambito === 'otro'}>
+	  Otro
+	</option>
+  </select>
+
   <!-- Propiedad -->
   <label for="propiedad_id">Propiedad</label>
   <select id="propiedad_id" name="propiedad_id" required>
@@ -62,9 +77,10 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	  </option>
 	))}
   </select>
+
   <fieldset class="form-row">
 	<legend>Tipo de movimiento</legend>
-  
+
 	<label>
 	  <input
 		type="radio"
@@ -74,7 +90,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	  />
 	  Gasto
 	</label>
-  
+
 	<label>
 	  <input
 		type="radio"
@@ -85,7 +101,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	  Aportación
 	</label>
   </fieldset>
-  
+
   <!-- Concepto -->
   <label for="concepto">Concepto</label>
   <input
@@ -138,7 +154,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	<option value="anual"      selected={selectedFrecuencia === 'anual'}>Anual</option>
   </select>
 
-  <!-- Categoría (se llena en cliente via function) -->
+  <!-- Categoría -->
   <label for="categoria_id">Categoría</label>
   <select
 	id="categoria_id"
@@ -150,15 +166,14 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 
   <!-- Etiquetas (multi) -->
   <label for="tags_ids">Etiquetas</label>
-  
-  <!-- Filtro simple para “autocomplete” (no crea etiquetas nuevas) -->
+
   <input
 	id="tags-filter"
 	type="text"
 	placeholder="Filtra y pulsa Enter para seleccionar la primera coincidencia…"
 	autocomplete="off"
   />
-  
+
   <select
 	id="tags_ids"
 	name="tags_ids"
@@ -168,7 +183,9 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
   >
 	<option value="">Cargando etiquetas…</option>
   </select>
-  <p class="hint">Puedes seleccionar varias (Ctrl/Cmd + clic). Escribe en el filtro para reducir la lista y pulsa Enter para seleccionar la primera coincidencia.</p>
+  <p class="hint">
+	Puedes seleccionar varias (Ctrl/Cmd + clic). Escribe en el filtro para reducir la lista y pulsa Enter para seleccionar la primera coincidencia.
+  </p>
 
   <!-- Documento -->
   <label for="documento">Documento (PDF/JPG/PNG)</label>
@@ -196,142 +213,139 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
   const msg  = document.getElementById('msg') || { textContent: '', className: '' };
   const btn  = document.getElementById('submitBtn') || { disabled: false };
   const catSelect = document.getElementById('categoria_id');
-  
-	async function loadCategories() {
-	  if (!catSelect) return;
-  
-	  try {
-		const res = await fetch('/.netlify/functions/listMovCategories');
-		const text = await res.text();
-		let out;
-		try { out = JSON.parse(text); } catch { out = []; }
-  
-		const cats = Array.isArray(out) ? out : (out?.data || []);
-		catSelect.innerHTML = '';
-  
-		// Placeholder
-		const optNone = document.createElement('option');
-		optNone.value = '';
-		optNone.textContent = '— Sin categoría —';
-		catSelect.appendChild(optNone);
-  
-		const sel = catSelect.getAttribute('data-selected') || '';
-		let selectedSet = false;
-  
-		for (const c of cats) {
-		  if (!c?.id || !c?.nombre) continue;
-  
-		  const opt = document.createElement('option');
-		  opt.value = String(c.id);
-		  opt.textContent = c.nombre;
-  
-		  // Selección: primero el valor existente (edición),
-		  // o por defecto la categoría "General"
-		  if (
-			sel && String(sel) === String(c.id)
-		  ) {
-			opt.selected = true;
-			selectedSet = true;
-		  } else if (
-			!sel &&
-			c.nombre.trim().toLowerCase() === 'general'
-		  ) {
-			opt.selected = true;
-			selectedSet = true;
-		  }
-  
-		  catSelect.appendChild(opt);
-		}
-  
-		// Si no existe ninguna "General" en BBDD, deja "Sin categoría"
-		if (!selectedSet && cats.length > 0) {
-		  catSelect.value = cats[0].id;
-		}
-	  } catch (e) {
-		catSelect.innerHTML = '';
+
+  // -----------------------------
+  // Cargar categorías (movimientos)
+  // -----------------------------
+  async function loadCategories() {
+	if (!catSelect) return;
+
+	try {
+	  const res = await fetch('/.netlify/functions/listCategories?scope=movimientos');
+	  const text = await res.text();
+	  let out;
+	  try { out = JSON.parse(text); } catch { out = []; }
+
+	  // El listCategories debería devolver directamente un array de categorías
+	  const cats = Array.isArray(out) ? out : (out?.data || []);
+
+	  catSelect.innerHTML = '';
+
+	  const optNone = document.createElement('option');
+	  optNone.value = '';
+	  optNone.textContent = '— Sin categoría —';
+	  catSelect.appendChild(optNone);
+
+	  const sel = catSelect.getAttribute('data-selected') || '';
+	  let selectedSet = false;
+
+	  for (const c of cats) {
+		if (!c?.id || !c?.nombre) continue;
+
 		const opt = document.createElement('option');
-		opt.value = '';
-		opt.textContent = '— Sin categoría —';
+		opt.value = String(c.id);
+		opt.textContent = c.nombre;
+
+		if (sel && String(sel) === String(c.id)) {
+		  opt.selected = true;
+		  selectedSet = true;
+		} else if (!sel && String(c.slug || '').toLowerCase() === 'general') {
+		  opt.selected = true;
+		  selectedSet = true;
+		}
+
 		catSelect.appendChild(opt);
-		console.error('[categorías] load error:', e);
 	  }
+
+	  if (!selectedSet && cats.length > 0) {
+		catSelect.value = cats[0].id;
+	  }
+	} catch (e) {
+	  catSelect.innerHTML = '';
+	  const opt = document.createElement('option');
+	  opt.value = '';
+	  opt.textContent = '— Sin categoría —';
+	  catSelect.appendChild(opt);
+	  console.error('[categorías movimientos] load error:', e);
 	}
-  
-	loadCategories();
-	// --- Etiquetas: cargar desde función segura y permitir “autocomplete” ligero ---
-	  const tagsSelect = document.getElementById('tags_ids');
-	  const tagsFilter = document.getElementById('tags-filter');
-	
-	  async function loadTags() {
-		if (!tagsSelect) return;
-	
-		try {
-		  const res = await fetch('/.netlify/functions/listMovTags');
-		  const text = await res.text();
-		  let out; try { out = JSON.parse(text); } catch { out = []; }
-	
-		  const tags = Array.isArray(out) ? out : (out?.data || []);
-		  const preselected = parseSelectedArray(tagsSelect.getAttribute('data-selected'));
-	
-		  // Limpia y vuelca opciones
-		  tagsSelect.innerHTML = '';
-		  for (const t of tags) {
-			if (!t?.id || !t?.nombre) continue;
-			const opt = document.createElement('option');
-			opt.value = String(t.id);
-			opt.textContent = t.nombre;
-			if (preselected.includes(String(t.id))) opt.selected = true;
-			tagsSelect.appendChild(opt);
-		  }
-		} catch (e) {
-		  console.error('[etiquetas] load error:', e);
-		  tagsSelect.innerHTML = '';
-		  const opt = document.createElement('option');
-		  opt.value = '';
-		  opt.textContent = '— Sin etiquetas —';
-		  tagsSelect.appendChild(opt);
-		}
+  }
+
+  loadCategories();
+
+  // -----------------------------
+  // Etiquetas
+  // -----------------------------
+  const tagsSelect = document.getElementById('tags_ids');
+  const tagsFilter = document.getElementById('tags-filter');
+
+  async function loadTags() {
+	if (!tagsSelect) return;
+
+	try {
+	  const res = await fetch('/.netlify/functions/listMovTags');
+	  const text = await res.text();
+	  let out; try { out = JSON.parse(text); } catch { out = []; }
+
+	  const tags = Array.isArray(out) ? out : (out?.data || []);
+	  const preselected = parseSelectedArray(tagsSelect.getAttribute('data-selected'));
+
+	  tagsSelect.innerHTML = '';
+	  for (const t of tags) {
+		if (!t?.id || !t?.nombre) continue;
+		const opt = document.createElement('option');
+		opt.value = String(t.id);
+		opt.textContent = t.nombre;
+		if (preselected.includes(String(t.id))) opt.selected = true;
+		tagsSelect.appendChild(opt);
 	  }
-	
-	  // Filtro simple: oculta opciones que no coinciden
-	  function filterTags() {
-		const q = (tagsFilter?.value || '').trim().toLowerCase();
-		if (!tagsSelect) return;
-		for (const opt of Array.from(tagsSelect.options)) {
-		  if (!q) { opt.hidden = false; continue; }
-		  const hay = (opt.textContent || '').toLowerCase().includes(q);
-		  opt.hidden = !hay;
-		}
-	  }
-	
-	  // “Autocomplete” ligero: ENTER selecciona la primera visible no seleccionada
-	  function enterSelectFirstVisible(e) {
-		if (e.key !== 'Enter') return;
-		if (!tagsSelect) return;
-		const firstVisible = Array.from(tagsSelect.options).find(o => !o.hidden);
-		if (firstVisible) {
-		  firstVisible.selected = !firstVisible.selected; // toggle
-		  // Dispara un cambio para que tu lógica (si escucha change) pueda reaccionar
-		  tagsSelect.dispatchEvent(new Event('change', { bubbles: true }));
-		}
-		e.preventDefault();
-	  }
-	
-	  function parseSelectedArray(attr) {
-		if (!attr) return [];
-		try {
-		  const arr = JSON.parse(attr);
-		  return Array.isArray(arr) ? arr.map(String) : [];
-		} catch {
-		  return [];
-		}
-	  }
-	
-	  // Bindings
-	  loadTags();
-	  tagsFilter?.addEventListener('input', filterTags);
-	  tagsFilter?.addEventListener('keydown', enterSelectFirstVisible);
-	  
+	} catch (e) {
+	  console.error('[etiquetas] load error:', e);
+	  tagsSelect.innerHTML = '';
+	  const opt = document.createElement('option');
+	  opt.value = '';
+	  opt.textContent = '— Sin etiquetas —';
+	  tagsSelect.appendChild(opt);
+	}
+  }
+
+  function filterTags() {
+	const q = (tagsFilter?.value || '').trim().toLowerCase();
+	if (!tagsSelect) return;
+	for (const opt of Array.from(tagsSelect.options)) {
+	  if (!q) { opt.hidden = false; continue; }
+	  const hay = (opt.textContent || '').toLowerCase().includes(q);
+	  opt.hidden = !hay;
+	}
+  }
+
+  function enterSelectFirstVisible(e) {
+	if (e.key !== 'Enter') return;
+	if (!tagsSelect) return;
+	const firstVisible = Array.from(tagsSelect.options).find(o => !o.hidden);
+	if (firstVisible) {
+	  firstVisible.selected = !firstVisible.selected;
+	  tagsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+	}
+	e.preventDefault();
+  }
+
+  function parseSelectedArray(attr) {
+	if (!attr) return [];
+	try {
+	  const arr = JSON.parse(attr);
+	  return Array.isArray(arr) ? arr.map(String) : [];
+	} catch {
+	  return [];
+	}
+  }
+
+  loadTags();
+  tagsFilter?.addEventListener('input', filterTags);
+  tagsFilter?.addEventListener('keydown', enterSelectFirstVisible);
+
+  // -----------------------------
+  // Submit
+  // -----------------------------
   function el(id){ return document.getElementById(id); }
   function get(id){ const e = el(id); return e ? e.value : ''; }
   function getMulti(id){
@@ -342,6 +356,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	const el = form?.querySelector(`input[name="${name}"]:checked`);
 	return el ? el.value : '';
   }
+
   form?.addEventListener('submit', async (e) => {
 	e.preventDefault();
 	msg.textContent = '';
@@ -349,68 +364,58 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	btn.disabled = true;
 
 	try {
-		const get = (id) => document.getElementById(id)?.value ?? '';
-		const getMulti = (id) => {
-		  const el = document.getElementById(id);
-		  return el ? Array.from(el.selectedOptions).map(o => o.value).filter(Boolean) : [];
-		};
-	
-		const idEl         = document.getElementById('mov-id');
-		const isEdit       = !!(idEl && idEl.value);
-		const endpoint     = isEdit ? '/.netlify/functions/updateMovement'
-									: '/.netlify/functions/createMovement';
-	
-		const payload = {
-		  ...(isEdit ? { id: idEl.value } : {}),
-		  propiedad_id : get('propiedad_id'),
-		  concepto     : get('concepto').trim(),
-		  fecha        : get('fecha'),              // YYYY-MM-DD
-		  importe      : get('importe').trim(),     // con coma, sin miles
-		  estado       : get('estado') || '',
-		  frecuencia   : get('frecuencia') || '',
-		  categoria_id : get('categoria_id') || null,
-		  tags_ids     : getMulti('tags_ids'),
-		  tipo_movimiento: getRadio('tipo_movimiento') || 'Gasto',
-		};
-	
-		if (!payload.propiedad_id) throw new Error('Selecciona una propiedad');
-		if (!payload.concepto)     throw new Error('Introduce un concepto');
-		if (!payload.fecha)        throw new Error('Selecciona una fecha');
-		if (!payload.importe)      throw new Error('Introduce un importe (usa coma para decimales)');
-	
-		const res = await fetch(endpoint, {
-		  method: 'POST',
-		  headers: { 'Content-Type': 'application/json' },
-		  body: JSON.stringify(payload),
-		});
-	
-		const txt = await res.text();
-		let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
-		if (!res.ok) throw new Error(out?.error || `HTTP ${res.status}`);
-	
-		msg.textContent = isEdit ? 'Cambios guardados ✅' : 'Movimiento creado ✅';
+	  const idEl         = document.getElementById('mov-id') as HTMLInputElement | null;
+	  const isEdit       = !!(idEl && idEl.value);
+	  const endpoint     = isEdit
+		? '/.netlify/functions/updateMovement'
+		: '/.netlify/functions/createMovement';
+
+	  const payload: any = {
+		...(isEdit ? { id: idEl!.value } : {}),
+		propiedad_id   : get('propiedad_id'),
+		concepto       : get('concepto').trim(),
+		fecha          : get('fecha'),
+		importe        : get('importe').trim(),
+		estado         : get('estado') || '',
+		frecuencia     : get('frecuencia') || '',
+		categoria_id   : get('categoria_id') || null,
+		tags_ids       : getMulti('tags_ids'),
+		tipo_movimiento: getRadio('tipo_movimiento') || 'Gasto',
+		ambito         : get('ambito') || 'inversion',
+	  };
+
+	  if (!payload.propiedad_id) throw new Error('Selecciona una propiedad');
+	  if (!payload.concepto)     throw new Error('Introduce un concepto');
+	  if (!payload.fecha)        throw new Error('Selecciona una fecha');
+	  if (!payload.importe)      throw new Error('Introduce un importe (usa coma para decimales)');
+
+	  const res = await fetch(endpoint, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload),
+	  });
+
+	  const txt = await res.text();
+	  let out; try { out = JSON.parse(txt); } catch { out = { raw: txt }; }
+	  if (!res.ok) throw new Error(out?.error || `HTTP ${res.status}`);
+
+	  if (isEdit) {
+		msg.textContent = 'Movimiento actualizado correctamente ✅';
 		msg.className = 'hint';
-		
-		if (isEdit) {
-		  msg.textContent = 'Movimiento actualizado correctamente ✅';
-		  msg.className = 'hint';
-		  // Espera un breve momento y redirige al listado
-		  setTimeout(() => {
-			window.location.href = '/admin/movimientos';
-		  }, 800);
-		} else {
-		  msg.textContent = 'Movimiento creado correctamente ✅';
-		  msg.className = 'hint';
-		  form.reset();
-		}
-		
-		if (!isEdit) form.reset();
-	  } catch (err) {
-		msg.textContent = `Error: ${err.message || err}`;
-		msg.className = 'hint danger';
-		console.error('[movimientos] submit error:', err);
-	  } finally {
-		btn.disabled = false;
+		setTimeout(() => {
+		  window.location.href = '/admin/movimientos';
+		}, 800);
+	  } else {
+		msg.textContent = 'Movimiento creado correctamente ✅';
+		msg.className = 'hint';
+		form.reset();
 	  }
-	});
+	} catch (err: any) {
+	  msg.textContent = `Error: ${err.message || err}`;
+	  msg.className = 'hint danger';
+	  console.error('[movimientos] submit error:', err);
+	} finally {
+	  btn.disabled = false;
+	}
+  });
 </script>

@@ -1,10 +1,12 @@
 ---
+import { formatEuro, toNum } from "../lib/money";
 export interface Props {
   mode: 'create' | 'edit';
   initial?: any | null; // propiedad opcional para modo edición
 }
 const { mode = 'create', initial = null } = Astro.props;
 const isEdit = mode === 'edit';
+
 ---
 
 <form id="prop-form" novalidate>
@@ -27,7 +29,16 @@ const isEdit = mode === 'edit';
   <!-- Título -->
   <label for="titulo">Título</label>
   <input id="titulo" name="titulo" placeholder="Ej: Piso en Gràcia" required value={isEdit ? (initial?.titulo ?? '') : ''} />
-
+  <div class="field">
+	<label for="direccion">Dirección</label>
+	<input
+	  id="direccion"
+	  name="direccion"
+	  type="text"
+	  placeholder="Ej: Pubilla Cases 21 2º 2ª LH"
+	  value={initial?.direccion ?? ''}
+	/>
+  </div>
   <!-- Superficie / Año construcción -->
   <div class="row">
 	<div>
@@ -282,6 +293,7 @@ const isEdit = mode === 'edit';
 	const anio_construccion = toYearOrNull(form.anio_construccion.value);
 	const numero_catastro = emptyOrNull(form.numero_catastro.value);
 	const fecha_compra = emptyOrNull(form.fecha_compra.value);
+	const direccion = emptyOrNull(form.direccion.value);
 
 	const precio_compra = canonMoneyNumber(form.precio_compra.value);
 	const precio_venta = canonMoneyNumber(form.precio_venta.value);
@@ -307,6 +319,7 @@ const isEdit = mode === 'edit';
 	const payload = {
 	  tipo,
 	  titulo,
+	  direccion,
 	  superficie_m2,
 	  anio_construccion,
 	  numero_catastro,

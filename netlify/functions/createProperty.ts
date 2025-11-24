@@ -119,6 +119,7 @@ export const handler: Handler = async (event) => {
 	if (!titulo) return json({ error: 'Falta título' }, 400)
 
 	// Campos
+	const direccion     = toIntOrNull(body?.direccion)
 	const superficie_m2     = toIntOrNull(body?.superficie_m2)
 	const anio_construccion = toYearOrNull(body?.anio_construccion)
 	const numero_catastro   = emptyToNull(body?.numero_catastro)

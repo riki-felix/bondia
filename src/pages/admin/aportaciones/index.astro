@@ -1,0 +1,70 @@
+---
+export const prerender = false;
+
+import AportacionesTotalsWidget from "../../../widgets/AportacionesTotalsWidget.astro";
+import Admin from "../../../components/Admin.astro";
+import { formatEuro } from "../../../lib/money";
+import { formatDateShort } from "../../../lib/date";
+import { supabaseClient } from "../../../lib/supabaseClient";
+const supabase = supabaseClient();
+
+const { data: aportaciones, error } = await supabase
+  .from("aportaciones")
+  .select(`
+	id,
+	concepto,
+	fecha,
+	importe,
+	modo_pago,
+	autor,
+	propiedad:propiedad_id ( id, titulo, slug )
+  `)
+  .order("fecha", { ascending: true });
+---
+
+<Admin>
+  <h1>Aportaciones</h1>
+
+  <p><a href="/admin/aportaciones/nueva">+ Nueva aportación</a></p>
+
+  <AportacionesTotalsWidget aportaciones={aportaciones ?? []} />
+
+  {error && <p>❌ Error cargando aportaciones</p>}
+
+  {aportaciones && aportaciones.length === 0 && <p>No hay aportaciones todavía.</p>}
+
+  {aportaciones && aportaciones.length > 0 && (
+	<table>
+	  <thead>
+		<tr>
+		  <th>Importe</th>
+		  <th>Fecha</th>
+		  <th>Propiedad</th>
+		  <th>Concepto</th>
+		  <th>Modo pago</th>
+		  <th>Autor</th>
+		  <th>Acciones</th>
+		</tr>
+	  </thead>
+	  <tbody>
+		{aportaciones.map((a: any) => (
+		  <tr>
+			<td>{formatEuro(Number(a.importe))}</td>
+			<td>{formatDateShort(a.fecha)}</td>
+			<td>
+			  {a.propiedad
+				? <a href={`/propiedad/${a.propiedad.slug}`}>{a.propiedad.titulo}</a>
+				: '—'}
+			</td>
+			<td>{a.concepto}</td>
+			<td>{a.modo_pago}</td>
+			<td>{a.autor}</td>
+			<td>
+			  <a href={`/admin/aportaciones/${a.id}/editar`}>Editar</a>
+			</td>
+		  </tr>
+		))}
+	  </tbody>
+	</table>
+  )}
+</Admin>

@@ -1,0 +1,38 @@
+---
+import WidgetShell from "./WidgetShell.astro";
+import { toNum, formatEuro } from "../lib/money";
+
+interface Item {
+  valorPrincipal: number | null;
+}
+
+interface Props {
+  items?: Item[];
+  size?: number | string;
+}
+
+const {
+  items = [],
+  size = 3,
+} = Astro.props as Props;
+
+const totalValor = items.reduce((acc, it) => acc + toNum(it.valorPrincipal), 0);
+---
+
+<WidgetShell size={size} ariaLabelledBy="activos-total-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="activos-total-title" class="data-label label-m">
+		Valor total activos
+	  </span>
+
+	  <span class="data-money data-xl">
+		{formatEuro(totalValor)}
+	  </span>
+
+	  <span class="data-label label-xs">
+		Suma de todos los activos filtrados
+	  </span>
+	</div>
+  </div>
+</WidgetShell>

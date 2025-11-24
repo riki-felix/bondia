@@ -1,37 +1,47 @@
 ---
 export const prerender = false;
-import '../../../src/styles/pages/propiedades.css';
+
+import "../../../src/styles/pages/propiedades.css";
 
 import Layout from "../../components/Layout.astro";
 import TotalsWidget from "../../widgets/TotalsWidget.astro";
 import DifferenceWidget from "../../widgets/DifferenceWidget.astro";
-import { supabaseServer } from "../../lib/supabaseServer";
 
-// Utilidad para formatear moneda
-const money = (v: number | null | undefined) =>
-  v == null ? "—" : Number(v).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+import { supabaseServer } from "../../lib/supabaseServer";
+import { formatEuro } from "../../lib/money";
+
+/* ============================================================
+   HELPERS
+============================================================ */
 
 const cap = (s?: string | null) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "—";
 
-// Etiquetas para suministros
 const LUZ_AGUA_LABELS: Record<string, string> = {
   sin_suministro: "Sin suministro",
   pinchada: "Pinchada",
   contratada: "Contratada",
 };
+
 const GAS_LABELS: Record<string, string> = {
   sin_suministro: "Sin suministro",
   pinchado: "Pinchado",
   contratado: "Contratado",
 };
-const labelLuzAgua = (k?: string | null) => (k && LUZ_AGUA_LABELS[k]) || "—";
-const labelGas = (k?: string | null) => (k && GAS_LABELS[k]) || "—";
+
+const labelLuzAgua = (k?: string | null) =>
+  (k && LUZ_AGUA_LABELS[k]) || "—";
+
+const labelGas = (k?: string | null) =>
+  (k && GAS_LABELS[k]) || "—";
 
 const base = import.meta.env.PUBLIC_SUPABASE_URL;
 
 const { slug } = Astro.params;
 
+/* ============================================================
+   1) Cargar propiedad
+============================================================ */
 const { data: propiedad, error: propError } = await supabaseServer()
   .from("propiedades")
   .select("*")
@@ -43,144 +53,197 @@ if (propError || !propiedad) {
   throw new Error(propError?.message ?? "Propiedad no encontrada");
 }
 
+/* ============================================================
+   2) Cargar movimientos
+============================================================ */
 const { data: movimientos, error: movError } = await supabaseServer()
   .from("movimientos")
   .select("*")
   .eq("propiedad_id", propiedad.id);
 
+/* ============================================================
+   3) URLs de imagen y plano
+============================================================ */
 const fotoUrl = propiedad.foto_destacada_path
   ? `${base}/storage/v1/object/public/property-images/${propiedad.foto_destacada_path}`
   : null;
+
 const planoUrl = propiedad.plano_path
   ? `${base}/storage/v1/object/public/property-plans/${propiedad.plano_path}`
   : null;
-// =============================
-  //   URL de retorno según tipo
-  // =============================
-  let backUrl = "/propiedades"; // valor por defecto
-  if (propiedad?.tipo === "inversion") {
-	backUrl = "/inversiones";           // ejemplo: página de inversiones
-  } else if (propiedad?.tipo === "activo") {
-	backUrl = "/sanyus/activos";        // ejemplo: página de activos
-  }
-const movimientosGasto = movimientos?.filter(m => {
-	const tipo = (m.tipo_movimiento ?? "").normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+/* ============================================================
+   4) URL de retorno según tipo
+============================================================ */
+let backUrl = "/propiedades";
+if (propiedad?.tipo === "inversion") {
+  backUrl = "/inversiones";
+} else if (propiedad?.tipo === "activo") {
+  backUrl = "/sanyus/activos";
+}
+
+/* ============================================================
+   5) Totales de movimientos
+============================================================ */
+const movimientosGasto =
+  movimientos?.filter((m) => {
+	const tipo = (m.tipo_movimiento ?? "")
+	  .normalize("NFD")
+	  .replace(/[\u0300-\u036f]/g, "")
+	  .toLowerCase()
+	  .trim();
 	return tipo !== "aportacion";
   }) ?? [];
-  
-  const totals = movimientosGasto.reduce(
-	(acc, m) => {
-	  acc.total += Number(m.importe) || 0;
-	  if (m.estado === "pagado") acc.pagado += Number(m.importe) || 0;
-	  if (m.estado === "pendiente") acc.pendiente += Number(m.importe) || 0;
-	  return acc;
-	},
-	{ total: 0, pagado: 0, pendiente: 0 }
-  );
 
+const totals = movimientosGasto.reduce(
+  (acc, m) => {
+	const imp = Number(m.importe) || 0;
+	acc.total += imp;
+	if (m.estado === "pagado") acc.pagado += imp;
+	if (m.estado === "pendiente") acc.pendiente += imp;
+	return acc;
+  },
+  { total: 0, pagado: 0, pendiente: 0 }
+);
 ---
 
 <Layout title={propiedad.titulo}>
-	<header class="main-header">
-		<p>Creada el {new Date(propiedad.created_at).toLocaleString("es-ES")}</p>
-		<p><a href={backUrl}>← Volver al listado</a></p>
-		<a
-			href={`/admin/propiedad/${propiedad.slug}/editar`}
-			class="button--small"
-		>
-		Editar
-		</a>
-	</header>
-	<div class="main-row col-2">
-		<section class="leading-block property-images">
-			{fotoUrl && (
-				  <img
-					src={fotoUrl}
-					alt={`Foto de ${propiedad.titulo}`}
-					loading="lazy"
-				  />
-			  )}
-			
-			{planoUrl && (
-			<img
-				src={planoUrl}
-				alt={`Plano de ${propiedad.titulo}`}
-				loading="lazy"
-				style="max-width:640px;height:auto;border:1px solid #ddd;border-radius:8px;"
-			/>
-			)}
-		</section>
-		<section class="trailing-block property-data">
-			<header class="section-header">
-				<h1 style="margin:0 0 .5rem">{propiedad.titulo}</h1>
-				<div>{cap(propiedad.estado)}</div>
-				<div>{propiedad.superficie_m2 ?? ""}</div>
-				<div>Construido en {propiedad.anio_construccion ?? "—"}</div>
-				<div>Nº Catastro:{propiedad.numero_catastro ?? ""}</div>				
-				<div>{cap(propiedad.tipo)}</div>
-			</header>
-			<div class="block compra-venta">
-				
-				<h3>Compra - Venta</h3>
-				<div>Comprado por {money(propiedad.precio_compra)}</div>
-				<div>Vendido por {money(propiedad.precio_venta)}</div>
-				<div>IVA 10%:{money(propiedad.iva_10)}</div>
-				<div>Valor catastral:{money(propiedad.valor_catastro)}</div>
-				<div>Fecha compra:{propiedad.fecha_compra ? new Date(propiedad.fecha_compra).toLocaleDateString("es-ES") : "—"}</div>
-				{propiedad.alquiler_previsto && (<div>Alquiler previsto:{money(propiedad.alquiler_previsto)}</div>)}
-			</div>
-			<div class="block gastos-fijos">
-				<h3>Gastos Fijos</h3>
-				<div>Valor ITE:{money(propiedad.valor_ite)}</div>
-				<div>Coste administrador:{money(propiedad.coste_administrador)}</div>
-				<div>Cuota comunidad:{money(propiedad.cuota_comunidad)}</div>
-				<div>Periodicidad cuota:{propiedad.periodicidad_cuota ?? "—"}</div>
-				<div>IBI:{money(propiedad.ibi)}</div>
-				<div>Suministro luz:{labelLuzAgua(propiedad.suministro_luz)}</div>
-				<div>Suministro agua:{labelLuzAgua(propiedad.suministro_agua)}</div>
-				<div>Suministro gas:{labelGas(propiedad.suministro_gas)}</div>				
-			</div>
-			<div class="block metadata">
-				<div>Creado:{new Date(propiedad.created_at).toLocaleString("es-ES")}</div>
-				<div>Actualizado:{new Date(propiedad.updated_at).toLocaleString("es-ES")}</div>				
-			</div>
-		</section>
-	</div>
-	<div class="main-row ">
-	<section class="widgets">
-		<!-- Widgets -->
-		  <TotalsWidget totals={totals} movimientos={movimientos ?? []} />
-		  <DifferenceWidget precio_venta={Number(propiedad.precio_venta) || 0} totals={totals} />
+  <header class="main-header">
+	<p>Creada el {new Date(propiedad.created_at).toLocaleString("es-ES")}</p>
+	<p><a href={backUrl}>← Volver al listado</a></p>
+	<a href={`/admin/propiedad/${propiedad.slug}/editar`} class="button--small">
+	  Editar
+	</a>
+  </header>
+
+  <div class="main-row col-2">
+	<!-- =======================================
+		 BLOQUE IZQUIERDO: IMÁGENES
+	======================================== -->
+	<section class="leading-block property-images">
+	  {fotoUrl && (
+		<img
+		  src={fotoUrl}
+		  alt={`Foto de ${propiedad.titulo}`}
+		  loading="lazy"
+		/>
+	  )}
+
+	  {planoUrl && (
+		<img
+		  src={planoUrl}
+		  alt={`Plano de ${propiedad.titulo}`}
+		  loading="lazy"
+		  style="max-width:640px;height:auto;border:1px solid #ddd;border-radius:8px;"
+		/>
+	  )}
 	</section>
-    <section class="block movements">
-	<h2>Movimientos</h2>
-	<table class="table-movements">
-	  <thead>
-		<tr>
-		  <th>Tipo</th>
-		  <th>Concepto</th>
-		  <th>Importe</th>
-		  <th>Estado</th>
-		  <th>Fecha</th>
-		</tr>
-	  </thead>
-	  <tbody>
-		{movimientos?.length
-		  ? movimientos.map(m => (
+
+	<!-- =======================================
+		 BLOQUE DERECHO: DATOS
+	======================================== -->
+	<section class="trailing-block property-data">
+	  <header class="section-header">
+		<h1 style="margin:0 0 .5rem">{propiedad.titulo}</h1>
+		<div>{cap(propiedad.estado)}</div>
+		<div>{propiedad.direccion ?? ""}</div>
+		<div>{propiedad.superficie_m2 ?? ""}</div>
+		<div>Construido en {propiedad.anio_construccion ?? "—"}</div>
+		<div>Nº Catastro: {propiedad.numero_catastro ?? ""}</div>
+		<div>{cap(propiedad.tipo)}</div>
+	  </header>
+
+	  <!-- COMPRA / VENTA -->
+	  <div class="block compra-venta">
+		<h3>Compra - Venta</h3>
+		<div>Comprado por {formatEuro(propiedad.precio_compra)}</div>
+		<div>Vendido por {formatEuro(propiedad.precio_venta)}</div>
+		<div>IVA 10%: {formatEuro(propiedad.iva_10)}</div>
+		<div>Valor catastral: {formatEuro(propiedad.valor_catastro)}</div>
+		<div>
+		  Fecha compra:{" "}
+		  {propiedad.fecha_compra
+			? new Date(propiedad.fecha_compra).toLocaleDateString("es-ES")
+			: "—"}
+		</div>
+		{propiedad.alquiler_previsto && (
+		  <div>Alquiler previsto: {formatEuro(propiedad.alquiler_previsto)}</div>
+		)}
+	  </div>
+
+	  <!-- GASTOS FIJOS -->
+	  <div class="block gastos-fijos">
+		<h3>Gastos Fijos</h3>
+		<div>Valor ITE: {formatEuro(propiedad.valor_ite)}</div>
+		<div>Coste administrador: {formatEuro(propiedad.coste_administrador)}</div>
+		<div>Cuota comunidad: {formatEuro(propiedad.cuota_comunidad)}</div>
+		<div>Periodicidad cuota: {propiedad.periodicidad_cuota ?? "—"}</div>
+		<div>IBI: {formatEuro(propiedad.ibi)}</div>
+		<div>Suministro luz: {labelLuzAgua(propiedad.suministro_luz)}</div>
+		<div>Suministro agua: {labelLuzAgua(propiedad.suministro_agua)}</div>
+		<div>Suministro gas: {labelGas(propiedad.suministro_gas)}</div>
+	  </div>
+
+	  <!-- METADATOS -->
+	  <div class="block metadata">
+		<div>
+		  Creado: {new Date(propiedad.created_at).toLocaleString("es-ES")}
+		</div>
+		<div>
+		  Actualizado: {new Date(propiedad.updated_at).toLocaleString("es-ES")}
+		</div>
+	  </div>
+	</section>
+  </div>
+
+  <!-- =======================================
+	   WIDGETS
+  ======================================== -->
+  <div class="main-row">
+	<section class="widgets">
+	  <TotalsWidget size="5" totals={totals} movimientos={movimientos ?? []} />
+	  <DifferenceWidget size="5" precio_venta={propiedad.precio_venta} totals={totals} />
+	</section>
+
+	<!-- MOVIMIENTOS -->
+	<section class="block movements">
+	  <h2>Movimientos</h2>
+
+	  <table class="table-movements">
+		<thead>
+		  <tr>
+			<th>Tipo</th>
+			<th>Concepto</th>
+			<th>Importe</th>
+			<th>Estado</th>
+			<th>Fecha</th>
+		  </tr>
+		</thead>
+
+		<tbody>
+		  {movimientos?.length ? (
+			movimientos.map((m) => (
+			  <tr>
+				<td>{cap(m.tipo_movimiento)}</td>
+				<td>{m.concepto ?? "—"}</td>
+				<td>{formatEuro(m.importe)}</td>
+				<td>{cap(m.estado)}</td>
+				<td>
+				  {m.fecha
+					? new Date(m.fecha).toLocaleDateString("es-ES")
+					: "—"}
+				</td>
+			  </tr>
+			))
+		  ) : (
 			<tr>
-			  <td>{m.tipo_movimiento ?? "—"}</td>
-			  <td>{m.concepto ?? "—"}</td>
-			  <td>{money(m.importe)}</td>
-			  <td>{cap(m.estado)}</td>
-			  <td>{m.fecha ? new Date(m.fecha).toLocaleDateString("es-ES") : "—"}</td>
+			  <td colspan="5" class="muted">
+				No hay movimientos.
+			  </td>
 			</tr>
-		  ))
-		  : (
-			<tr><td colspan="4" class="muted">No hay movimientos.</td></tr>
-		  )
-		}
-	  </tbody>
-	</table>
-  </section>
-	</div>  
+		  )}
+		</tbody>
+	  </table>
+	</section>
+  </div>
 </Layout>

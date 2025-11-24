@@ -1,0 +1,173 @@
+---
+export interface Props {
+  title: string;
+  scope: "movimientos" | "activos";
+}
+
+const { title, scope } = Astro.props;
+---
+
+<style>
+  .cat-grid {
+	display: grid;
+	gap: 0.75rem;
+	max-width: 640px;
+	margin-bottom: 1rem;
+  }
+
+  .cat-row {
+	display: flex;
+	justify-content: space-between;
+	background: #fafafa;
+	padding: 0.5rem 0.75rem;
+	border-radius: 6px;
+	align-items: center;
+	border: 1px solid #eee;
+  }
+
+  .cat-row input {
+	flex: 1;
+	margin-right: 0.5rem;
+  }
+
+  .cat-actions button {
+	margin-left: 0.25rem;
+  }
+
+  #addBtn {
+	margin-top: 0.5rem;
+  }
+
+  .cat-empty {
+	font-size: 0.9rem;
+	color: #777;
+  }
+</style>
+
+<h1>{title}</h1>
+
+<div
+  id="cat-container"
+  class="cat-grid"
+  data-scope={scope}
+>
+  <p>Cargando…</p>
+</div>
+
+<button id="addBtn" type="button">➕ Nueva categoría</button>
+
+<script is:inline>
+  const container = document.getElementById("cat-container");
+  const addBtn = document.getElementById("addBtn");
+
+  if (container) {
+	const scope = container.dataset.scope || "movimientos";
+
+	async function loadCategories() {
+	  if (!container) return;
+
+	  container.innerHTML = "<p>Cargando…</p>";
+
+	  let cats = [];
+	  try {
+		const res = await fetch(
+		  `/.netlify/functions/listCategories?scope=${encodeURIComponent(scope)}`
+		);
+		const text = await res.text();
+		const parsed = JSON.parse(text);
+		cats = Array.isArray(parsed) ? parsed : parsed.data || [];
+	  } catch (e) {
+		console.error("[categories] load error:", e);
+		container.innerHTML =
+		  '<p class="cat-empty">Error cargando categorías.</p>';
+		return;
+	  }
+
+	  container.innerHTML = "";
+
+	  if (!cats.length) {
+		container.innerHTML =
+		  '<p class="cat-empty">No hay categorías todavía.</p>';
+		return;
+	  }
+
+	  for (const cat of cats) {
+		renderRow(cat.id, cat.nombre);
+	  }
+	}
+
+	function renderRow(id, nombre) {
+	  if (!container) return;
+
+	  const row = document.createElement("div");
+	  row.className = "cat-row";
+
+	  row.innerHTML = `
+		<input type="text" value="${(nombre || "").replace(/"/g, "&quot;")}" data-id="${id || ""}" />
+		<div class="cat-actions">
+		  <button type="button" data-save>💾</button>
+		  <button type="button" data-del>🗑️</button>
+		</div>
+	  `;
+
+	  const input = row.querySelector("input");
+	  const saveBtn = row.querySelector("[data-save]");
+	  const delBtn = row.querySelector("[data-del]");
+
+	  saveBtn?.addEventListener("click", async () => {
+		const nombre = (input?.value || "").trim();
+		if (!nombre) {
+		  alert("Nombre requerido");
+		  return;
+		}
+
+		try {
+		  await fetch("/.netlify/functions/updateCategory", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+			  scope,
+			  id: id || null,
+			  nombre,
+			}),
+		  });
+		  await loadCategories();
+		} catch (e) {
+		  console.error("[categories] save error:", e);
+		  alert("Error guardando categoría");
+		}
+	  });
+
+	  delBtn?.addEventListener("click", async () => {
+		if (!id) {
+		  // fila nueva sin guardar: simplemente eliminar del DOM
+		  row.remove();
+		  return;
+		}
+
+		if (!confirm("¿Eliminar categoría?")) return;
+
+		try {
+		  await fetch("/.netlify/functions/deleteCategory", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ scope, id }),
+		  });
+		  await loadCategories();
+		} catch (e) {
+		  console.error("[categories] delete error:", e);
+		  alert("Error eliminando categoría");
+		}
+	  });
+
+	  container.appendChild(row);
+	}
+
+	addBtn?.addEventListener("click", () => {
+	  // Añade una fila vacía (id null → se creará nueva al guardar)
+	  renderRow(null, "");
+	});
+
+	loadCategories();
+  }
+</script>

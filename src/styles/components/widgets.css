@@ -1,7 +1,14 @@
 .widgets {
-	display:grid;
-	grid-template-columns: repeat(10,1fr);
-	gap: var(--space-m);
+  display: grid;
+  gap: 1.2rem;
+  grid-auto-flow: dense;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 750px) {
+  .widgets {
+	grid-template-columns: repeat(10, 1fr);
+  }
 }
 
 .widget {
@@ -103,6 +110,7 @@
 }
 
 /* Widgets grid */
+.grid-1		{grid-column: span 1}
 .grid-2		{grid-column: span 2}
 .grid-3 	{grid-column: span 3}
 .grid-4		{grid-column: span 4}

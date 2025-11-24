@@ -11,18 +11,5 @@ const { data: propiedades, error } = await supabaseServer()
 ---
 
 <Layout title="Casa">
-  <section class="widgets">
-    <CountWidget propiedades={propiedades} tipo="inversion" label="Inversiones" />
-    <CountWidget propiedades={propiedades} tipo="inversion" estado="vendido" label="Inversiones vendidas" />
-    <CountWidget propiedades={propiedades} tipo="inversion" estado="tanteo" label="Inversiones en tanteo" />
-    <SumWidget propiedades={propiedades} tipo="inversion" campo="precio_venta" label="Total venta inversiones" />
-    <SumWidget propiedades={propiedades} tipo="inversion" campo="precio_compra" label="Total compra inversiones" />
-  </section>
-  <section class="widgets">
-    <CountWidget propiedades={propiedades} tipo="activo" label="Activos Sanyus" />
-    <CountWidget propiedades={propiedades} tipo="activo" estado="vendido" label="Activos Sanyus Vendidos" />
-    <CountWidget propiedades={propiedades} tipo="activo" estado="alquiler" label="Alquilados" />
-    <SumWidget propiedades={propiedades} tipo="activo" campo="precio_venta" estado="vendido" label="Total Ventas" />
-    <SumWidget propiedades={propiedades} tipo="activo" campo="precio_compra" label="Total compras" />
-  </section>
+  
 </Layout>

@@ -1,0 +1,46 @@
+---
+import Admin from "../../../../../components/Admin.astro";
+import { supabaseClient } from "../../../../../lib/supabaseClient";
+import CasaActivoForm from "../../../../../components/CasaActivoForm.astro";
+
+const { id } = Astro.params;
+const supabase = supabaseClient();
+
+const { data: activo, error } = await supabase
+  .from("casa_activos")
+  .select("*")
+  .eq("id", id)
+  .single();
+
+const { data: categorias = [] } = await supabase
+  .from("casa_activo_categorias")
+  .select("id, nombre")
+  .order("nombre");
+
+const { data: propiedadesActivas = [] } = await supabase
+  .from("propiedades")
+  .select("id, titulo")
+  .eq('tipo', 'activo') 
+  .order("titulo");
+---
+
+<Admin title="Editar activo">
+  <h1 class="admin-title">Editar activo</h1>
+
+  {error && (
+	<p class="admin-error">
+	  Error cargando activo: {error.message}
+	</p>
+  )}
+
+  {activo && (
+	<CasaActivoForm
+	  mode="edit"
+	  activo={activo}
+	  categorias={categorias}
+	  propiedadesActivas={propiedadesActivas}
+	  action="/.netlify/functions/casa-activo-save"
+	  deleteAction="/.netlify/functions/casa-activo-delete"
+	/>
+  )}
+</Admin>

@@ -1,0 +1,402 @@
+---
+import Layout from "./Layout.astro"; // por si lo quieres envolver, pero aquí no es estrictamente necesario
+import { supabaseServer } from "../lib/supabaseServer";
+
+interface Props {
+  title?: string;
+  tipoMov: "Gasto" | "Aportación";
+}
+
+const { title = "Movimientos casa", tipoMov } = Astro.props;
+
+// Carga de datos base en servidor (para filtros)
+const sb = supabaseServer();
+
+/** Propiedades tipo "activo" */
+const { data: activosRaw, error: activosError } = await sb
+  .from("propiedades")
+  .select("id, titulo")
+  .eq("tipo", "activo")
+  .order("titulo", { ascending: true });
+
+const activos = Array.isArray(activosRaw) ? activosRaw : [];
+
+/** Categorías de movimiento */
+const { data: categoriasRaw, error: catError } = await sb
+  .from("movimiento_categorias")
+  .select("id, nombre")
+  .order("nombre", { ascending: true });
+
+const categorias = Array.isArray(categoriasRaw) ? categoriasRaw : [];
+
+/** Años disponibles (desde movimientos de ámbito 'casa') */
+const { data: fechasRaw } = await sb
+  .from("movimientos")
+  .select("fecha")
+  .eq("ambito", "casa")
+  .not("fecha", "is", null);
+
+const yearSet = new Set<number>();
+(fechasRaw ?? []).forEach((row: any) => {
+  const d = row?.fecha ? new Date(row.fecha) : null;
+  if (d && !Number.isNaN(d.getTime())) {
+	yearSet.add(d.getFullYear());
+  }
+});
+
+const years = Array.from(yearSet).sort((a, b) => b - a);
+const currentYear = new Date().getFullYear();
+const initialYear = years.includes(currentYear)
+  ? currentYear
+  : years[0] ?? currentYear;
+
+// Config para el script cliente
+const config = {
+  years,
+  initialYear,
+  activos: activos.map((a: any) => ({ id: a.id, titulo: a.titulo })),
+  categorias: categorias.map((c: any) => ({ id: c.id, nombre: c.nombre })),
+  tipoMov,
+};
+const configJson = JSON.stringify(config);
+---
+
+<section
+  class="casa-mov"
+  data-config={configJson}
+>
+  <header class="main-header">
+	<h1>{title}</h1>
+  </header>
+
+  <!-- Filtros -->
+  <form id="casa-filters" class="casa-filters" onsubmit="return false;">
+	<!-- Año -->
+	<div class="filter-group">
+	  <label for="casa-year">Año</label>
+	  <select id="casa-year" name="year">
+		<option value="">Todos</option>
+		{years.map((y) => (
+		  <option value={y} selected={y === initialYear}>{y}</option>
+		))}
+	  </select>
+	</div>
+
+	<!-- Categoría -->
+	<div class="filter-group">
+	  <label for="casa-cat">Categoría</label>
+	  <select id="casa-cat" name="categoria">
+		<option value="">Todas</option>
+		{categorias.map((c: any) => (
+		  <option value={c.id}>{c.nombre}</option>
+		))}
+	  </select>
+	</div>
+
+	<!-- Propiedad (solo activos) -->
+	<div class="filter-group">
+	  <label for="casa-prop">Activo</label>
+	  <select id="casa-prop" name="propiedad">
+		<option value="">Todos</option>
+		{activos.map((p: any) => (
+		  <option value={p.id}>{p.titulo}</option>
+		))}
+	  </select>
+	</div>
+
+	<!-- Búsqueda -->
+	<div class="filter-group filter-search">
+	  <label for="casa-q">Buscar</label>
+	  <input
+		id="casa-q"
+		name="q"
+		type="search"
+		placeholder="Ej. comunidad, luz, coche…"
+	  />
+	</div>
+  </form>
+
+  <!-- Listado -->
+  <div id="casa-list-wrap">
+	<table class="table-movements">
+	  <thead>
+		<tr>
+		  <th>Fecha</th>
+		  <th>Concepto</th>
+		  <th>Activo</th>
+		  <th>Importe</th>
+		  <th>Categoría</th>
+		</tr>
+	  </thead>
+	  <tbody id="casa-tbody">
+		<!-- lo rellena JS -->
+	  </tbody>
+	</table>
+
+	<div class="casa-list-footer">
+	  <button
+		id="casa-load-more"
+		type="button"
+		class="button--small"
+	  >
+		Cargar más
+	  </button>
+	  <span id="casa-status" class="casa-status"></span>
+	</div>
+  </div>
+</section>
+
+<script is:inline type="module">
+  const root = document.querySelector(".casa-mov");
+  if (!root) {
+	console.warn("[CasaMovList] root .casa-mov no encontrado");
+  } else {
+	let config = {};
+	try {
+	  config = JSON.parse(root.dataset.config || "{}");
+	} catch (e) {
+	  console.error("[CasaMovList] Error parseando config JSON:", e);
+	  config = {};
+	}
+
+	const {
+	  years = [],
+	  initialYear = null,
+	  activos = [],
+	  categorias = [],
+	  tipoMov = "Gasto",
+	} = config;
+
+	const tbody = document.getElementById("casa-tbody");
+	const btnMore = document.getElementById("casa-load-more");
+	const statusEl = document.getElementById("casa-status");
+
+	const yearSelect = document.getElementById("casa-year");
+	const catSelect = document.getElementById("casa-cat");
+	const propSelect = document.getElementById("casa-prop");
+	const qInput = document.getElementById("casa-q");
+
+	let offset = 0;
+	const limit = 100;
+	let total = 0;
+	let isLoading = false;
+	let reachedEnd = false;
+
+	function fmtMoney(v) {
+	  const n = Number(v);
+	  if (!Number.isFinite(n)) return "—";
+	  const cents = Math.round(n * 100) % 100;
+	  const hasDecimals = cents !== 0;
+	  return new Intl.NumberFormat("es-ES", {
+		style: "currency",
+		currency: "EUR",
+		minimumFractionDigits: hasDecimals ? 2 : 0,
+		maximumFractionDigits: hasDecimals ? 2 : 0,
+	  }).format(n);
+	}
+
+	function fmtDate(iso) {
+	  if (!iso) return "—";
+	  const d = new Date(iso);
+	  if (Number.isNaN(d.getTime())) return String(iso);
+	  return d.toLocaleDateString("es-ES", {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	  });
+	}
+
+	function setStatus(text) {
+	  if (statusEl) statusEl.textContent = text || "";
+	}
+
+	function clearTable() {
+	  if (!tbody) return;
+	  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+	}
+
+	async function loadMore({ reset = false } = {}) {
+	  if (!tbody || isLoading || reachedEnd) return;
+	  isLoading = true;
+	  btnMore && (btnMore.disabled = true);
+	  setStatus("Cargando…");
+
+	  if (reset) {
+		offset = 0;
+		total = 0;
+		reachedEnd = false;
+		clearTable();
+	  }
+
+	  // Filtros actuales
+	  const year = yearSelect?.value || "";
+	  const categoria = catSelect?.value || "";
+	  const propId = propSelect?.value || "";
+	  const q = (qInput?.value || "").trim();
+
+	  const params = new URLSearchParams();
+	  params.set("limit", String(limit));
+	  params.set("offset", String(offset));
+	  params.set("ambito", "casa");              // 🔑 ámbito fijo
+	  if (year) params.set("year", year);
+	  if (q) params.set("q", q);
+
+	  const url = "/.netlify/functions/listMovements?" + params.toString();
+
+	  try {
+		const res = await fetch(url);
+		const txt = await res.text();
+		let out;
+		try { out = JSON.parse(txt); } catch { out = {}; }
+
+		if (!res.ok) {
+		  console.error("[CasaMovList] error HTTP:", res.status, out);
+		  setStatus("Error cargando movimientos");
+		  return;
+		}
+
+		const data = Array.isArray(out.data) ? out.data : [];
+		total = typeof out.count === "number" ? out.count : total;
+
+		// Filtrado cliente:
+		const filtered = data.filter((m) => {
+		  // tipo movimiento (Gasto / Aportación)
+		  if (m.tipo_movimiento && m.tipo_movimiento !== tipoMov) return false;
+
+		  // categoría (necesita que listMovements devuelva categoria_id)
+		  if (categoria && m.categoria_id !== categoria) return false;
+
+		  // propiedad (solo activos)
+		  if (propId && m.propiedad_id !== propId) return false;
+
+		  return true;
+		});
+
+		for (const m of filtered) {
+		  const tr = document.createElement("tr");
+
+		  const tdFecha = document.createElement("td");
+		  tdFecha.textContent = fmtDate(m.fecha);
+
+		  const tdConcepto = document.createElement("td");
+		  tdConcepto.textContent = m.concepto || "—";
+
+		  const tdProp = document.createElement("td");
+		  tdProp.textContent = m.propiedad_titulo || "—";
+
+		  const tdImporte = document.createElement("td");
+		  tdImporte.textContent = fmtMoney(m.importe);
+		  tdImporte.style.textAlign = "right";
+
+		  const tdCat = document.createElement("td");
+		  tdCat.textContent = m.categoria_nombre || "—";
+
+		  tr.appendChild(tdFecha);
+		  tr.appendChild(tdConcepto);
+		  tr.appendChild(tdProp);
+		  tr.appendChild(tdImporte);
+		  tr.appendChild(tdCat);
+
+		  tbody.appendChild(tr);
+		}
+
+		offset += data.length;
+
+		const showing = tbody.querySelectorAll("tr").length;
+		const hasMore = out.hasMore === true && data.length > 0;
+
+		reachedEnd = !hasMore;
+		btnMore && (btnMore.style.display = hasMore ? "inline-block" : "none");
+
+		if (showing === 0) {
+		  setStatus("Sin movimientos para este filtro.");
+		} else if (total) {
+		  setStatus(`${showing} de ${total} movimientos (filtrados por tipo "${tipoMov}")`);
+		} else {
+		  setStatus(`${showing} movimientos`);
+		}
+	  } catch (e) {
+		console.error("[CasaMovList] fetch error:", e);
+		setStatus("Error cargando movimientos");
+	  } finally {
+		isLoading = false;
+		btnMore && (btnMore.disabled = false);
+	  }
+	}
+
+	// Eventos filtros → recargar
+	yearSelect?.addEventListener("change", () => loadMore({ reset: true }));
+	catSelect?.addEventListener("change", () => loadMore({ reset: true }));
+	propSelect?.addEventListener("change", () => loadMore({ reset: true }));
+	qInput?.addEventListener("input", () => {
+	  // pequeño debounce simple
+	  if (qInput._debounceTimer) clearTimeout(qInput._debounceTimer);
+	  qInput._debounceTimer = setTimeout(() => loadMore({ reset: true }), 350);
+	});
+
+	btnMore?.addEventListener("click", () => loadMore({ reset: false }));
+
+	// Primera carga con año inicial
+	if (yearSelect && initialYear) {
+	  yearSelect.value = String(initialYear);
+	}
+	loadMore({ reset: true });
+  }
+</script>
+
+<style>
+  .casa-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .75rem;
+	margin-bottom: 1rem;
+	align-items: flex-end;
+  }
+  .filter-group {
+	display: flex;
+	flex-direction: column;
+	gap: .25rem;
+	min-width: 140px;
+  }
+  .filter-group label {
+	font-size: var(--font-size--s);
+	color: #555;
+  }
+  .filter-group select,
+  .filter-group input[type="search"] {
+	padding: .25rem .4rem;
+	border-radius: .35rem;
+	border: 1px solid #ccc;
+	font-size: var(--font-size--s);
+  }
+  .filter-search {
+	flex: 1;
+	min-width: 180px;
+  }
+
+  .table-movements {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-size--s);
+  }
+  .table-movements th,
+  .table-movements td {
+	padding: .4rem .3rem;
+	border-bottom: 1px solid #eee;
+  }
+  .table-movements th {
+	text-align: left;
+	border-bottom: 1px solid #ddd;
+  }
+
+  .casa-list-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: .75rem;
+  }
+  .casa-status {
+	font-size: .8rem;
+	color: #666;
+  }
+</style>

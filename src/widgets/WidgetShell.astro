@@ -1,0 +1,38 @@
+---
+import '../styles/components/widgets.css';
+
+type WidgetSize = number | string;
+
+interface Props {
+  id?: string;
+  /** Tamaño en la grid: 1–10 → .grid-1 ... .grid-10 */
+  size?: WidgetSize;
+  /** Clases extra opcionales */
+  class?: string;
+  /** id del elemento interno que actúa como título accesible */
+  ariaLabelledBy?: string;
+}
+
+const {
+  id,
+  size = 3,
+  class: className = "",
+  ariaLabelledBy,
+} = Astro.props as Props;
+
+const sizeNum = Number(size);
+const sizeClass =
+  Number.isFinite(sizeNum) && sizeNum >= 1 && sizeNum <= 10
+	? `grid-${sizeNum}`
+	: "";
+
+const sectionId = id || undefined;
+---
+
+<div
+  id={sectionId}
+  class={`widget wg-size ${sizeClass} ${className}`.trim()}
+  aria-labelledby={ariaLabelledBy || undefined}
+>
+  <slot />
+</div>

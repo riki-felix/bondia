@@ -2,50 +2,81 @@
 /*
   SumWidget
   Props:
-	- propiedades: array de propiedades
-	- tipo?: string           // filtro opcional por tipo
-	- campo: string           // campo a sumar (ejemplo: "precio_venta", "precio_compra")
-	- estado?: string         // filtro opcional (ejemplo: "vendido")
-	- label?: string          // text label personalizado
+	- propiedades: array de propiedades completas
+	- tipo?: string           // filtro opcional por tipo (inversion, activo…)
+	- campo: string           // campo a sumar (ej: "precio_compra", "precio_venta")
+	- estado?: string         // filtro opcional por estado (vendido, liquidado…)
+	- label?: string          // texto opcional
+	- size?: number | string  // grid-X
 */
 
-const { propiedades = [], tipo = "", campo = "precio_venta", estado = "", label = "" } = Astro.props;
+import WidgetShell from "./WidgetShell.astro";
+import { toNum, formatEuro } from "../lib/money";
+import { normalize } from "../lib/text";
 
-function normalize(str: string): string {
-  return String(str || "").normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+interface Prop {
+  id: string;
+  tipo?: string | null;
+  estado?: string | null;
+  [key: string]: any;
 }
 
-// Filtrado genérico
-let filtered = propiedades;
-if (tipo)   filtered = filtered.filter((p: any) => normalize(p.tipo) === normalize(tipo));
-if (estado) filtered = filtered.filter((p: any) => normalize(p.estado) === normalize(estado));
+interface Props {
+  propiedades?: Prop[];
+  tipo?: string;
+  campo: string;
+  estado?: string;
+  label?: string;
+  size?: number | string;
+}
 
-// Sumar el campo elegido
-const suma = filtered.reduce((acc: number, p: any) => {
-  const v = Number(p?.[campo]);
-  return acc + (isFinite(v) ? v : 0);
+const {
+  propiedades = [],
+  tipo = "",
+  campo = "precio_venta",
+  estado = "",
+  label = "",
+  size = 3
+} = Astro.props as Props;
+
+// Normalización para comparar texto
+const norm = (s: string | null | undefined) => normalize(s ?? "");
+
+// 1. FILTRO GENERAL ------------------------------------
+let filtered = propiedades;
+
+if (tipo) {
+  filtered = filtered.filter((p) => norm(p.tipo) === norm(tipo));
+}
+
+if (estado) {
+  filtered = filtered.filter((p) => norm(p.estado) === norm(estado));
+}
+
+// 2. SUMA DEL CAMPO ELEGIDO ------------------------------
+const suma = filtered.reduce((acc, p: any) => {
+  return acc + toNum(p?.[campo]);
 }, 0);
 
-const displayLabel = label || (
-  tipo && estado ? `Suma de "${campo}" en "${tipo}" con estado "${estado}"`
-  : tipo         ? `Suma de "${campo}" en "${tipo}"`
-  : estado       ? `Suma de "${campo}" con estado "${estado}"`
-  : `Suma de ${campo}`
-);
-
-function money(n: number): string {
-  return isFinite(n)
-	? n.toLocaleString("es-ES", { style: "currency", currency: "EUR" })
-	: "—";
-}
+// 3. LABEL DINÁMICO --------------------------------------
+const displayLabel =
+  label ||
+  (tipo && estado ? `Suma de ${campo} en ${tipo} (${estado})` :
+   tipo            ? `Suma de ${campo} en ${tipo}` :
+   estado          ? `Suma de ${campo} (${estado})` :
+					 `Suma de ${campo}`);
 ---
 
-<section class="widget wg-size grid-3" aria-labelledby="wg-totals-title">
+<WidgetShell size={size} ariaLabelledBy="wg-sum-title">
   <div class="widget-row--totals">
 	<div class="widget-cell">
-	  <span class="data-label label-m">{displayLabel}</span>
-	  <span class="data-money data-xl">{money(suma)}</span>
-	  <span class="data-label label-xs"></span>
+	  <span id="wg-sum-title" class="data-label label-m">
+		{displayLabel}
+	  </span>
+
+	  <span class="data-money data-xl">
+		{formatEuro(suma)}
+	  </span>
 	</div>
   </div>
-</section>
+</WidgetShell>

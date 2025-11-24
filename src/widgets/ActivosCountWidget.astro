@@ -1,0 +1,39 @@
+---
+import WidgetShell from "./WidgetShell.astro";
+
+interface Item {
+  origen: "activo" | "propiedad" | string;
+}
+
+interface Props {
+  items?: Item[];
+  size?: number | string;
+}
+
+const {
+  items = [],
+  size = 3,
+} = Astro.props as Props;
+
+const total = items.length;
+const propsCount = items.filter((i) => i.origen === "propiedad").length;
+const otrosCount = total - propsCount;
+---
+
+<WidgetShell size={size} ariaLabelledBy="activos-count-title">
+  <div class="widget-row--totals">
+	<div class="widget-cell">
+	  <span id="activos-count-title" class="data-label label-m">
+		Activos totales
+	  </span>
+
+	  <span class="data-money data-xl">
+		{total.toLocaleString("es-ES")}
+	  </span>
+
+	  <span class="data-label label-xs">
+		{propsCount.toLocaleString("es-ES")} propiedades · {otrosCount.toLocaleString("es-ES")} otros
+	  </span>
+	</div>
+  </div>
+</WidgetShell>
