@@ -1,6 +1,5 @@
 import { supabaseClient } from "../lib/supabaseClient";
-import { toNum } from "../lib/money";
-
+import { toNum,formatEuro } from "../lib/money";
 export type Movimiento = {
   id: string;
   concepto: string | null;

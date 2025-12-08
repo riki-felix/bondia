@@ -8,7 +8,6 @@
 
 .cards-year-heading {
   font-size: var(--font-size--xl);
-  font-weight: 600;
   margin-bottom: var(--space-m);
   display: flex;
   align-items: center;
@@ -114,10 +113,8 @@
 /* Texto */
 .card-title {
   font-size: var(--font-size--m);
-  font-weight: 600;
   margin: var(--space-m) 0 var(--space-xs);
   padding: 0 var(--space-m);
-  font-variation-settings: var(--font-weight);
   color: var(--primary-900);
 }
 

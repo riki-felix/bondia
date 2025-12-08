@@ -115,81 +115,55 @@ const isEdit = mode === 'edit';
   <p id="aport-msg"></p>
 </form>
 
-<script>
-  const form = document.querySelector('#aport-form');
-  const msg = document.querySelector('#aport-msg');
-  const saveBtn = document.querySelector('#save-btn');
-  const deleteBtn = document.querySelector('#delete-btn');
+<script type="module">
+  const form    = document.getElementById("aportacion-form");
+	const msgEl   = document.getElementById("aportacion-msg");
+	const saveBtn = document.getElementById("aportacion-save");
+	const deleteBtn = document.getElementById("aportacion-delete");
 
-  form?.addEventListener('submit', async (e) => {
-	e.preventDefault();
-	msg.textContent = '';
-	saveBtn.disabled = true;
+  function setMessage() {
+	if (!msgEl) return;
+	msgEl.textContent = text;
+	msgEl.style.color = kind === "ok" ? "green" : "red";
+  }
 
-	const formData = new FormData(form);
-	const body = Object.fromEntries(formData.entries());
+  async function handleSave(ev) {
+	ev.preventDefault();
+	if (!form) return;
 
-	// Si propiedad_id es "", lo eliminamos para que el backend lo trate como null
-	if (!body.propiedad_id) delete body.propiedad_id;
+	if (msgEl) msgEl.textContent = "";
+	if (saveBtn) saveBtn.disabled = true;
 
 	try {
-	  const endpoint =
-		form.querySelector('#aport_id')
-		  ? '/.netlify/functions/aportacion-update'
-		  : '/.netlify/functions/aportacion-create';
-
-	  const res = await fetch(endpoint, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body),
-	  });
-
-	  const data = await res.json();
-
-	  if (!res.ok) throw new Error(data.error || 'Error al guardar');
-
-	  msg.textContent = '✔️ Aportación guardada';
-	  msg.style.color = 'green';
-
-	  if (!form.querySelector('#aport_id')) {
-		// Si es nueva, recarga el listado admin
-		setTimeout(() => (window.location.href = '/admin/aportaciones'), 600);
-	  }
+	  const formData = new FormData(form);
+	  setMessage("ok", "✔️ Aportación guardada");
+	  if (deleteBtn) deleteBtn.disabled = false;
 	} catch (err) {
-	  console.error('[guardar aportación] Error', err);
-	  msg.textContent = `❌ ${err.message || err}`;
-	  msg.style.color = 'red';
+	  const msg =
+		err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+	  setMessage("error", `❌ ${msg}`);
 	} finally {
-	  saveBtn.disabled = false;
+	  if (saveBtn) saveBtn.disabled = false;
 	}
-  });
-
-  if (deleteBtn) {
-	deleteBtn.addEventListener('click', async () => {
-	  if (!confirm('¿Eliminar esta aportación?')) return;
-	  deleteBtn.disabled = true;
-	  msg.textContent = '';
-
-	  try {
-		const id = (document.querySelector('#aport_id') as HTMLInputElement).value;
-		const res = await fetch('/.netlify/functions/aportacion-delete', {
-		  method: 'POST',
-		  headers: { 'Content-Type': 'application/json' },
-		  body: JSON.stringify({ id }),
-		});
-		const data = await res.json();
-		if (!res.ok) throw new Error(data.error || 'Error al eliminar');
-
-		msg.textContent = '✔️ Aportación eliminada';
-		msg.style.color = 'green';
-		setTimeout(() => (window.location.href = '/admin/aportaciones'), 600);
-	  } catch (err) {
-		console.error('[eliminar aportación] Error', err);
-		msg.textContent = `❌ ${err.message || err}`;
-		msg.style.color = 'red';
-	  } finally {
-		deleteBtn.disabled = false;
-	  }
-	});
   }
+
+  async function handleDelete(ev) {
+	ev.preventDefault();
+	if (!form) return;
+
+	if (msgEl) msgEl.textContent = "";
+	if (deleteBtn) deleteBtn.disabled = true;
+
+	try {
+	  setMessage("ok", "✔️ Aportación eliminada");
+	} catch (err) {
+	  const msg =
+		err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+	  setMessage("error", `❌ ${msg}`);
+	  if (deleteBtn) deleteBtn.disabled = false;
+	}
+  }
+
+  form?.addEventListener("submit", handleSave);
+  deleteBtn?.addEventListener("click", handleDelete);
 </script>

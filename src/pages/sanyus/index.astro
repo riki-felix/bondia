@@ -30,13 +30,13 @@ const imgUrl = (p: any) =>
 		<section class="section-widgets">
 			<CountWidget
 				size="10"
-				propiedades={properties}
+				propiedades={properties ?? []}
 				tipo="activo"
 				label="Activos Sanyus"
 			/>
 			<SumWidget
 				size="3"
-				propiedades={properties}
+				propiedades={properties ?? []}
 				tipo="activo"
 				campo="precio_compra"
 				estado="vendido"
@@ -44,14 +44,14 @@ const imgUrl = (p: any) =>
 			/>
 			<CountWidget
 				size="2"
-				propiedades={properties}
+				propiedades={properties ?? []}
 				tipo="activo"
 				estado="vendido"
 				label="Pisos Vendidos"
 			/>
 			<SumWidget
 				size="3"
-				propiedades={properties}
+				propiedades={properties ?? []}
 				tipo="activo"
 				campo="precio_venta"
 				estado="vendido"
@@ -59,7 +59,7 @@ const imgUrl = (p: any) =>
 			/>
 			<CountWidget
 				size="2"
-				propiedades={properties}
+				propiedades={properties ?? []}
 				tipo="activo"
 				estado="alquiler"
 				label="Pisos en Alquiler"

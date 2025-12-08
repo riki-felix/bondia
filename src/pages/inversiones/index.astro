@@ -118,27 +118,27 @@ const properties =
 			{properties && properties.length > 0 && (
 				<CountWidget
 					size="4"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					label="Inversiones"
 				/>
 				<CountWidget
 					size="2"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					estado="vendido"
 					label="Vendidas"
 				/>
 				<CountWidget
 					size="2"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					estado="tanteo"
 					label="Tanteo"
 				/>
 				<CountWidget
 					size="2"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					estado="liquidado"
 					label="Liquidados"
@@ -146,14 +146,14 @@ const properties =
 			
 				<SumWidget
 					size="5"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					campo="precio_venta"
 					label={modeTotals ? "Total Ventas (TOTALES)" : "Total Ventas"}
 				/>
 				<SumWidget
 					size="5"
-					propiedades={properties}
+					propiedades={properties ?? []}
 					tipo="inversion"
 					campo="precio_compra"
 					label={modeTotals ? "Total Compras (TOTALES)" : "Total Compras"}

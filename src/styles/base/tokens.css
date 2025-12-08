@@ -1,10 +1,10 @@
 :root {
 	/* Tipografía */
-	--font-heading-family:"TTNormsProVF",sans-serif;
-	--font-body-family:"TTNormsProVF",sans-serif;
-	--font-data-family:"TTNormsProMonoVF",monospace;
+	--font-heading-family:"Manrope",sans-serif;
+	--font-body-family:"Manrope",sans-serif;
+	--font-data-family:"Manrope",sans-serif;
 	
-	--font-weight: "wght" 700;
+	--font-weight: "wght" 400;
 	
 	--font-size--xs: 1.0rem;
 	--font-size--s: 1.2rem;

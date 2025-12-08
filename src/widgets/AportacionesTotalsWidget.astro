@@ -1,15 +1,14 @@
 ---
 import { formatEuro } from "../lib/money";
-import { normalize } from "../lib/text";
 import WidgetShell from "./WidgetShell.astro";
 import '../../src/styles/components/widgets.css';
 
 interface Props {
-  aportaciones: {
-	importe: number | null;
-	modo_pago: 'transferencia' | 'efectivo';
 	size?: number | string;
-  }[];
+    aportaciones: {
+		importe: number | null;
+		modo_pago: 'transferencia' | 'efectivo';
+  	  }[];
 }
 
 const {

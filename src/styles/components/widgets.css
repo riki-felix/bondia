@@ -63,7 +63,6 @@
 .data-money {
 	font-family: var(--font-data-family);
 	word-spacing: 0;
-	letter-spacing: -0.1rem;
 }
 
 .data-xs {

@@ -26,8 +26,8 @@ const { data: propiedadesActivas = [] } = await supabase
   .eq("es_activo_casa", true)
   .order("titulo");
 
-const catById = new Map(categorias.map(c => [c.id, c.nombre]));
-const propById = new Map(propiedadesActivas.map(p => [p.id, p.titulo]));
+const catById = new Map((categorias ?? []).map((c) => [c.id, c.nombre]));
+  const propById = new Map((propiedadesActivas ?? []).map((p) => [p.id, p.titulo]));
 ---
 
 <Admin title="Activos de casa">
@@ -45,7 +45,7 @@ const propById = new Map(propiedadesActivas.map(p => [p.id, p.titulo]));
 			</tr>
 		</thead>
 		<tbody>
-		{activos.map(a => (
+		{(activos ?? []).map((a) => (
 			<tr>
 			<td>
 				<strong>{a.nombre}</strong>

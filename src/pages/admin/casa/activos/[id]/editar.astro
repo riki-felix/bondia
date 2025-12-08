@@ -37,8 +37,8 @@ const { data: propiedadesActivas = [] } = await supabase
 	<CasaActivoForm
 	  mode="edit"
 	  activo={activo}
-	  categorias={categorias}
-	  propiedadesActivas={propiedadesActivas}
+	  categorias={categorias ?? []}
+	  propiedadesActivas={propiedadesActivas ?? []}
 	  action="/.netlify/functions/casa-activo-save"
 	  deleteAction="/.netlify/functions/casa-activo-delete"
 	/>

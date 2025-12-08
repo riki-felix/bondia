@@ -44,8 +44,8 @@ if (error || !activo) {
 }
 
 // Helpers
-const categoria = activo.casa_activo_categorias;
-const propiedad = activo.propiedades;
+const categoria = activo.casa_activo_categorias?.[0] ?? null;
+const propiedad = activo.propiedades?.[0] ?? null;
 
 const fechaCompra =
   activo.fecha_compra
@@ -204,7 +204,6 @@ const valorDisplay =
 
   .prop-dl dt {
 	font-size: 0.85rem;
-	font-weight: 500;
 	color: #555;
   }
 

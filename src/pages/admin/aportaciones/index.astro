@@ -27,7 +27,7 @@ const { data: aportaciones, error } = await supabase
 
   <p><a href="/admin/aportaciones/nueva">+ Nueva aportación</a></p>
 
-  <AportacionesTotalsWidget aportaciones={aportaciones ?? []} />
+  <AportacionesTotalsWidget size="10" aportaciones={aportaciones ?? []} />
 
   {error && <p>❌ Error cargando aportaciones</p>}
 

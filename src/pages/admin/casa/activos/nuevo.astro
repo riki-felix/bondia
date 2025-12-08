@@ -22,8 +22,8 @@ const { data: propiedadesActivas = [] } = await supabase
 
   <CasaActivoForm
     mode="create"
-    categorias={categorias}
-    propiedadesActivas={propiedadesActivas}
+    categorias={categorias ?? []}
+    propiedadesActivas={propiedadesActivas ?? []}
     action="/.netlify/functions/casa-activo-save"
   />
 </Admin>

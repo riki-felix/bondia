@@ -208,7 +208,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
   .hint.danger { color: #b00020; }
 </style>
 
-<script is:inline type="module">
+<script is:inline type="module" >
   const form = document.getElementById('mov-form');
   const msg  = document.getElementById('msg') || { textContent: '', className: '' };
   const btn  = document.getElementById('submitBtn') || { disabled: false };
@@ -364,24 +364,24 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 	btn.disabled = true;
 
 	try {
-	  const idEl         = document.getElementById('mov-id') as HTMLInputElement | null;
+	  const idEl = document.getElementById("mov-id");
 	  const isEdit       = !!(idEl && idEl.value);
 	  const endpoint     = isEdit
 		? '/.netlify/functions/updateMovement'
 		: '/.netlify/functions/createMovement';
 
-	  const payload: any = {
-		...(isEdit ? { id: idEl!.value } : {}),
-		propiedad_id   : get('propiedad_id'),
-		concepto       : get('concepto').trim(),
-		fecha          : get('fecha'),
-		importe        : get('importe').trim(),
-		estado         : get('estado') || '',
-		frecuencia     : get('frecuencia') || '',
-		categoria_id   : get('categoria_id') || null,
-		tags_ids       : getMulti('tags_ids'),
-		tipo_movimiento: getRadio('tipo_movimiento') || 'Gasto',
-		ambito         : get('ambito') || 'inversion',
+	  const payload = {
+		...(isEdit && idEl instanceof HTMLInputElement ? { id: idEl.value } : {}),	  
+		propiedad_id: get("propiedad_id"),
+		concepto: get("concepto").trim(),
+		fecha: get("fecha"),
+		importe: get("importe").trim(),
+		estado: get("estado") || "",
+		frecuencia: get("frecuencia") || "",
+		categoria_id: get("categoria_id") || null,
+		tags_ids: getMulti("tags_ids"),
+		tipo_movimiento: getRadio("tipo_movimiento") || "Gasto",
+		ambito: get("ambito") || "inversion",
 	  };
 
 	  if (!payload.propiedad_id) throw new Error('Selecciona una propiedad');
@@ -410,7 +410,7 @@ const selectedTags: string[] = Array.isArray(initial?.tags_ids)
 		msg.className = 'hint';
 		form.reset();
 	  }
-	} catch (err: any) {
+	} catch (err) {
 	  msg.textContent = `Error: ${err.message || err}`;
 	  msg.className = 'hint danger';
 	  console.error('[movimientos] submit error:', err);

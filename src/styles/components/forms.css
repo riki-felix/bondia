@@ -4,7 +4,6 @@ input {
 	padding: var(--space-s) var(--space-s);
 	border-radius: 0.1rem;
 	width: 100%;
-	font-weight: 300;
 	color: var(--color-navy);
 	font-size: var(--font-size--m);
 }
