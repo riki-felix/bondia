@@ -2,7 +2,7 @@ h1,h2{
 	font-family: var(--font-heading-family);
 }
 h1 {
-	
+	font-size: var(--font-size--xxl);
 }
 p {
 	font-family: var(--font-body-family);

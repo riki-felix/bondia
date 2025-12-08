@@ -1,9 +1,12 @@
 ---
 import Layout from "../../components/Layout.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
 import AportacionesTotalsWidget from "../../widgets/AportacionesTotalsWidget.astro";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { formatDateShort } from "../../lib/date";
 import { formatEuro,toNum } from "../../lib/money";
+
+import "../../../src/styles/components/tables.css";
 
 const supabase = supabaseClient();
 
@@ -22,8 +25,9 @@ const { data: aportaciones, error } = await supabase
 ---
 
 <Layout title="Aportaciones">
-  <main>
-	<h1>Aportaciones</h1>
+  <div class="main-content">
+	<SectionHeader title="Aportaciones" />
+
 	<section class="widgets">
 		<AportacionesTotalsWidget size="10" aportaciones={aportaciones ?? []} />
 	</section>
@@ -31,23 +35,36 @@ const { data: aportaciones, error } = await supabase
 	{error && <p>❌ Error cargando aportaciones</p>}
 
 	{aportaciones && aportaciones.length === 0 && <p>No hay aportaciones todavía.</p>}
-
-	<table>
-	  {aportaciones?.map((a: any) => (
-		<tr>
-	  	<td>{formatEuro(Number(a.importe))}</td>
-		  <td>{formatDateShort(a.fecha)}</td>
-		 <td>
-			 {a.propiedad && (
-				 <>
-				   <a href={`/propiedad/${a.propiedad.slug}`}>{a.propiedad.titulo}</a>
-				 </>
-			   )}</td>
-	  	<td>{a.concepto}</td>
-		 <td>{a.modo_pago}</td>
-		 <td>{a.autor}</td>
-		</tr>
-	  ))}
-	</table>
-  </main>
+	<section class="section-table">
+		<table class="table-full">
+			<thead>
+				<tr>
+					<th>Importe</th>
+					<th>Concepto</th>
+					<th>Piso</th>
+					<th>Fecha</th>
+					<th>Pago</th>
+					<th>Autor</th>
+				</tr>
+			</thead>
+			<tbody>
+		{aportaciones?.map((a: any) => (
+			<tr>
+				<td>{formatEuro(Number(a.importe))}</td>
+				<td>{a.concepto}</td>
+				<td>
+					{a.propiedad && (
+						<>
+						<a href={`/propiedad/${a.propiedad.slug}`}>{a.propiedad.titulo}</a>
+						</>
+					)}</td>
+				<td>{formatDateShort(a.fecha)}</td>
+				<td>{a.modo_pago}</td>
+				<td>{a.autor}</td>
+			</tr>
+		))}
+			</tbody>
+		</table>
+	</section>
+  </div>
 </Layout>

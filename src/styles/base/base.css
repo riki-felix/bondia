@@ -3,28 +3,34 @@ html {
 	height: 100%;
 }
 body {
-	background-color: var(--color-cream);
+	background-color: var(--primary-900);
 	margin: 0;
+	padding: 0;
 	height: 100%;
-	background: #0a0f1f;
 	font-family: var(--font-body-family);
-	font-size: var(--font-size--s);
-	font-weight: 500;
-	color: var(--color-navy);
+	font-size: var(--font-size--m);
+	font-variation-settings:'wght' 300;
+	color: var(--primary-100);
 }
 .login {
-	background-color: var(--color-navy);
+	background-color: var(--primary-800);
 	display: flex;
 	flex-flow: column wrap;
 	place-content: center;
 }
 .site {
-	display: grid;
-	grid-template-columns: 25.0rem auto;
-	background-color: var(--color-cream);
+	
 }
 .site-main {
-	padding: var(--space-l) var(--space-xl);
+	padding: 0 0 0 var(--sidebar);
+	display: flex;
+	position: relative;
+	.main-content {
+		max-width: var(--page-width);
+		padding: 0;
+		margin: var(--header) auto 0 auto;
+		width: 100%;
+	}
 }
 #bg {
 	position: fixed;
@@ -50,8 +56,7 @@ body {
 	height: 100vh;
 	display: grid;
 	place-items: center;
-	color: #eaf2ff;
-	font: 600 1rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+	color: var(--primary-100);
 	text-shadow: 0 2px 12px rgba(0,0,0,.35);
 	pointer-events: none;
   }
@@ -59,6 +64,7 @@ body {
 	:root { --speed: 0; }
   }
   
-  table {
-	  font-family: var(--font-data-family);
+  .section--page-width {
+	  max-width: var(--page-width);
+	  margin: 0 auto;
   }

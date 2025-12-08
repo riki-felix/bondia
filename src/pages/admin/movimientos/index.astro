@@ -2,6 +2,9 @@
 export const prerender = false;
 
 import Admin from "../../../components/Admin.astro";
+import SectionHeader from "../../../components/SectionHeader.astro";
+import "../../../styles/components/tables.css";
+import "../../../styles/components/section-toolbar.css";
 import { supabaseServer } from "../../../lib/supabaseServer";
 
 const { data: fechas, error } = await supabaseServer()
@@ -21,90 +24,86 @@ const years = Array.from(yearSet).sort((a, b) => b - a);
 const currentYear = new Date().getFullYear();
 ---
 
-<Admin title="Movimientos">
-  <header class="main-header">
-	<h1>Movimientos</h1>
-	<div class="page-actions">
-	  <a class="button--small" href="/admin/movimientos/nuevo">+ Nuevo</a>
-	</div>
-  </header>
-
-  {error && (
-	<p class="error">
-	  Error cargando años de movimientos: {error.message}
-	</p>
-  )}
-
-  <!-- Filtros: año + ámbito + buscador -->
-  <form
-	id="mov-filters"
-	class="mov-filters"
-	onsubmit="return false;"
-  >
-	<div class="mov-filter-field">
-	  <label for="mov-year" class="mov-label">Año</label>
-	  <select id="mov-year" name="year" class="mov-select">
-		<option value="">Todos</option>
-		{years.map((y) => (
-		  <option value={y} selected={y === currentYear}>
-			{y}
-		  </option>
-		))}
-	  </select>
-	</div>
-
-	<div class="mov-filter-field">
-	  <label for="mov-ambito" class="mov-label">Ámbito</label>
-	  <select id="mov-ambito" name="ambito" class="mov-select">
-		<option value="">Todos</option>
-		<option value="inversion">Inversión</option>
-		<option value="casa">Casa</option>
-		<option value="otro">Otro</option>
-	  </select>
-	</div>
-
-	<div class="mov-filter-field mov-filter-search">
-	  <label for="mov-search" class="mov-label">Buscar por concepto</label>
-	  <input
-		id="mov-search"
-		name="q"
-		type="search"
-		placeholder="Ej. arras, comunidad, precarios…"
-		class="mov-input"
-	  />
-	</div>
-  </form>
-
-  <div id="mov-list-wrap">
-	<table id="mov-table" class="mov-table">
-	  <thead>
-		<tr>
-		  <th>Fecha</th>
-		  <th>Concepto</th>
-		  <th>Propiedad</th>
-		  <th class="text-right">Importe</th>
-		  <th>Tipo</th>
-		  <th>Autor</th>
-		  <th>Ámbito</th>
-		  <th class="text-right">Acciones</th>
-		</tr>
-	  </thead>
-	  <tbody>
-		<!-- Se rellena por JS -->
-	  </tbody>
-	</table>
-
-	<div class="mov-footer">
-	  <button
-		id="mov-load-more"
-		type="button"
-		class="mov-load-btn"
-	  >
-		Cargar más
-	  </button>
-	  <span id="mov-status" class="mov-status"></span>
-	</div>
-  </div>
+<Admin title="Movimientos">	
+	<SectionHeader title="Movimientos" actionURL="/admin/movimientos/nuevo" />
+	<section class="section-toolbar">
+	{error && (
+		<p class="error">
+		Error cargando años de movimientos: {error.message}
+		</p>
+	)}
+	
+	<!-- Filtros: año + ámbito + buscador -->
+	<form
+		id="mov-filters"
+		class="mov-filters"
+		onsubmit="return false;"
+	>
+		<div class="mov-filter-field mov-filter-search">
+		<label for="mov-search" class="mov-label">Buscar por concepto</label>
+		<input
+			id="mov-search"
+			name="q"
+			type="search"
+			placeholder="Ej. arras, comunidad, precarios…"
+			class="mov-input"
+		/>
+		</div>
+		<div class="mov-filter-field">
+		<label for="mov-year" class="mov-label">Año</label>
+		<select id="mov-year" name="year" class="mov-select">
+			<option value="">Todos</option>
+			{years.map((y) => (
+			<option value={y} selected={y === currentYear}>
+				{y}
+			</option>
+			))}
+		</select>
+		</div>
+	
+		<div class="mov-filter-field">
+		<label for="mov-ambito" class="mov-label">Ámbito</label>
+		<select id="mov-ambito" name="ambito" class="mov-select">
+			<option value="">Todos</option>
+			<option value="inversion">Inversión</option>
+			<option value="casa">Casa</option>
+			<option value="otro">Otro</option>
+		</select>
+		</div>
+	
+	</form>
+  </section>
+  <section class="section-table">
+		<table id="mov-table" class="table-full table-schema--light">
+		<thead>
+			<tr>
+			<th>Fecha</th>
+			<th>Concepto</th>
+			<th>Propiedad</th>
+			<th class="text-right">Importe</th>
+			<th>Tipo</th>
+			<th>Autor</th>
+			<th>Ámbito</th>
+			<th class="text-right">Acciones</th>
+			</tr>
+		</thead>
+		<tbody>
+			<!-- Se rellena por JS -->
+		</tbody>
+		</table>
+	
+		<div class="mov-footer">
+		<button
+			id="mov-load-more"
+			type="button"
+			class="mov-load-btn"
+		>
+			Cargar más
+		</button>
+		<span id="mov-status" class="mov-status"></span>
+		</div>
+		
+	</section>
 </Admin>
 
 <script is:inline>

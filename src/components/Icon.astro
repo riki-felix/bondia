@@ -1,0 +1,35 @@
+---
+// src/components/Icon.astro
+const {
+  name,
+  size = "1.4rem",
+  class: className = "",
+  title,
+  ariaHidden = true,
+} = Astro.props;
+
+// Por simplicidad, mapeamos nombres a imports manuales.
+// Luego puedes automatizarlo si quieres.
+import ChevronRight from "../icons/chevron-right.svg";
+import Calendar from "../icons/calendar.svg";
+import Home from "../icons/home.svg";
+
+const registry: Record<string, any> = {
+  "chevron-right": ChevronRight,
+  calendar: Calendar,
+  home: Home,
+};
+
+const Svg = registry[name];
+---
+
+{Svg ? (
+  <Svg
+	class={`icon ${className}`}
+	width={size}
+	height={size}
+	aria-hidden={ariaHidden ? "true" : undefined}
+  >
+	{title && <title>{title}</title>}
+  </Svg>
+) : null}

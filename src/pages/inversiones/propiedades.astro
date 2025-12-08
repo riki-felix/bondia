@@ -1,20 +1,26 @@
 ---
 export const prerender = false;
+import Layout from "../../components/Layout.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
+
 import CountWidget from "../../widgets/CountWidget.astro";
 import SumWidget from "../../widgets/SumWidget.astro";
 
-import '../../../src/styles/pages/propiedades.css';
+import "../../../src/styles/pages/propiedades.css";
+import "../../../src/styles/components/section-toolbar.css";
 
-import Layout from "../../components/Layout.astro";
 import { supabaseClient } from "../../lib/supabaseClient";
-import { publicImageUrl } from '../../lib/imageUrl';
+import { publicImageUrl } from "../../lib/imageUrl";
 import { supabaseServer } from "../../lib/supabaseServer";
 import { formatEuro } from "../../lib/money";
 
 const supabase = supabaseClient();
+
 const { data: properties, error } = await supabase
   .from("propiedades")
-  .select("id, slug, titulo, superficie_m2, estado, fecha_compra, precio_compra, precio_venta, foto_destacada_path")
+  .select(
+	"id, slug, titulo, superficie_m2, estado, fecha_compra, precio_compra, precio_venta, foto_destacada_path",
+  )
   .eq("tipo", "inversion")
   .order("created_at", { ascending: false });
 
@@ -45,8 +51,29 @@ if (properties) {
 
   years = Array.from(yearSet).sort((a, b) => b - a);
   estados = Array.from(estadoSet).sort((a, b) =>
-	a.localeCompare(b, "es", { sensitivity: "base" })
+	a.localeCompare(b, "es", { sensitivity: "base" }),
   );
+}
+
+type Propiedad = any;
+
+const propertiesByYear: Record<string, Propiedad[]> = {};
+
+if (properties) {
+  for (const p of properties as Propiedad[]) {
+	const hasValidDate =
+	  p.fecha_compra &&
+	  !Number.isNaN(new Date(p.fecha_compra as string).getTime());
+
+	const yearValue = hasValidDate
+	  ? String(new Date(p.fecha_compra as string).getFullYear())
+	  : "Sin año";
+
+	if (!propertiesByYear[yearValue]) {
+	  propertiesByYear[yearValue] = [];
+	}
+	propertiesByYear[yearValue].push(p);
+  }
 }
 
 const fmtDate = (dateStr?: string | null): string => {
@@ -62,26 +89,24 @@ const fmtDate = (dateStr?: string | null): string => {
 ---
 
 <Layout title="Inversiones">
-  <header class="main-header">
-	<h1>Inversiones</h1>
-	<div class="page-actions">
-	  <a class="button--small" href="/admin/nueva">+ Nueva</a>
-	</div>
-  </header>
+  <div class="main-content">
+	<SectionHeader title="Pisos" />
 
-  {error && <p>❌ {error.message}</p>}
+	{error && <p>❌ {error.message}</p>}
 
-  {(!error && (!properties || properties.length === 0)) && (
-	<p>No hay propiedades de tipo <em>Inversión</em>.</p>
-  )}
+	{!error && (!properties || properties.length === 0) && (
+	  <p>
+		No hay propiedades de tipo <em>Inversión</em>.
+	  </p>
+	)}
 
-  {properties && properties.length > 0 && (
-	<>
-	  {/* Filtros */}
-	  <section class="prop-filters">
-		<div class="prop-filters__row">
+	{properties && properties.length > 0 && (
+	  <>
+		<section class="section-toolbar">
 		  <div class="prop-filter">
-			<label for="prop-search" class="prop-filter__label">Buscar</label>
+			<label for="prop-search" class="prop-filter__label">
+			  Buscar
+			</label>
 			<input
 			  id="prop-search"
 			  type="search"
@@ -91,7 +116,9 @@ const fmtDate = (dateStr?: string | null): string => {
 		  </div>
 
 		  <div class="prop-filter">
-			<label for="prop-year" class="prop-filter__label">Año compra</label>
+			<label for="prop-year" class="prop-filter__label">
+			  Año compra
+			</label>
 			<select id="prop-year" class="prop-filter__select">
 			  <option value="">Todos</option>
 			  {years.map((y) => (
@@ -101,7 +128,9 @@ const fmtDate = (dateStr?: string | null): string => {
 		  </div>
 
 		  <div class="prop-filter">
-			<label for="prop-estado" class="prop-filter__label">Estado</label>
+			<label for="prop-estado" class="prop-filter__label">
+			  Estado
+			</label>
 			<select id="prop-estado" class="prop-filter__select">
 			  <option value="">Todos</option>
 			  {estados.map((e) => (
@@ -109,79 +138,202 @@ const fmtDate = (dateStr?: string | null): string => {
 			  ))}
 			</select>
 		  </div>
-		</div>
-	  </section>
+		</section>
 
-	  {/* Cards */}
-	  <div class="cards-grid">
-		{properties.map((p: any) => {
-		  const fallback =
-			"https://zcezehuuxkravxjfdrbm.supabase.co/storage/v1/object/public/property-images/b73d9021-c747-45af-888a-e6caaddda308/1762017591772_casa_2.png";
+		<section class="section-cards-grid">
+		  {years.map((year) => {
+			const yearKey = String(year);
+			const propsOfYear = propertiesByYear[yearKey] || [];
+			if (!propsOfYear.length) return null;
+		
+			return (
+			  <div class="cards-year-block">
+				<h2 class="cards-year-heading">{year}</h2>
+		
+				{/* AQUÍ va el resumen por año */}
+				<div class="cards-year-summary">
+				  <CountWidget
+					propiedades={propsOfYear}
+					label="Propiedades"
+				  />
+		
+				  <SumWidget
+					propiedades={propsOfYear}
+					campo="precio_compra"
+					label="Compra"
+				  />
+		
+				  <SumWidget
+					propiedades={propsOfYear}
+					campo="precio_venta"
+					label="Venta"
+				  />
+				</div>
+				<div class="swiper prop-swiper">
+				  <div class="swiper-wrapper">
+					{propsOfYear.map((p: any) => {
+					  const fallback =
+						"https://zcezehuuxkravxjfdrbm.supabase.co/storage/v1/object/public/property-images/b73d9021-c747-45af-888a-e6caaddda308/1762017591772_casa_2.png";
 
-		  const src = imgUrl(p) || fallback;
+					  const src = imgUrl(p) || fallback;
 
-		  const year =
-			p.fecha_compra && !Number.isNaN(new Date(p.fecha_compra as string).getTime())
-			  ? new Date(p.fecha_compra as string).getFullYear()
-			  : "";
+					  const yearValue =
+						p.fecha_compra &&
+						!Number.isNaN(
+						  new Date(p.fecha_compra as string).getTime(),
+						)
+						  ? new Date(p.fecha_compra as string).getFullYear()
+						  : "";
 
-		  const estado = (p.estado || "") as string;
+					  const estado = (p.estado || "") as string;
 
-		  const searchText = [
-			p.titulo || "",
-			estado,
-			year ? String(year) : "",
-		  ]
-			.join(" ")
-			.toLowerCase();
+					  const searchText = [
+						p.titulo || "",
+						estado,
+						yearValue ? String(yearValue) : "",
+					  ]
+						.join(" ")
+						.toLowerCase();
 
-		  return (
-			<div
-			  class="card-item"
-			  data-year={year}
-			  data-estado={estado.toLowerCase()}
-			  data-search={searchText}
-			>
-			  {src && (
-				<a class="card-img--link" href={`/propiedad/${p.slug}`}>
-				  <img src={src} alt={p.titulo} loading="lazy" />
-				</a>
-			  )}
+					  return (
+						<div class="swiper-slide">
+						  <div
+							class="card-item"
+							data-year={yearValue}
+							data-estado={estado.toLowerCase()}
+							data-search={searchText}
+						  >
+							{src && (
+							  <a
+								class="card-img--link"
+								href={`/propiedad/${p.slug}`}
+							  >
+								<img
+								  src={src}
+								  alt={p.titulo}
+								  loading="lazy"
+								/>
+							  </a>
+							)}
 
-			  <h2 class="card-title">
-				<a class="card-link" href={`/propiedad/${p.slug}`}>{p.titulo}</a>
-			  </h2>
+							<h2 class="card-title">
+							  <a
+								class="card-link"
+								href={`/propiedad/${p.slug}`}
+							  >
+								{p.titulo}
+							  </a>
+							</h2>
 
-			  <p class="card-meta">
-				Compra: {p.precio_compra ? formatEuro(p.precio_compra) : ''}<br />
-				Venta: {p.precio_venta ? formatEuro(p.precio_venta) : ''}<br />
-				{p.superficie_m2 ? `${p.superficie_m2} m²` : ''}<br />
-				{p.estado ? `${p.estado}` : ''}
-			  </p>
-			</div>
-		  );
-		})}
-	  </div>
-	</>
-  )}
+							<p class="card-meta">
+							  Compra:{" "}
+							  {p.precio_compra
+								? formatEuro(p.precio_compra)
+								: ""}
+							  <br />
+							  Venta:{" "}
+							  {p.precio_venta
+								? formatEuro(p.precio_venta)
+								: ""}
+							  <br />
+							  {p.superficie_m2
+								? `${p.superficie_m2} m²`
+								: ""}
+							  <br />
+							  {p.estado ? `${p.estado}` : ""}
+							</p>
+						  </div>
+						</div>
+					  );
+					})}
+				  </div>
+
+				  <div class="swiper-button-prev"></div>
+				  <div class="swiper-button-next"></div>
+				  <div class="swiper-pagination"></div>
+				</div>
+			  </div>
+			);
+		  })}
+		</section>
+	  </>
+	)}
+  </div>
 </Layout>
 
-<script type="module" is:inline>
-  const searchInput = document.getElementById('prop-search');
-  const yearSelect = document.getElementById('prop-year');
-  const estadoSelect = document.getElementById('prop-estado');
-  const cards = Array.from(document.querySelectorAll('.card-item'));
+<!-- Cargar Swiper como módulo ESM -->
+<script type="module">
+  import Swiper from "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.mjs";
+
+  const searchInput = document.getElementById("prop-search");
+  const yearSelect = document.getElementById("prop-year");
+  const estadoSelect = document.getElementById("prop-estado");
+  const cards = Array.from(document.querySelectorAll(".card-item"));
+
+  const swiperInstances = [];
+
+  function initSwipers() {
+	const containers = document.querySelectorAll(".prop-swiper");
+  
+	containers.forEach((container) => {
+	  const swiper = new Swiper(container, {
+		// +++ Comportamiento general +++
+		slidesPerView: "auto",     // el ancho real lo controlamos por CSS
+		spaceBetween: 16,
+		grabCursor: true,
+		centeredSlides: false,
+		freeMode: {
+		  enabled: true,
+		  momentumRatio: 0.25,
+		},
+  
+		// +++ Navegación +++
+		navigation: {
+		  nextEl: container.querySelector(".swiper-button-next"),
+		  prevEl: container.querySelector(".swiper-button-prev"),
+		},
+		pagination: {
+		  el: container.querySelector(".swiper-pagination"),
+		  clickable: true,
+		},
+		keyboard: {
+		  enabled: true,
+		  onlyInViewport: true,
+		},
+		mousewheel: {
+		  enabled: true,
+		  forceToAxis: true,
+		},
+  
+		// +++ Breakpoints +++
+		breakpoints: {
+		  // móvil por defecto (slidesPerView: "auto")
+		  768: {
+			freeMode: {
+			  enabled: false,
+			},
+			slidesPerView: 2.2,
+		  },
+		  1200: {
+			slidesPerView: 3.2,
+		  },
+		},
+	  });
+  
+	  swiperInstances.push(swiper);
+	});
+  }
 
   function applyFilters() {
-	const q = (searchInput?.value || '').trim().toLowerCase();
-	const year = yearSelect?.value || '';
-	const estado = (estadoSelect?.value || '').toLowerCase();
+	const q = (searchInput?.value || "").trim().toLowerCase();
+	const year = yearSelect?.value || "";
+	const estado = (estadoSelect?.value || "").toLowerCase();
 
 	for (const card of cards) {
 	  const el = card;
-	  const cardYear = el.getAttribute('data-year') || '';
-	  const cardEstado = (el.getAttribute('data-estado') || '').toLowerCase();
-	  const searchText = (el.getAttribute('data-search') || '').toLowerCase();
+	  const cardYear = el.getAttribute("data-year") || "";
+	  const cardEstado = (el.getAttribute("data-estado") || "").toLowerCase();
+	  const searchText = (el.getAttribute("data-search") || "").toLowerCase();
 
 	  let show = true;
 
@@ -189,49 +341,30 @@ const fmtDate = (dateStr?: string | null): string => {
 	  if (year && cardYear !== year) show = false;
 	  if (estado && cardEstado !== estado) show = false;
 
-	  el.style.display = show ? '' : 'none';
+	  el.style.display = show ? "" : "none";
 	}
+
+	swiperInstances.forEach((swiper) => swiper.update());
   }
 
   let searchTimeout;
-  searchInput?.addEventListener('input', () => {
-	clearTimeout(searchTimeout);
+
+  searchInput?.addEventListener("input", () => {
+	if (searchTimeout) clearTimeout(searchTimeout);
 	searchTimeout = setTimeout(applyFilters, 200);
   });
 
-  yearSelect?.addEventListener('change', applyFilters);
-  estadoSelect?.addEventListener('change', applyFilters);
+  yearSelect?.addEventListener("change", applyFilters);
+  estadoSelect?.addEventListener("change", applyFilters);
 
-  // Primera pasada
-  applyFilters();
+  // Cuando el DOM está listo
+  if (document.readyState === "loading") {
+	document.addEventListener("DOMContentLoaded", () => {
+	  initSwipers();
+	  applyFilters();
+	});
+  } else {
+	initSwipers();
+	applyFilters();
+  }
 </script>
-
-<style>
-  .prop-filters {
-	margin-bottom: 1rem;
-  }
-  .prop-filters__row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	align-items: flex-end;
-  }
-  .prop-filter {
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-	min-width: 180px;
-  }
-  .prop-filter__label {
-	color: #555;
-  }
-  .prop-filter__input,
-  .prop-filter__select {
-	padding: 0.35rem 0.45rem;
-	border-radius: 0.35rem;
-	border: 1px solid #ccc;
-  }
-  .prop-filter__input--search {
-	  min-width: 40.0rem;
-  }
-</style>

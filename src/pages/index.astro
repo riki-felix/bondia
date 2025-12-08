@@ -11,5 +11,31 @@ const { data: propiedades, error } = await supabaseServer()
 ---
 
 <Layout title="Casa">
-  
+  <div class="main-content">
+  <section class="section-dashboard">
+    <h1>Hola Carlos, bon dia.</h1>
+  </section>
+  <section class="section-hub">
+    <div class="card-hub">
+      <a href="/inversiones" class="card-hub__link">
+        <h2>Inversiones</h2>
+      </a>
+    </div>
+    <div class="card-hub">
+      <a href="/sanyus" class="card-hub__link">
+        <h2>Sanyus</h2>
+      </a>
+    </div>
+    <div class="card-hub">
+      <a href="/rds" class="card-hub__link">
+        <h2>RDS</h2>
+      </a>
+    </div>
+    <div class="card-hub">
+      <a href="/casa/panorama" class="card-hub__link">
+        <h2>Panorama actual</h2>
+      </a>
+    </div>
+  </section>
+  </div>
 </Layout>

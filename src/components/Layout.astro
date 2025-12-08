@@ -6,6 +6,7 @@ import '../../src/styles/components/forms.css';
 import '../../src/styles/base/base.css';
 import Head from "./Head.astro";
 import Header from "./Header.astro";
+import Sidebar from "./Sidebar.astro";
 ---
 
 <!doctype html>
@@ -14,6 +15,7 @@ import Header from "./Header.astro";
   <body class="site">
     <Header />
     <main class="site-main">
+      <Sidebar />
       <slot />
     </main>
   </body>

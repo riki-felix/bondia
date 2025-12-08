@@ -2,6 +2,9 @@
 export const prerender = false;
 
 import Admin from "../../../components/Admin.astro";
+import SectionHeader from "../../../components/SectionHeader.astro";
+import "../../../styles/components/section-toolbar.css";
+import "../../../styles/components/tables.css";
 import RdsCountWidget from "../../../widgets/rds/RdsCountWidget.astro";
 import RdsTotalsWidget from "../../../widgets/rds/RdsTotalsWidget.astro";
 import RdsCalendarWidget from "../../../widgets/rds/RdsCalendarWidget.astro";
@@ -187,11 +190,8 @@ const nombresMes = [
 ---
 
 <Admin>
-  <header>
-	<div>
-	  <h1>RDS · Pisos</h1>
-	</div>
-	<div class="topbar">
+	<SectionHeader title="Gestión RDS" actionURL="/admin/rds/nuevo" />
+	<section class="section-toolbar">
 	  <form method="get" class="year-filter">
 		<label for="year">Año</label>
 		<select id="year" name="year">
@@ -208,20 +208,12 @@ const nombresMes = [
 		  <button type="submit">Aplicar</button>
 		</noscript>
 	  </form>
+	</section>
 
-	  <a href="/admin/rds/nuevo" class="btn">
-		+ Nuevo piso RDS
-	  </a>
-	</div>
-  </header>
 
-  <main class="rds-layout">
-
-	<section class="rds-listado">
 	  <h2>Listado de pisos ({selectedYear})</h2>
-
-
-		<table class="rds-table">
+	<section class="section-table rds-listado">
+		<table class="table-full table-schema--light rds-table">
 		  <thead>
 			<tr>
 			  <th>Piso</th>
@@ -311,7 +303,6 @@ const nombresMes = [
 			})}
 		  </tbody>
 		</table>
-		
 	</section>
 	<section class="rds-promo">
 	  <h2>Gastos promoción ({selectedYear})</h2>
@@ -524,27 +515,3 @@ const nombresMes = [
 	}
 </script>
 
-<style>
-  .rds-layout {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 2rem;
-  }
-  .widgets-area {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-  }
-  .rds-table, .rds-mini-meses {
-	width: 100%;
-	border-collapse: collapse;
-  }
-  .rds-table th, .rds-table td,
-  .rds-mini-meses th, .rds-mini-meses td {
-	border: 1px solid #ddd;
-	padding: .3rem .4rem;
-  }
-  .rds-mini-meses {
-	margin-top: .5rem;
-  }
-</style>

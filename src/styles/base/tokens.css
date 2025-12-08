@@ -1,17 +1,17 @@
 :root {
 	/* Tipografía */
-	--font-heading-family:"ActaPro",serif;
+	--font-heading-family:"TTNormsProVF",sans-serif;
 	--font-body-family:"TTNormsProVF",sans-serif;
 	--font-data-family:"TTNormsProMonoVF",monospace;
 	
 	--font-weight: "wght" 700;
 	
-	--font-size--xs: 1.1rem;
-	--font-size--s: 1.5rem;
-	--font-size--m: 2.0rem;
-	--font-size--l: 2.8rem;
-	--font-size--xl: 3.4rem;
-	--font-size--xxl: 6.0rem;
+	--font-size--xs: 1.0rem;
+	--font-size--s: 1.2rem;
+	--font-size--m: 1.4rem;
+	--font-size--l: 1.8rem;
+	--font-size--xl: 3.2rem;
+	--font-size--xxl: 4.8rem;
 	
 	/* Spacing */
 	--space-xs: 0.4rem;
@@ -21,19 +21,75 @@
 	--space-xl: 3.0rem;
 	--space-xxl: 4.0rem;
 	/* Colors */
-	--color-navy: #01193C;
 	--color-white: #ffffff;
-	--color-cream: #FFF6E1;
-	--color-cream--700: #efe1c1;
-	--color-cream--900: #897855;
-	--color-accent--blue: #52F6FF;
-	--color-orange: #FF783E;
-	/* Layout */
-	/* Viewports */
+	--primary-100: #f8f9faff;
+	--primary-200: #e9ecefff;
+	--primary-300: #dee2e6ff;
+	--primary-400: #ced4daff;
+	--primary-500: #adb5bdff;
+	--primary-600: #6c757dff;
+	--primary-700: #495057ff;
+	--primary-800: #343a40ff;
+	--primary-850: #24282dff;
+	--primary-900: #212529ff;
+		
+	--color-accent: #26aab0;
+	
+	--border: 0.05rem solid var(--primary-800);
+	--border-light: 0.05rem solid var(--primary-500);
+	--radius-default: 0.5rem;
+
 	--blur: 100px;         /* intensidad de blur de la mancha */
 	--alpha: 0.4;        /* opacidad de la mancha */
 	--speed: 0.0018;      /* velocidad del “latido”/morfismo */
 	--horizon: 50vh; 
 	
+	--page-width: 120.0rem;
+	--page-margin: 1.2rem;
+	--sidebar: 20.0rem;
+	--header: 4.8rem;
+}
+button {
+	border: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	line-height: 1;	
+	
+}
+.button {
+	background-color: var(--color-accent);
+	font-size: var(--font-size--m);
+	text-transform: uppercase;
+	padding: var(--space-l) var(--space-m);
+}
+.button--small {
+	border: none;
+	background-color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	border-radius: 0.3rem;
+	color: var(--primary-900);
+	display: inline-block;
+	font-family: var(--font-body-family);
+	font-size: var(--font-size--m);
+	font-variation-settings: 'wght' 600;
+	line-height: 1;
+	padding: 0.5rem var(--space-m) 0.35rem var(--space-m);
+	text-transform: uppercase;
+}
+.button--small:hover {
+	background-color: var(--color-navy);
+	color: var(--color-cream);
 }
 
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  fill: currentColor;
+}
+
+/* utilidades alineadas con tus tokens */
+.icon--s { width: 1.2rem; height: 1.2rem; }
+.icon--m { width: 1.6rem; height: 1.6rem; }
+.icon--accent { color: var(--color-accent); }
+.icon--muted { color: var(--primary-600); }

@@ -1,0 +1,72 @@
+.section-toolbar {
+	display: flex;
+	flex-flow: row wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--space-m);
+	margin-bottom: var(--space-m);
+	border: var(--border);
+	padding: var(--space-m) var(--page-margin);
+	border-radius: var(--radius-default);
+}
+
+.year-filter {
+	display: flex;
+	flex-flow: row wrap;
+	align-items: center;
+	gap: var(--space-m);
+	background-color: var(--primary-800);
+		padding: var(--space-xs) var(--space-s);
+		border-radius: 0.3rem;
+	.year-filter__select {
+		background-color: transparent;
+		border: none;
+		font-size: var(--font-size--l);
+	}
+}
+
+
+.inv-year-filter {
+	margin-bottom: 1rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+  }
+
+  .inv-year-filter__label {
+	
+  }
+
+  .inv-year-filter__select {
+	padding: 0.25rem 0.4rem;
+	border-radius: 0.35rem;
+	border: 1px solid #ccc;
+  }
+  
+  .prop-filters {
+	  margin-bottom: 1rem;
+	}
+	.prop-filters__row {
+	  display: flex;
+	  flex-wrap: wrap;
+	  gap: 0.75rem;
+	  align-items: flex-end;
+	}
+	.prop-filter {
+	  display: flex;
+	  flex-direction: column;
+	  gap: 0.25rem;
+	  min-width: 180px;
+	}
+	.prop-filter__label {
+	  
+	}
+	.prop-filter__input,
+	.prop-filter__select {
+	  padding: 0.35rem 0.45rem;
+	  border-radius: 0.35rem;
+	  border: 1px solid #ccc;
+	}
+	.prop-filter__input--search {
+		min-width: 40.0rem;
+	}

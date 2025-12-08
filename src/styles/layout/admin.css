@@ -1,52 +1,77 @@
 /* Override Body */
 body {
-	background-color: var(--color-cream);
+	background-color: var(--primary-400);
+	color: var(--primary-800);
+	font-variation-settings:'wght' 500;
 }
 .admin {
-	width: 100%;
-	margin: 0 auto;
 }
 .admin-header {
-	border-top: 1px solid var(--color-cream--700);
-	border-bottom: 1px solid var(--color-cream--700);
+	background-color: var(--primary-400);
+	padding: 0;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: var(--header);
+	border-bottom: 1px solid var(--primary-500);
+	z-index: 50;
 	display: flex;
-	flex-flow: row wrap;
-	align-items: center;
-	padding: 0 var(--space-m);
+	flex-flow: row nowrap;
 	.brand-logo {
-		border-right: 1px solid var(--color-cream--700);
-		padding: var(--space-m);
-		svg path {
-			fill: var(--color-navy);
-		}
+		padding: var(--page-margin);
 	}
-	nav {
-		display: flex;
-		align-items: center;
-		margin: 0 var(--space-xl);
-		ul {
-			display: flex;
-			flex-flow: row nowrap;
-			list-style: none;
-			gap: var(--space-l);
-		}
-		a {
-			display: inline-block;
-			text-transform: uppercase;
-			
-		}
+	#status {
+		display: none;
 	}
 	.actions {
 		margin-left: auto;
-		
 		display: flex;
 		flex-flow: row wrap;
 		justify-content: flex-end;
 	}
 }
-.admin-main {
-	padding: var(--space-xl);
-}
-.admin-footer {
+.admin-sidebar {
+	background-color: var(--primary-400);
+	position: fixed;
+	top: var(--header);
+	left: 0;
+	width: var(--sidebar);
+	height: 100%;
+
+	border-right: 1px solid var(--primary-500);
+	.admin-navigation {
+		display: flex;
+		flex-flow: column nowrap;
+		margin: 0;
+		padding: 0;
+		ul {
+			display: flex;
+			flex-flow: column nowrap;
+			list-style: none;
+			gap: var(--space-l);
+			margin:0;
+			padding: 0;
+			.sidebar-block {
+				border-bottom: var(--border-light);
+				padding: var(--page-margin);
+			}
+			ul {
+				padding: 0;
+				margin: 0;
+				li {
+				}			
+			}
+		}
+		a {
+			display: inline-block;			
+		}
+		.menu-title {
+			text-transform: uppercase;
+			margin-bottom: var(--space-m);
+			display: block;
+		}
+	}
 	
 }
+.admin-footer {}

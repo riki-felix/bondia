@@ -1,0 +1,12 @@
+---
+import '../../src/styles/components/section-header.css';
+const { title = "Título de página" } = Astro.props;
+const { actionURL = "/" } = Astro.props;
+
+---
+<section class="section-header">
+  <h1>{title}</h1>
+  <div class="page-actions">
+  <a class="button--small" href={actionURL}>+ Añadir</a>
+  </div>
+</section>

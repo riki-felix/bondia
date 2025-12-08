@@ -1,4 +1,4 @@
-.widgets {
+.section-widgets {
   display: grid;
   gap: 1.2rem;
   grid-auto-flow: dense;
@@ -6,37 +6,37 @@
 }
 
 @media (min-width: 750px) {
-  .widgets {
+  .section-widgets {
 	grid-template-columns: repeat(10, 1fr);
   }
 }
 
 .widget {
 	display: grid;
-	background-color: var(--color-cream--700);
-	padding: var(--space-m) var(--space-l) var(--space-xl) var(--space-l);
-	border-radius: 0.8rem;
+	background-color: var(--primary-850);
+	padding: 0;
+	border-radius: var(--radius-default);
+	border: var(--border);
 }
 
 .widget-row--totals {
-	padding: var(--space-l) var(--space-l);
+	padding: var(--border);
 }
 .widget-row {
-	border: 1px solid var(--color-navy);
-	border-radius: 0.8rem;
+	border-top: var(--border);
 }
 .widget-row.wg--2col{
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	.widget-cell:first-child {
-		border-right: 1px solid var(--color-navy);
+		border-right: var(--border);
 	}
 }
 .widget-row.wg--3col{
 	display: grid;
 	grid-template-columns: 1fr 1fr 1fr;
 	.widget-cell {
-		border-right: 1px solid var(--color-navy);
+		border-right: var(--border);
 	}
 	.widget-cell:last-child {
 		border-right: 0;
@@ -46,7 +46,7 @@
 	display: grid;
 	grid-template-columns: 1fr 1fr 1fr 1fr;
 	.widget-cell {
-		border-right: 1px solid var(--color-navy);
+		border-right:  var(--border);
 	}
 	.widget-cell:last-child {
 		border-right: 0;
@@ -57,13 +57,12 @@
 	flex-flow: column wrap;
 	justify-content: center;
 	text-align: center;
-	padding: var(--space-m) var(--space-m);
+	padding: var(--space-m) var(--space-s);
 }
 
 .data-money {
 	font-family: var(--font-data-family);
-	font-variation-settings: "wght" 400;
-	word-spacing: -1rem;
+	word-spacing: 0;
 	letter-spacing: -0.1rem;
 }
 
@@ -84,9 +83,7 @@
 	font-size: var(--font-size--xl);
 }
 
-.data-label	{
-	font-variation-settings: "wght" 400;
-}
+.data-label	{}
 .label-xs	{
 	font-size: var(--font-size--xs);
 }
@@ -95,17 +92,14 @@
 }
 .label-m	{
 	font-size: var(--font-size--m);
-	font-family: var(--font-heading-family);
 	text-transform: capitalize;
 }
 .label-l	{
 	font-size: var(--font-size--l);
-	font-family: var(--font-heading-family);
 	text-transform: capitalize;
 }
 .label-xl	{
 	font-size: var(--font-size--xl);
-	font-family: var(--font-heading-family);
 	text-transform: capitalize;
 }
 
@@ -122,7 +116,7 @@
 .grid-10 	{grid-column: span 10}
 
 .widget-table {
-	font-size: var(--font-size--xs);
+	font-size: var(--font-size--m);
 	border-collapse: collapse;
 	border-spacing: 0;
 	td,th {
@@ -137,7 +131,7 @@
 	}
 	tr.row-space td,
 	tr.row-space th{
-		border-top: 1px solid var(--color-navy);
+		border-top: 0.05rem solid var(--primary-600);
 		border-collapse: collapse;
 		margin-top: 1rem;
 		padding-top: 1rem;

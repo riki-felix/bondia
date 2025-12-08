@@ -6,8 +6,11 @@ import SumWidget from "../../widgets/SumWidget.astro";
 import SumCategoriesWidget from "../../widgets/SumCategoriesWidget.astro";
 
 import "../../../src/styles/pages/propiedades.css";
+import "../../../src/styles/components/section-toolbar.css";
+import "../../../src/styles/components/widgets.css";
 
 import Layout from "../../components/Layout.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { loadCategoriasResumen } from "../../lib/movimientosCategorias";
 
@@ -80,98 +83,91 @@ const properties =
 ---
 
 <Layout title="Inversiones">
-  <header class="main-header">
-	<h1>Inversiones</h1>
-	<div class="page-actions">
-	  <a class="button--small" href="/admin/nueva">+ Nueva</a>
+	<div class="main-content">
+		<SectionHeader title="Control de inversiones" />
+		<section class="section-toolbar">
+			{error && <p>❌ {error.message}</p>}
+			{catError && <p>⚠️ Error categorías: {catError.message}</p>}
+			
+			{/* Filtro de año / totales */}
+			{allProperties && allProperties.length > 0 && (
+				<div class="year-filter">			
+					<select id="inv-year" class="year-filter__select">
+						<option value="all" selected={modeTotals}>TOTALES</option>
+						{years.map((y) => (
+						<option
+							value={y}
+							selected={!modeTotals && selectedYear === y}
+						>
+							{y}
+						</option>
+						))}
+					</select>
+				</div>
+			)}
+			
+			
+		</section>
+		<section class="section-widgets">			
+			{!error && (!allProperties || allProperties.length === 0) && (
+				<p>
+					No hay propiedades de tipo <em>Inversión</em>.
+				</p>
+			)}
+			
+			{properties && properties.length > 0 && (
+				<CountWidget
+					size="4"
+					propiedades={properties}
+					tipo="inversion"
+					label="Inversiones"
+				/>
+				<CountWidget
+					size="2"
+					propiedades={properties}
+					tipo="inversion"
+					estado="vendido"
+					label="Vendidas"
+				/>
+				<CountWidget
+					size="2"
+					propiedades={properties}
+					tipo="inversion"
+					estado="tanteo"
+					label="Tanteo"
+				/>
+				<CountWidget
+					size="2"
+					propiedades={properties}
+					tipo="inversion"
+					estado="liquidado"
+					label="Liquidados"
+				/>
+			
+				<SumWidget
+					size="5"
+					propiedades={properties}
+					tipo="inversion"
+					campo="precio_venta"
+					label={modeTotals ? "Total Ventas (TOTALES)" : "Total Ventas"}
+				/>
+				<SumWidget
+					size="5"
+					propiedades={properties}
+					tipo="inversion"
+					campo="precio_compra"
+					label={modeTotals ? "Total Compras (TOTALES)" : "Total Compras"}
+				/>
+			
+				<SumCategoriesWidget
+					size="10"
+					rows={categoriasResumen}
+					modeTotals={modeTotals}
+					selectedYear={selectedYear}
+				/>
+			)}
+		</section>
 	</div>
-  </header>
-
-  {error && <p>❌ {error.message}</p>}
-  {catError && <p>⚠️ Error categorías: {catError.message}</p>}
-
-  {/* Filtro de año / totales */}
-  {allProperties && allProperties.length > 0 && (
-	<section class="inv-year-filter">
-	  <label for="inv-year" class="inv-year-filter__label">
-		Año de compra
-	  </label>
-
-	  <select id="inv-year" class="inv-year-filter__select">
-		<option value="all" selected={modeTotals}>TOTALES</option>
-		{years.map((y) => (
-		  <option
-			value={y}
-			selected={!modeTotals && selectedYear === y}
-		  >
-			{y}
-		  </option>
-		))}
-	  </select>
-	</section>
-  )}
-
-  {/* Sin inversiones */}
-  {!error && (!allProperties || allProperties.length === 0) && (
-	<p>
-	  No hay propiedades de tipo <em>Inversión</em>.
-	</p>
-  )}
-
-  {/* Widgets */}
-  {properties && properties.length > 0 && (
-	<section class="widgets">
-	  <CountWidget
-		size="4"
-		propiedades={properties}
-		tipo="inversion"
-		label="Inversiones"
-	  />
-	  <CountWidget
-		size="2"
-		propiedades={properties}
-		tipo="inversion"
-		estado="vendido"
-		label="Vendidas"
-	  />
-	  <CountWidget
-		size="2"
-		propiedades={properties}
-		tipo="inversion"
-		estado="tanteo"
-		label="Tanteo"
-	  />
-	  <CountWidget
-		size="2"
-		propiedades={properties}
-		tipo="inversion"
-		estado="liquidado"
-		label="Liquidados"
-	  />
-
-	  <SumWidget
-		size="5"
-		propiedades={properties}
-		tipo="inversion"
-		campo="precio_venta"
-		label={modeTotals ? "Total Ventas (TOTALES)" : "Total Ventas"}
-	  />
-	  <SumWidget
-		size="5"
-		propiedades={properties}
-		tipo="inversion"
-		campo="precio_compra"
-		label={modeTotals ? "Total Compras (TOTALES)" : "Total Compras"}
-	  />
-
-	  <SumCategoriesWidget
-		size="10"
-		rows={categoriasResumen}
-		modeTotals={modeTotals}
-		selectedYear={selectedYear}
-	  />
-	</section>
-  )}
 </Layout>
 
 <script is:inline>
@@ -192,24 +188,3 @@ const properties =
 	});
   }
 </script>
-
-<style>
-  .inv-year-filter {
-	margin-bottom: 1rem;
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-  }
-
-  .inv-year-filter__label {
-	font-size: 0.9rem;
-	color: #555;
-  }
-
-  .inv-year-filter__select {
-	padding: 0.25rem 0.4rem;
-	border-radius: 0.35rem;
-	border: 1px solid #ccc;
-	font-size: 0.9rem;
-  }
-</style>

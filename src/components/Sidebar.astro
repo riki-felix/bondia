@@ -1,0 +1,51 @@
+---
+import '../../src/styles/components/sidebar-module.css';
+import { House, Library } from '@lucide/astro';
+
+---
+<sidebar class="sidebar">
+  <nav class="mainNav">
+    <ul>
+      <li>
+        <span class="menu-title">Inversiones</span>
+        <ul>
+          <li>
+            <a class="menu-link" href="/inversiones">
+              <House size="16" />
+              Control
+            </a>
+          </li>
+          <li><a class="menu-link" href="/inversiones/propiedades">
+            <House size="16" />
+              Pisos
+            </a>
+          </li>
+          <li><a class="menu-link" href="/inversiones/aportaciones">
+              Aportaciones
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li>
+            <a class="menu-link" href="/sanyus/">
+              Sanyus
+            </a>
+        <ul>
+          <li>
+          </li>
+        </ul>
+      </li>
+      <li><a class="menu-link" href="/rds">RDS</a></li>
+      <li>
+        Casa
+        <ul>
+          <li><a class="menu-link" href="/casa/panorama">Panorama</a></li>
+          <li><a class="menu-link" href="/casa/calendario">Calendario</a></li>
+          <li><a class="menu-link" href="/casa/gastos">Gastos</a></li>
+          <li><a class="menu-link" href="/casa/ingresos">Ingresos</a></li>
+          <li><a class="menu-link" href="/casa/activos">Activos</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+</sidebar>

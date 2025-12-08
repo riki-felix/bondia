@@ -1,5 +1,7 @@
 ---
 import Admin from "../../../../components/Admin.astro";
+import SectionHeader from "../../../../components/SectionHeader.astro";
+import "../../../../styles/components/tables.css";
 import { supabaseClient } from "../../../../lib/supabaseClient";
 import { formatEuro } from "../../../../lib/money";
 
@@ -29,43 +31,38 @@ const propById = new Map(propiedadesActivas.map(p => [p.id, p.titulo]));
 ---
 
 <Admin title="Activos de casa">
-  <h1 class="admin-title">Activos de casa</h1>
-
-  <div style="text-align:right; margin:1rem 0;">
-	<a href="/admin/casa/activos/nuevo" class="btn btn-primary">
-	  + Nuevo activo
-	</a>
-  </div>
-
-  <table class="admin-table">
-	<thead>
-	  <tr>
-		<th>Nombre</th>
-		<th>Categoría</th>
-		<th>Propiedad</th>
-		<th>Valor estimado</th>
-		<th>Fecha compra</th>
-		<th></th>
-	  </tr>
-	</thead>
-	<tbody>
-	  {activos.map(a => (
-		<tr>
-		  <td>
-			<strong>{a.nombre}</strong>
-			{a.descripcion && <div class="admin-sub">{a.descripcion}</div>}
-		  </td>
-		  <td>{catById.get(a.categoria_id) ?? "—"}</td>
-		  <td>{propById.get(a.propiedad_id) ?? "—"}</td>
-		  <td style="text-align:right;">{a.valor_estimado ? formatEuro(a.valor_estimado) : "—"}</td>
-		  <td>{a.fecha_compra ?? "—"}</td>
-		  <td style="text-align:right;">
-			<a href={`/admin/casa/activos/${a.id}/editar`} class="btn btn-small">
-			  Editar
-			</a>
-		  </td>
-		</tr>
-	  ))}
-	</tbody>
-  </table>
+  <SectionHeader title="Activos" actionURL="/admin/casa/activos/nuevo" />
+  <section class="section-table">
+	<table class="table-full table-schema--light">
+		<thead>
+			<tr>
+				<th>Nombre</th>
+				<th>Categoría</th>
+				<th>Propiedad</th>
+				<th>Valor estimado</th>
+				<th>Fecha compra</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+		{activos.map(a => (
+			<tr>
+			<td>
+				<strong>{a.nombre}</strong>
+				{a.descripcion && <div class="admin-sub">{a.descripcion}</div>}
+			</td>
+			<td>{catById.get(a.categoria_id) ?? "—"}</td>
+			<td>{propById.get(a.propiedad_id) ?? "—"}</td>
+			<td style="text-align:right;">{a.valor_estimado ? formatEuro(a.valor_estimado) : "—"}</td>
+			<td>{a.fecha_compra ?? "—"}</td>
+			<td style="text-align:right;">
+				<a href={`/admin/casa/activos/${a.id}/editar`} class="btn btn-small">
+				Editar
+				</a>
+			</td>
+			</tr>
+		))}
+		</tbody>
+	</table>
+  </section>
 </Admin>

@@ -1,0 +1,32 @@
+.section-table {
+	border: 0.05rem solid var(--primary-800);
+	border-radius: 0.5rem;   /* lo que quieras */
+	margin: var(--space-l) 0;
+}
+.table-full {
+	width: 100%;
+	border-collapse: collapse;
+	thead {
+		tr th {
+			border-bottom: 0.05rem solid var(--primary-800);
+			padding: var(--space-m);
+			text-align: left;
+		}
+	}
+	tr {
+		td {
+			border-bottom: 0.05rem solid var(--primary-800);
+			padding: var(--space-m);
+		}		
+	}
+	tbody {
+		background-color: var(--primary-850);	
+	}
+}
+
+.table-schema--light {
+	
+	tbody {
+		background-color: var(--primary-200);	
+	}
+}

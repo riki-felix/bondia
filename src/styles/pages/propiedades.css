@@ -1,38 +1,187 @@
-.main-header {
-	display: flex;
-	flex-flow: row wrap;
-	align-items: center;
+/* Import Swiper core CSS */
+@import url("https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css");
+
+/* Bloque por año */
+.cards-year-block {
+  margin-bottom: var(--space-xxl);
 }
-.main-row {
-	display: grid;
-	grid-template-columns: 1fr;
+
+.cards-year-heading {
+  font-size: var(--font-size--xl);
+  font-weight: 600;
+  margin-bottom: var(--space-m);
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  color: var(--primary-100);
 }
-.main-row.col-2 {
-	grid-template-columns: 2fr 3fr;
-}	
-.page-actions {
-	margin-left: 1rem;
+
+.cards-year-heading::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-accent);
 }
-.cards-grid {
-	display: grid;
-	grid-template-columns: repeat(6,1fr);
-	gap: var(--space-l) var(--space-l);
+
+/* Contenedor Swiper */
+.section-cards-grid .prop-swiper {
+  position: relative;
+  padding: var(--space-xs) 0 var(--space-xl);
+  width: 100%;
 }
+
+/* Asegurar layout Swiper */
+.section-cards-grid .prop-swiper .swiper-wrapper {
+  display: flex;
+  align-items: stretch;
+}
+
+.section-cards-grid .prop-swiper .swiper-slide {
+  flex-shrink: 0;
+}
+
+/* Slides */
+.section-cards-grid .swiper-slide {
+  height: auto;
+  width: 80%;
+  max-width: 340px;
+}
+
+@media (min-width: 768px) {
+  .section-cards-grid .swiper-slide {
+	width: 45%;
+	max-width: 360px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .section-cards-grid .swiper-slide {
+	width: 32%;
+	max-width: 380px;
+  }
+}
+
+/* Tarjeta */
 .card-item {
-	background-color: rgba(255,255,255,0.5);
-	border-radius: 0.2rem;
-}
-.cards-title {}
-.cards-link {}
-.cards-img--link {}
-.cards-meta {}
+  background: var(--color-white);
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--primary-300);
 
-/* Propiedad */
-.movements {
+  /* sombras usando tus tokens */
+  box-shadow:
+	0 10px 20px rgba(33, 37, 41, 0.08),   /* primary-900 */
+	0 2px 4px rgba(33, 37, 41, 0.06);
 
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition:
+	transform 0.18s ease-out,
+	box-shadow 0.18s ease-out,
+	border-color 0.18s ease-out;
 }
-.table-movements {
-	width: 100%;
-	border-collapse: collapse; /* quita espacios entre celdas */
-	  table-layout: auto;
+
+.card-item:hover {
+  transform: translateY(-4px);
+  box-shadow:
+	0 18px 32px rgba(33, 37, 41, 0.12),
+	0 6px 12px rgba(33, 37, 41, 0.08);
+  border-color: var(--color-accent);
+}
+
+/* Imagen */
+.card-img--link {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+
+.card-img--link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease-out;
+}
+
+.card-item:hover .card-img--link img {
+  transform: scale(1.03);
+}
+
+/* Texto */
+.card-title {
+  font-size: var(--font-size--m);
+  font-weight: 600;
+  margin: var(--space-m) 0 var(--space-xs);
+  padding: 0 var(--space-m);
+  font-variation-settings: var(--font-weight);
+  color: var(--primary-900);
+}
+
+.card-title .card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.card-title .card-link:hover {
+  text-decoration: underline;
+}
+
+.card-meta {
+  font-size: var(--font-size--s);
+  line-height: 1.4;
+  color: var(--primary-600);
+  padding: 0 var(--space-m) var(--space-m);
+}
+
+/* Swiper navigation */
+.prop-swiper .swiper-button-prev,
+.prop-swiper .swiper-button-next {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--primary-900);
+  color: var(--primary-100);
+  box-shadow: 0 4px 10px rgba(33, 37, 41, 0.4);
+}
+
+.prop-swiper .swiper-button-prev::after,
+.prop-swiper .swiper-button-next::after {
+  font-size: 14px;
+}
+
+/* Esconder flechas en móvil */
+@media (max-width: 640px) {
+  .prop-swiper .swiper-button-prev,
+  .prop-swiper .swiper-button-next {
+	display: none;
+  }
+}
+
+/* Paginación */
+.prop-swiper .swiper-pagination-bullet {
+  width: 7px;
+  height: 7px;
+  background: var(--primary-500);
+  opacity: 1;
+}
+
+.prop-swiper .swiper-pagination-bullet-active {
+  width: 18px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+.cards-year-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-s);
+  margin-bottom: var(--space-s);
+}
+
+/* Para que los widgets no intenten ocupar ancho completo en fila */
+.cards-year-summary > * {
+  flex: 0 0 auto;
 }

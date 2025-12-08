@@ -2,10 +2,14 @@
 export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
 import RdsCountWidget from "../../widgets/rds/RdsCountWidget.astro";
 import RdsTotalsWidget from "../../widgets/rds/RdsTotalsWidget.astro";
 import RdsCalendarWidget from "../../widgets/rds/RdsCalendarWidget.astro";
 import { supabaseServer } from "../../lib/supabaseServer";
+import "../../../src/styles/components/tables.css";
+import "../../../src/styles/components/section-toolbar.css";
+
 
 interface PisoRds {
   id: string;
@@ -210,135 +214,128 @@ function formatMoneyEs(n: number): string {
 	maximumFractionDigits: 2,
   }).format(n);
 }
+const pageTitle = `RDS · ${selectedYear ?? "TOTALES"}`;
 ---
 
-<Layout title={`RDS · ${selectedYear}`}>
-  <section class="rds-header">
-	<div class="rds-header-main">
-	  <h1>RDS · Pisos ({selectedYear})</h1>
-	  <p class="muted">
-		Dashboard de lectura de los pisos RDS. Los datos dependen del año seleccionado.
-	  </p>
+<Layout title={pageTitle}>
+	<div class="main-content">
+		<SectionHeader title={pageTitle} />
+		<section class="section-toolbar">
+			<div class="year-filter">
+				<form method="get" class="year-filter-form">
+				<select id="year" name="year" class="year-filter__select">
+					{Array.from({ length: 6 }, (_, i) => {
+					const y = currentYear - 2 + i;
+					return (
+						<option value={y} selected={y === selectedYear}>
+						{y}
+						</option>
+					);
+					})}
+				</select>
+				<noscript>
+					<button type="submit">Aplicar</button>
+				</noscript>
+				</form>
+			</div>
+		</section>
+		<section class="section-widgets">
+		<RdsCountWidget
+			pisos={pisosActivos}
+			label={`Pisos`}
+		/>
+	
+		<RdsTotalsWidget resumen={resumen} />
+	
+		<RdsCalendarWidget
+			anio={selectedYear}
+			meses={mesesResumen}
+		/>
+		</section>
+		<section class="section-table">
+			{pisosActivos.length === 0 ? (
+				<p class="muted">
+				No hay movimientos registrados para ningún piso en {selectedYear}.
+				</p>
+			) : (
+				<table class="table-full">
+				<thead>
+					<tr>
+						<th>Piso</th>
+						<th >Dirección</th>
+						<th>Gastos</th>
+						<th>Ingresos</th>
+						<th>Beneficio</th>
+					</tr>
+				</thead>
+				<tbody>
+					{pisosActivos.map((piso) => {
+					const res = resumenPisos[piso.id] ?? {
+						gastos: 0,
+						ingresos: 0,
+					};
+					const beneficio = res.ingresos - res.gastos;
+					const mesesPiso = mesesPorPiso(piso.id);
+			
+					return (
+						<>
+						<tr>
+							<td>{piso.nombre}</td>
+							<td>{piso.direccion}</td>
+							<td>{formatMoneyEs(res.gastos)}</td>
+							<td>{formatMoneyEs(res.ingresos)}</td>
+							<td>{formatMoneyEs(beneficio)}</td>
+						</tr>
+						<tr>
+							<td colspan="5">
+								<details>
+									<summary>Ver meses</summary>
+									<table class="rds-mini-meses">
+										<thead>
+										<tr>
+											<th></th>
+											{mesesPiso.map((m) => (
+											<th>{nombresMes[m.mes - 1]}</th>
+											))}
+										</tr>
+										</thead>
+										<tbody>
+										<tr>
+											<th>Gasto</th>
+											{mesesPiso.map((m) => (
+											<td>{formatMoneyEs(m.gasto)}</td>
+											))}
+										</tr>
+										<tr>
+											<th>Ingreso</th>
+											{mesesPiso.map((m) => (
+											<td>{formatMoneyEs(m.ingreso)}</td>
+											))}
+										</tr>
+										<tr>
+											<th>Balance</th>
+											{mesesPiso.map((m) => (
+											<td>{formatMoneyEs(m.balance)}</td>
+											))}
+										</tr>
+										</tbody>
+									</table>
+									</details>
+							</td>
+						</tr>
+						</>
+					);
+					})}
+				</tbody>
+				</table>
+			)}
+		</section>
 	</div>
-	<form method="get" class="year-filter">
-	  <label for="year">Año</label>
-	  <select id="year" name="year">
-		{Array.from({ length: 6 }, (_, i) => {
-		  const y = currentYear - 2 + i;
-		  return (
-			<option value={y} selected={y === selectedYear}>
-			  {y}
-			</option>
-		  );
-		})}
-	  </select>
-	  <noscript>
-		<button type="submit">Aplicar</button>
-	  </noscript>
-	</form>
-  </section>
-
-  <main class="rds-layout">
-	<section class="widgets">
-	  <RdsCountWidget
-		pisos={pisosActivos}
-		label={`Pisos`}
-	  />
-
-	  <RdsTotalsWidget resumen={resumen} />
-
-	  <RdsCalendarWidget
-		anio={selectedYear}
-		meses={mesesResumen}
-	  />
-	</section>
-
-	<section class="rds-listado">
-	  <h2>Pisos {selectedYear}</h2>
-
-	  {pisosActivos.length === 0 ? (
-		<p class="muted">
-		  No hay movimientos registrados para ningún piso en {selectedYear}.
-		</p>
-	  ) : (
-		<table class="rds-table">
-		  <thead>
-			<tr>
-			  <th>Piso</th>
-			  <th>Dirección</th>
-			  <th>Gastos</th>
-			  <th>Ingresos</th>
-			  <th>Beneficio</th>
-			</tr>
-		  </thead>
-		  <tbody>
-			{pisosActivos.map((piso) => {
-			  const res = resumenPisos[piso.id] ?? {
-				gastos: 0,
-				ingresos: 0,
-			  };
-			  const beneficio = res.ingresos - res.gastos;
-			  const mesesPiso = mesesPorPiso(piso.id);
-
-			  return (
-				<>
-				  <tr>
-					<td>{piso.nombre}</td>
-					<td>{piso.direccion}</td>
-					<td>{formatMoneyEs(res.gastos)}</td>
-					<td>{formatMoneyEs(res.ingresos)}</td>
-					<td>{formatMoneyEs(beneficio)}</td>
-				  </tr>
-				  <tr>
-					  <td colspan="5">
-						  <details>
-							  <summary>Ver meses</summary>
-							  <table class="rds-mini-meses">
-								<thead>
-								  <tr>
-									<th></th>
-									{mesesPiso.map((m) => (
-									  <th>{nombresMes[m.mes - 1]}</th>
-									))}
-								  </tr>
-								</thead>
-								<tbody>
-								  <tr>
-									<th>Gasto</th>
-									{mesesPiso.map((m) => (
-									  <td>{formatMoneyEs(m.gasto)}</td>
-									))}
-								  </tr>
-								  <tr>
-									<th>Ingreso</th>
-									{mesesPiso.map((m) => (
-									  <td>{formatMoneyEs(m.ingreso)}</td>
-									))}
-								  </tr>
-								  <tr>
-									<th>Balance</th>
-									{mesesPiso.map((m) => (
-									  <td>{formatMoneyEs(m.balance)}</td>
-									))}
-								  </tr>
-								</tbody>
-							  </table>
-							</details>
-					  </td>
-				  </tr>
-				</>
-			  );
-			})}
-		  </tbody>
-		</table>
-	  )}
-	</section>
-  </main>
 </Layout>
 
 <script is:inline>
   document.addEventListener('DOMContentLoaded', () => {
-	const form = document.querySelector('.year-filter');
+	const form = document.querySelector('.year-filter-form');
 	if (!form) return;
 	const select = form.querySelector('select[name="year"]');
 	if (!select) return;
@@ -348,62 +345,3 @@ function formatMoneyEs(n: number): string {
 	});
   });
 </script>
-
-<style>
-  .rds-header {
-	display: flex;
-	justify-content: space-between;
-	gap: 1.5rem;
-	align-items: flex-end;
-	margin-bottom: 1.5rem;
-  }
-
-  .rds-header-main h1 {
-	margin: 0 0 .25rem;
-  }
-
-  .year-filter {
-	display: flex;
-	align-items: center;
-	gap: .5rem;
-  }
-
-  .rds-layout {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 2rem;
-  }
-
-  .widgets-area {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-  }
-
-  .rds-table,
-  .rds-mini-meses {
-	width: 100%;
-	border-collapse: collapse;
-  }
-
-  .rds-table th,
-  .rds-table td,
-  .rds-mini-meses th,
-  .rds-mini-meses td {
-	border: 1px solid #ddd;
-	padding: .3rem .4rem;
-  }
-
-  .rds-mini-meses {
-	margin-top: .5rem;
-  }
-
-  .rds-table th {
-  }
-
-  @media (max-width: 900px) {
-	.rds-layout {
-	  grid-template-columns: 1fr;
-	}
-  }
-</style>
