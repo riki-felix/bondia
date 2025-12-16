@@ -1,20 +1,12 @@
 ---
-/*
-  CountWidget
-  Props:
-	- propiedades: array de propiedades
-	- tipo?: string
-	- estado?: string
-	- label?: string
-	- size?: number | string   // NUEVO: controla grid-X via WidgetShell
-*/
 import WidgetShell from "./WidgetShell.astro";
 import { normalize } from "../lib/text";
 
 interface Props {
   propiedades: any[];
   tipo?: string;
-  estado?: string;
+  estado?: string;        // puede ser "comprado" o "comprado vendido" o "comprado, vendido"
+  liquidacion?: boolean;  // ✅ boolean
   label?: string;
   size?: number | string;
 }
@@ -23,39 +15,75 @@ const {
   propiedades = [],
   tipo = "",
   estado = "",
+  liquidacion,
   label = "",
   size = 2,
 } = Astro.props as Props;
 
 const norm = (s: string) => normalize(s);
 
+function toBoolOrNull(v: any): boolean | null {
+  if (v == null) return null;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(s)) return true;
+    if (["false", "0", "no", "n", "off"].includes(s)) return false;
+  }
+  return null;
+}
+
+function parseEstados(raw?: string): Set<string> | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const parts = s
+    .split(/[\s,;]+/g)
+    .map((x) => norm(x))
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  return new Set(parts);
+}
+
+const estadosSet = parseEstados(estado);
+
 const filtered = propiedades.filter((p: any) => {
   if (tipo && norm(p.tipo ?? "") !== norm(tipo)) return false;
-  if (estado && norm(p.estado ?? "") !== norm(estado)) return false;
+
+  // ✅ multi-estado
+  if (estadosSet) {
+    const pe = norm(p.estado ?? "");
+    if (!estadosSet.has(pe)) return false;
+  }
+
+  // ✅ liquidación (solo si viene definida)
+  if (liquidacion !== undefined) {
+    const b = toBoolOrNull(p.liquidacion);
+    if (b === null) return false;
+    if (b !== liquidacion) return false;
+  }
+
   return true;
 });
 
 const count = filtered.length;
 
+const autoLabelParts: string[] = [];
+if (tipo) autoLabelParts.push(tipo);
+if (estadosSet) autoLabelParts.push([...estadosSet].join("/"));
+if (liquidacion !== undefined) autoLabelParts.push(liquidacion ? "liquidado" : "pendiente");
+
 const displayLabel =
   label ||
-  (tipo && estado
-	? `Total ${tipo} (${estado})`
-	: tipo
-	? `Total ${tipo}`
-	: estado
-	? `Total con estado "${estado}"`
-	: "Total");
+  (autoLabelParts.length ? `Total ${autoLabelParts.join(" · ")}` : "Total");
 ---
 
 <WidgetShell size={size} ariaLabelledBy="wg-count-title">
   <div class="widget-row--totals">
-	<div class="widget-cell">
-	  <span id="wg-count-title" class="data-label label-m">
-		{displayLabel}
-	  </span>
-	  <span class="data-money data-xl">{count}</span>
-	  <span class="data-label label-xs"></span>
-	</div>
+    <div class="widget-cell">
+      <span id="wg-count-title" class="data-label label-m">{displayLabel}</span>
+      <span class="data-money data-xl">{count}</span>
+      <span class="data-label label-xs"></span>
+    </div>
   </div>
 </WidgetShell>

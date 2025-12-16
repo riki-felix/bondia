@@ -2,7 +2,6 @@
 body {
 	background-color: var(--primary-400);
 	color: var(--primary-800);
-	font-variation-settings:'wght' 500;
 }
 .admin {
 }

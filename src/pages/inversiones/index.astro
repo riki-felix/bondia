@@ -8,6 +8,7 @@ import SumCategoriesWidget from "../../widgets/SumCategoriesWidget.astro";
 import "../../../src/styles/pages/propiedades.css";
 import "../../../src/styles/components/section-toolbar.css";
 import "../../../src/styles/components/widgets.css";
+import "../../../src/styles/components/tables.css";
 
 import Layout from "../../components/Layout.astro";
 import SectionHeader from "../../components/SectionHeader.astro";
@@ -21,7 +22,7 @@ const supabase = supabaseClient();
 --------------------------------------------------------- */
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select("id, titulo, tipo, estado, fecha_compra, precio_compra, precio_venta")
+  .select("id, titulo, tipo, estado, fecha_compra,liquidacion, precio_compra, precio_venta")
   .eq("tipo", "inversion");
 
 /* -------------------------------------------------------
@@ -30,18 +31,18 @@ const { data: allProperties, error } = await supabase
 const yearSet = new Set<number>();
 
 (allProperties ?? []).forEach((p) => {
-  if (p.fecha_compra) {
-	const d = new Date(p.fecha_compra as string);
-	if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
-  }
+  if (!p.fecha_compra) return;
+  const d = new Date(p.fecha_compra as string);
+  if (Number.isNaN(d.getTime())) return;
+  yearSet.add(d.getFullYear());
 });
 
 const years = Array.from(yearSet).sort((a, b) => b - a);
 
 /* -------------------------------------------------------
-   3) MODO AÑO vs TOTALES
+   3) YEAR PARAM + MODO TOTALES
 --------------------------------------------------------- */
-const url = Astro.url;
+const url = new URL(Astro.request.url);
 const yearParam = url.searchParams.get("year");
 const currentYear = new Date().getFullYear();
 
@@ -49,7 +50,6 @@ let selectedYear: number | null = null;
 let modeTotals = false;
 
 if (!yearParam) {
-  // Por defecto: año actual
   selectedYear = currentYear;
 } else if (yearParam === "all") {
   modeTotals = true;
@@ -72,106 +72,326 @@ const properties =
 	  });
 
 /* -------------------------------------------------------
-		 5) RESUMEN DE CATEGORÍAS (helper reutilizable)
-	  --------------------------------------------------------- */
-	 const { rows: categoriasResumen, error: catError } =
-	   await loadCategoriasResumen({
-		 supabase,
-		 year: modeTotals ? null : selectedYear,
-		 modeTotals,
-	   });
+   5) RESUMEN DE CATEGORÍAS (helper reutilizable)
+--------------------------------------------------------- */
+const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen({
+  supabase,
+  year: modeTotals ? null : selectedYear,
+  modeTotals,
+});
 ---
 
-<Layout title="Inversiones">
-	<div class="main-content">
-		<SectionHeader title="Control de inversiones" />
-		<section class="section-toolbar">
-			{error && <p>❌ {error.message}</p>}
-			{catError && <p>⚠️ Error categorías: {catError.message}</p>}
-			
-			{/* Filtro de año / totales */}
-			{allProperties && allProperties.length > 0 && (
-				<div class="year-filter">			
-					<select id="inv-year" class="year-filter__select">
-						<option value="all" selected={modeTotals}>TOTALES</option>
-						{years.map((y) => (
-						<option
-							value={y}
-							selected={!modeTotals && selectedYear === y}
-						>
-							{y}
-						</option>
-						))}
-					</select>
-				</div>
-			)}
-			
-			
-		</section>
-		<section class="section-widgets">			
-			{!error && (!allProperties || allProperties.length === 0) && (
-				<p>
-					No hay propiedades de tipo <em>Inversión</em>.
-				</p>
-			)}
-			
-			{properties && properties.length > 0 && (
-				<CountWidget
-					size="4"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					label="Inversiones"
-				/>
-				<CountWidget
-					size="2"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					estado="vendido"
-					label="Vendidas"
-				/>
-				<CountWidget
-					size="2"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					estado="tanteo"
-					label="Tanteo"
-				/>
-				<CountWidget
-					size="2"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					estado="liquidado"
-					label="Liquidados"
-				/>
-			
-				<SumWidget
-					size="5"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					campo="precio_venta"
-					label={modeTotals ? "Total Ventas (TOTALES)" : "Total Ventas"}
-				/>
-				<SumWidget
-					size="5"
-					propiedades={properties ?? []}
-					tipo="inversion"
-					campo="precio_compra"
-					label={modeTotals ? "Total Compras (TOTALES)" : "Total Compras"}
-				/>
-			
-				<SumCategoriesWidget
-					size="10"
-					rows={categoriasResumen}
-					modeTotals={modeTotals}
-					selectedYear={selectedYear}
-				/>
-			)}
-		</section>
-	</div>
+<Layout>
+  <div class="page propiedades main-content">
+	<SectionHeader
+	  title="Inversiones"
+	  description="Resumen de tus propiedades de inversión (por año o totales)."
+	/>
+
+	<section class="section-toolbar">
+		{error && <p>❌ {error.message}</p>}
+		
+	  
+	  <div class="prop-filter">
+		</div>
+	{!error && years && years.length > 0 && (
+		
+		<div class="year-filter">
+		  <label for="year-select" class="year-filter__label">
+			AÑO
+		  </label>
+		  <select id="year-select" name="year" class="year-filter__select">
+			<option value="all" selected={modeTotals}>TODOS</option>
+			  {years.map((y) => (
+				<option value={String(y)} selected={!modeTotals && selectedYear === y}>
+				  {y}
+				</option>
+			  ))}
+		  </select>
+		</div>
+	  )}
+		
+	</section>
+	
+	<section class="section">
+		{catError && <p>❌ {catError.message}</p>}
+		
+		{!catError && categoriasResumen && categoriasResumen.length > 0 && (
+				<SumCategoriesWidget rows={categoriasResumen} />
+		)}
+	</section>
+	<section class="section-widgets">
+		
+	  {!error && (!allProperties || allProperties.length === 0) && (
+		<p>
+		  No hay propiedades de tipo <em>Inversión</em>.
+		</p>
+	  )}
+
+	  {properties && properties.length > 0 && (
+		<>
+		  <CountWidget
+			size="2"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			label="Inversiones"
+		  />
+		  <CountWidget
+			size="1"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			estado="comprado"
+			label="Compradas"
+		  />
+		  <CountWidget
+			size="1"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			estado="vendido"
+			label="Vendidas"
+		  />
+		  <CountWidget
+			size="1"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			estado="tanteo"
+			label="Tanteo"
+		  />
+		  <CountWidget
+			size="1"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			label="Liquidados"
+			estado="comprado vendido"
+			liquidacion={true}
+		  />
+		  <CountWidget
+			size="1"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			label="Pendientes"
+			estado="comprado vendido tanteo"
+			liquidacion={false}
+		  />
+
+		  <!-- <SumWidget
+			size="6"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			field="precio_compra"
+			label="Compra total"
+		  />
+
+		  <SumWidget
+			size="6"
+			propiedades={properties ?? []}
+			tipo="inversion"
+			field="precio_venta"
+			label="Venta total"
+		  /> -->
+		</>
+	  )}
+	</section>
+
+	<!-- ✅ TABLA (solo vista, sin editar) -->
+	<section class="section-toolbar" style="margin-top: 18px;">
+	  <input id="inv-q" type="search" placeholder="Buscar por título, estado o slug…" />
+	</section>
+
+	<section class="section-table">
+	  <table class="table-full table-schema">
+		<thead>
+		  <tr>
+			<th>Imagen</th>
+			<th>Nº op.</th>
+			<th>Título</th>
+			<th class="">Creada</th>
+			<th>Estado</th>
+			<th>Liquidación</th>
+			<th class="">Compra</th>
+			<th class="">Aportaciones</th>
+			<th class="">Ingreso banco</th>
+			<th class="">Fecha ingreso</th>
+		  </tr>
+		</thead>
+		<tbody id="inv-rows">
+		  <tr><td colspan="9" class="muted">Cargando…</td></tr>
+		</tbody>
+	  </table>
+	</section>
+
+	<script type="module" define:vars={{ MODE_TOTALS: modeTotals, YEAR: selectedYear }}>
+	  import { supabase } from '/src/scripts/supabaseClient.js';
+
+	  const DEFAULT_BUCKET = 'property-image';
+
+	  const rowsEl = document.getElementById('inv-rows');
+	  const qEl = document.getElementById('inv-q');
+
+	  let allRows = [];
+
+	  function fmtDate(iso) {
+		if (!iso) return '';
+		try {
+		  const d = new Date(iso);
+		  return d.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
+		} catch (e) {
+		  return String(iso);
+		}
+	  }
+
+	  function fmtMoney(n) {
+		if (n === null || n === undefined || n === '') return '';
+		const num = Number(n);
+		if (!Number.isFinite(num)) return String(n);
+		return num.toLocaleString('es-ES', { style:'currency', currency:'EUR' });
+	  }
+
+	  // ✅ Badge según liquidación (lo que necesitas)
+	  function badgeClassLiquidacion(isLiquidado) {
+		return isLiquidado ? 'ok' : 'neutral';
+	  }
+
+	  async function resolveImageUrl(rawPath) {
+		if (!rawPath) return '';
+		if (/^https?:\/\//.test(rawPath)) return rawPath;
+
+		let bucket = DEFAULT_BUCKET;
+		let path = rawPath;
+
+		const firstSlash = rawPath.indexOf('/');
+		if (firstSlash > 0 && !rawPath.startsWith('public/')) {
+		  const maybeBucket = rawPath.slice(0, firstSlash);
+		  const rest = rawPath.slice(firstSlash + 1);
+		  if (['property-image','property-images','propiedades','media'].includes(maybeBucket)) {
+			bucket = maybeBucket;
+			path = rest;
+		  }
+		}
+
+		const pub = supabase.storage.from(bucket).getPublicUrl(path);
+		if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+
+		try {
+		  const signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+		  if (signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
+		} catch (e) {}
+
+		return '';
+	  }
+
+	  function render(list) {
+		if (!Array.isArray(list) || list.length === 0) {
+		  rowsEl.innerHTML = '<tr><td colspan="9" class="muted">No hay inversiones.</td></tr>';
+		  return;
+		}
+
+		rowsEl.innerHTML = list.map((r) => {
+		  const href = r.slug ? ('/propiedad/' + encodeURIComponent(r.slug)) : ('/propiedad/' + r.id);
+		  const img = r._img
+			? '<img class="thumb" src="' + r._img + '" alt="">'
+			: '<div class="thumb" style="border:1px solid #eee"></div>';
+
+		  const numOp = (r.numero_operacion === null || r.numero_operacion === undefined || r.numero_operacion === '')
+			? '—'
+			: String(r.numero_operacion);
+
+		  const totalAport = (r.total_aportaciones === null || r.total_aportaciones === undefined)
+			? 0
+			: r.total_aportaciones;
+
+		  // ✅ Etiqueta liquidación
+		  const isLiquidado = !!r.liquidacion;
+		  const liqLabel = isLiquidado ? 'liquidado' : 'pendiente';
+		  const liqClass = badgeClassLiquidacion(isLiquidado);
+
+		  return (
+			'<tr data-id="' + r.id + '" data-slug="' + (r.slug || '') + '">' +
+			  '<td>' + img + '</td>' +
+			  '<td><strong>' + numOp + '</strong></td>' +
+			  '<td><a href="' + href + '">' + (r.titulo || '(sin título)') + '</a></td>' +
+			  '<td class="">' + fmtDate(r.created_at) + '</td>' +
+
+			  // ✅ AQUÍ EL CAMBIO: badge Liquidación + (opcional) estado real debajo
+			  '<td>' +
+				(r.estado ? ('<div class="badge status">' + String(r.estado) + '</div>') : '') +
+			  '</td>' +
+			  '<td>' +
+				'<span class="badge ' + liqClass + '">' + liqLabel + '</span>' +
+			  '</td>' +
+
+			  '<td class=" val">' + fmtMoney(r.precio_compra) + '</td>' +
+			  '<td class=" val">' + fmtMoney(totalAport) + '</td>' +
+			  '<td class=" val">' + fmtMoney(r.ingreso_banco) + '</td>' +
+			  '<td class="">' + fmtDate(r.fecha_ingreso) + '</td>' +
+			'</tr>'
+		  );
+		}).join('');
+	  }
+
+	  function applyFilter() {
+		const q = String(qEl.value || '').trim().toLowerCase();
+
+		const list = allRows.filter((r) => {
+		  if (!q) return true;
+		  return (
+			String(r.titulo || '').toLowerCase().includes(q) ||
+			String(r.estado || '').toLowerCase().includes(q) ||
+			String(r.slug || '').toLowerCase().includes(q) ||
+			String(r.numero_operacion || '').toLowerCase().includes(q)
+		  );
+		});
+
+		render(list);
+	  }
+
+	  async function load() {
+		let query = supabase
+		  .from('propiedades_vista')
+		  .select('id, slug, titulo, estado, tipo, fecha_compra, precio_compra, numero_operacion, ingreso_banco, fecha_ingreso, total_aportaciones, foto_destacada_path, liquidacion, created_at')
+		  .eq('tipo', 'inversion')
+		  // ✅ FIX: supabase-js usa nullsFirst (no nullsLast)
+		  .order('numero_operacion', { ascending: true, nullsFirst: false })
+		  .limit(200);
+	  
+		if (!MODE_TOTALS && YEAR) {
+		  const from = YEAR + '-01-01';
+		  const to = YEAR + '-12-31';
+		  query = query.gte('fecha_compra', from).lte('fecha_compra', to);
+		}
+	  
+		const resp = await query;
+		const data = resp ? resp.data : null;
+		const error = resp ? resp.error : null;
+	  
+		if (error) {
+		  // ✅ MUY IMPORTANTE: pinta el error real
+		  rowsEl.innerHTML =
+			'<tr><td colspan="9" class="muted">Error cargando inversiones: ' +
+			String(error.message || error) +
+			'</td></tr>';
+		  return;
+		}
+	  
+		const base = Array.isArray(data) ? data : [];
+		const withImg = await Promise.all(base.map(async (r) => {
+		  const copy = Object.assign({}, r);
+		  copy._img = await resolveImageUrl(r.foto_destacada_path);
+		  return copy;
+		}));
+	  
+		allRows = withImg;
+		applyFilter();
+	  }
+
+	  qEl.addEventListener('input', applyFilter);
+	  load();
+	</script>
+  </div>
 </Layout>
 
 <script is:inline>
-  const yearSelect = document.getElementById("inv-year");
+  const yearSelect = document.getElementById("year-select");
 
   if (yearSelect) {
 	yearSelect.addEventListener("change", () => {

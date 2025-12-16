@@ -6,7 +6,7 @@
 	background-color: var(--primary-900);
 	border-right: 0.05rem solid var(--primary-800);
 	height: 100%;
-	
+	z-index: 50;
 }
 .mainNav {
 	ul {

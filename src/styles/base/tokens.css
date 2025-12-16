@@ -34,6 +34,7 @@
 	--primary-900: #212529ff;
 		
 	--color-accent: #26aab0;
+	--color-warning: #e1d865;
 	
 	--border: 0.05rem solid var(--primary-800);
 	--border-light: 0.05rem solid var(--primary-500);

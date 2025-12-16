@@ -9,7 +9,7 @@ body {
 	height: 100%;
 	font-family: var(--font-body-family);
 	font-size: var(--font-size--m);
-	font-weight: 300;
+	font-weight: 400;
 	letter-spacing: 0.01rem;
 	color: var(--primary-100);
 }

@@ -13,15 +13,16 @@
 .year-filter {
 	display: flex;
 	flex-flow: row wrap;
-	align-items: center;
+	align-items: baseline;
 	gap: var(--space-m);
 	background-color: var(--primary-800);
 		padding: var(--space-xs) var(--space-s);
 		border-radius: 0.3rem;
 	.year-filter__select {
+		text-transform: uppercase;
 		background-color: transparent;
 		border: none;
-		font-size: var(--font-size--l);
+		font-size: var(--font-size--m);
 	}
 }
 

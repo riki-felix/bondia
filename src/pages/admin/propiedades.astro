@@ -8,210 +8,261 @@ import { formatEuro, toNum } from "../../lib/money";
 export const prerender = false;
 ---
 <Admin>
-	<SectionHeader title="Gestionar Pisos" actionURL="/admin/nueva"/>
-	<section class="section-toolbar">
-			<input id="q" type="search" placeholder="Buscar por título, estado o slug…" />
-			<div class="seg" id="tipo-seg" role="tablist" aria-label="Filtrar por tipo">
-			<button type="button" class="is-active" data-tipo="all" role="tab" aria-selected="true">Todas</button>
-			<button type="button" data-tipo="activos" role="tab" aria-selected="false">Activos</button>
-			<button type="button" data-tipo="inversion" role="tab" aria-selected="false">Inversión</button>
-			</div>
-	</section>
-	<section class="section-table">
-		<table class="table-full table-schema--light">
-			<thead>
-				<tr>
-				<th>Imagen</th>
-				<th>Título</th>
-				<th>Estado</th>
-				<th class="hide-sm">Valor compra</th>
-				<th class="hide-sm">Creada</th>
-				<th style="width:1%">Acciones</th>
-				</tr>
-			</thead>
-			<tbody id="rows">
-				<tr><td colspan="6" class="muted">Cargando…</td></tr>
-			</tbody>
-		</table>
-	</section>
-	<script is:inline type="module">
-  import { supabase } from '/src/scripts/supabaseClient.js';
+  <SectionHeader title="Gestionar Pisos" actionURL="/admin/nueva"/>
 
-  // 🔹 Usa el nombre real del bucket
-  const DEFAULT_BUCKET = 'property-image'; // <-- aquí el singular
+  <section class="section-toolbar">
+	<input id="q" type="search" placeholder="Buscar por título, estado o slug…" />
+	<div class="seg" id="tipo-seg" role="tablist" aria-label="Filtrar por tipo">
+	  <button type="button" class="is-active" data-tipo="all" role="tab" aria-selected="true">Todas</button>
+	  <button type="button" data-tipo="activos" role="tab" aria-selected="false">Activos</button>
+	  <button type="button" data-tipo="inversion" role="tab" aria-selected="false">Inversión</button>
+	</div>
+  </section>
 
-  const rowsEl = document.getElementById('rows');
-  const msgEl  = document.getElementById('msg');
-  const qEl    = document.getElementById('q');
-  const segEl  = document.getElementById('tipo-seg');
-  const userEmailEl = document.getElementById('user-email');
+  <p id="status" class="status" style="display:none"></p>
 
-  let allRows = [];
-  let user = null;
-  let tipoFilter = 'all';
+  <section class="section-table">
+	<table class="table-full table-schema--light">
+	  <thead>
+		<tr>
+		  <th>Imagen</th>
+		  <th>Nº op.</th>
+		  <th>Título</th>
+		  <th>Estado</th>
+		  <th class="hide-sm">Compra</th>
+		  <th class="hide-sm">Ingreso banco</th>
+		  <th class="hide-sm">Fecha ingreso</th>
+		  <th class="hide-sm">Aportaciones</th>
+		  <th class="hide-sm">Creada</th>
+		  <th style="width:1%">Acciones</th>
+		</tr>
+	  </thead>
+	  <tbody id="rows">
+		<tr><td colspan="10" class="muted">Cargando…</td></tr>
+	  </tbody>
+	</table>
+  </section>
+  <style>
+	/* 1) El contenedor debe scrollear */
+	.section-table {
+	  max-height: calc(100vh - 260px); /* ajusta según tu layout */
+	  overflow: auto;
+	  border-radius: 12px; /* opcional */
+	}
+  
+	/* 2) Sticky header */
+	.section-table table thead th {
+	  position: sticky;
+	  top: 0;
+	  z-index: 5;            /* para estar por encima de las celdas */
+	  background: white;     /* IMPORTANTÍSIMO (si no, se transparenta) */
+	  box-shadow: 0 1px 0 rgba(0,0,0,.08); /* línea inferior */
+	}
+  
+	/* 3) Si tienes celdas con background/hover, esto evita glitches */
+	.section-table table {
+	  border-collapse: separate;
+	  border-spacing: 0;
+	}
+  </style>
+  <script type="module">
+	import { supabase } from '/src/scripts/supabaseClient.js';
 
-  const fmtDate = (iso) => {
-	if (!iso) return '';
-	try {
-	  const d = new Date(iso);
-	  return d.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
-	} catch { return iso; }
-  };
+	// Si tu bucket es otro, cámbialo aquí
+	const DEFAULT_BUCKET = 'property-image';
 
-  const fmtMoney = (n) => {
-	if (n === null || n === undefined || n === '') return '';
-	const num = Number(n);
-	if (!Number.isFinite(num)) return String(n);
-	return num.toLocaleString('es-ES', { style:'currency', currency:'EUR' });
-  };
+	const rowsEl = document.getElementById('rows');
+	const qEl = document.getElementById('q');
+	const segEl = document.getElementById('tipo-seg');
+	const msgEl = document.getElementById('status');
 
-  const setMsg = (text, kind = 'ok') => {
-	msgEl.textContent = text;
-	msgEl.className = 'status ' + kind;
-	msgEl.style.display = 'block';
-	if (kind === 'ok') setTimeout(() => (msgEl.style.display = 'none'), 2000);
-  };
+	var allRows = [];
+	var tipoFilter = 'all';
 
-  const badgeClass = (estado) => {
-	const s = (estado || '').toLowerCase();
-	if (['activa','publicada','en venta','disponible'].includes(s)) return 'ok';
-	if (['borrador','pendiente','en revisión'].includes(s)) return 'neutral';
-	if (['reservada','pausada'].includes(s)) return 'warn';
-	if (['vendida','archivada','eliminada'].includes(s)) return 'err';
-	return 'neutral';
-  };
-
-  const normalize = (str='') =>
-	str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-
-  const matchTipo = (valorTipo) => {
-	if (tipoFilter === 'all') return true;
-	const t = normalize(valorTipo);
-	if (tipoFilter === 'activos')   return t === 'activo' || t === 'activos';
-	if (tipoFilter === 'inversion') return t === 'inversion' || t === 'de inversion';
-	return true;
-  };
-
-  // 🖼️ Resolver URL de imagen desde `foto_destacada_path`
-  async function resolveImageUrl(rawPath) {
-	if (!rawPath) return '';
-
-	// Si ya es una URL completa, devolver tal cual
-	if (/^https?:\/\//.test(rawPath)) return rawPath;
-
-	// Permitir que el path venga con "bucket/path/to/file"
-	// o sólo "path/to/file"
-	let bucket = DEFAULT_BUCKET;
-	let path = rawPath;
-
-	const firstSlash = rawPath.indexOf('/');
-	if (firstSlash > 0 && !rawPath.startsWith('public/')) {
-	  // Heurística: si el prefijo parece ser el nombre del bucket real
-	  const maybeBucket = rawPath.slice(0, firstSlash);
-	  const rest = rawPath.slice(firstSlash + 1);
-	  // buckets típicos que hemos usado: property-image, property-images
-	  if (['property-image', 'property-images', 'propiedades'].includes(maybeBucket)) {
-		bucket = maybeBucket;
-		path = rest;
+	function setMsg(text, kind) {
+	  msgEl.textContent = text;
+	  msgEl.className = 'status ' + (kind || 'ok');
+	  msgEl.style.display = 'block';
+	  if ((kind || 'ok') === 'ok') {
+		setTimeout(function(){ msgEl.style.display = 'none'; }, 2500);
 	  }
 	}
 
-	// 1) Intentar URL pública directa
-	const pub = supabase.storage.from(bucket).getPublicUrl(path);
-	if (pub?.data?.publicUrl) return pub.data.publicUrl;
-
-	// 2) Si el bucket es privado, generar una URL firmada
-	try {
-	  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600); // 1h
-	  if (!error && data?.signedUrl) return data.signedUrl;
-	} catch {}
-
-	return '';
-  }
-
-  const render = (list) => {
-	if (!Array.isArray(list) || list.length === 0) {
-	  rowsEl.innerHTML = '<tr><td colspan="6" class="muted">No hay propiedades todavía.</td></tr>';
-	  return;
-	}
-	rowsEl.innerHTML = list.map((r) => {
-	  const viewHref = r.slug ? `/propiedad/${encodeURIComponent(r.slug)}` : `/propiedad/${r.id}`;
-	  const editHref = r.slug ? `/admin/propiedad/${encodeURIComponent(r.slug)}/editar` : '';
-
-	  const img = r._img
-		? `<img class="thumb" src="${r._img}" alt="">`
-		: '<div class="thumb" style="border:1px solid #eee"></div>';
-
-	  const editBtn = editHref
-		? `<a class="btn" href="${editHref}">Editar</a>`
-		: `<button class="btn" disabled title="Falta slug">Editar</button>`;
-
-	  return `
-		<tr data-id="${r.id}" data-slug="${r.slug || ''}">
-		  <td>${img}</td>
-		  <td><a href="${viewHref}">${r.titulo || '(sin título)'}</a></td>
-		  <td><span class="badge ${badgeClass(r.estado)}">${r.estado || '—'}</span></td>
-		  <td class="hide-sm val">${fmtMoney(r.precio_compra)}</td>
-		  <td class="hide-sm">${fmtDate(r.created_at)}</td>
-		  <td><div class="actions">${editBtn}</div></td>
-		</tr>
-	  `;
-	}).join('');
-  };
-
-  const applyFilters = () => {
-	const q = qEl.value.trim().toLowerCase();
-	const list = allRows.filter(r => {
-	  const matchesSearch =
-		!q ||
-		(r.titulo || '').toLowerCase().includes(q) ||
-		(r.estado || '').toLowerCase().includes(q) ||
-		(r.slug || '').toLowerCase().includes(q);
-	  const matchesTipo = matchTipo(r.tipo || '');
-	  return matchesSearch && matchesTipo;
-	});
-	render(list);
-  };
-
-  const load = async () => {
-	// include `tipo` para el switch
-	const { data, error } = await supabase
-	  .from('propiedades')
-	  .select('id, slug, titulo, estado, tipo, precio_compra, foto_destacada_path, created_at')
-	  .order('created_at', { ascending: false })
-	  .limit(200);
-
-	if (error) {
-	  rowsEl.innerHTML = '<tr><td colspan="6" class="muted">Error cargando propiedades.</td></tr>';
-	  setMsg('❌ ' + error.message, 'err');
-	  return;
+	function fmtDate(iso) {
+	  if (!iso) return '';
+	  try {
+		const d = new Date(iso);
+		return d.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
+	  } catch (e) {
+		return String(iso);
+	  }
 	}
 
-	// 🔹 Resolver URLs de imagen de forma asíncrona (pública o firmada)
-	const withImg = await Promise.all(
-	  (data || []).map(async (r) => ({
-		...r,
-		_img: await resolveImageUrl(r.foto_destacada_path)
-	  }))
-	);
+	function fmtMoney(n) {
+	  if (n === null || n === undefined || n === '') return '';
+	  var num = Number(n);
+	  if (!Number.isFinite(num)) return String(n);
+	  return num.toLocaleString('es-ES', { style:'currency', currency:'EUR' });
+	}
 
-	allRows = withImg;
-	applyFilters();
-  };
+	function normalize(str) {
+	  return String(str || '')
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g,'')
+		.toLowerCase()
+		.trim();
+	}
 
-  // búsqueda + switch
-  qEl.addEventListener('input', applyFilters);
-  segEl.addEventListener('click', (e) => {
-	const btn = e.target.closest('button[data-tipo]');
-	if (!btn) return;
-	tipoFilter = btn.dataset.tipo;
-	[...segEl.querySelectorAll('button')].forEach(b=>{
-	  b.classList.toggle('is-active', b === btn);
-	  b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+	function matchTipo(valorTipo) {
+	  if (tipoFilter === 'all') return true;
+	  var t = normalize(valorTipo);
+	  if (tipoFilter === 'activos') return t === 'activo' || t === 'activos';
+	  if (tipoFilter === 'inversion') return t === 'inversion';
+	  return true;
+	}
+
+	function badgeClass(estado) {
+	  var s = String(estado || '').toLowerCase();
+	  if (['vendido'].indexOf(s) >= 0) return 'err';
+	  if (['alquiler'].indexOf(s) >= 0) return 'ok';
+	  if (['reforma','comprado','negociacion','tanteo'].indexOf(s) >= 0) return 'neutral';
+	  return 'neutral';
+	}
+
+	async function resolveImageUrl(rawPath) {
+	  if (!rawPath) return '';
+	  if (/^https?:\/\//.test(rawPath)) return rawPath;
+
+	  var bucket = DEFAULT_BUCKET;
+	  var path = rawPath;
+
+	  var firstSlash = rawPath.indexOf('/');
+	  if (firstSlash > 0 && !rawPath.startsWith('public/')) {
+		var maybeBucket = rawPath.slice(0, firstSlash);
+		var rest = rawPath.slice(firstSlash + 1);
+		if (['property-image','property-images','propiedades','media'].indexOf(maybeBucket) >= 0) {
+		  bucket = maybeBucket;
+		  path = rest;
+		}
+	  }
+
+	  var pub = supabase.storage.from(bucket).getPublicUrl(path);
+	  if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+
+	  try {
+		var signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+		if (signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
+	  } catch (e) {}
+
+	  return '';
+	}
+
+	function render(list) {
+	  if (!Array.isArray(list) || list.length === 0) {
+		rowsEl.innerHTML = '<tr><td colspan="10" class="muted">No hay propiedades todavía.</td></tr>';
+		return;
+	  }
+
+	  rowsEl.innerHTML = list.map(function(r){
+		var viewHref = r.slug ? ('/propiedad/' + encodeURIComponent(r.slug)) : ('/propiedad/' + r.id);
+		var editHref = r.slug ? ('/admin/propiedad/' + encodeURIComponent(r.slug) + '/editar') : '';
+
+		var img = r._img
+		  ? '<img class="thumb" src="' + r._img + '" alt="">'
+		  : '<div class="thumb" style="border:1px solid #eee"></div>';
+
+		var editBtn = editHref
+		  ? '<a class="btn" href="' + editHref + '">Editar</a>'
+		  : '<button class="btn" disabled title="Falta slug">Editar</button>';
+
+		var numOp = (r.numero_operacion === null || r.numero_operacion === undefined || r.numero_operacion === '')
+		  ? '—'
+		  : String(r.numero_operacion);
+
+		var totalAport = (r.total_aportaciones === null || r.total_aportaciones === undefined)
+		  ? 0
+		  : r.total_aportaciones;
+
+		return (
+		  '<tr data-id="' + r.id + '" data-slug="' + (r.slug || '') + '">' +
+			'<td>' + img + '</td>' +
+			'<td><strong>' + numOp + '</strong></td>' +
+			'<td><a href="' + viewHref + '">' + (r.titulo || '(sin título)') + '</a></td>' +
+			'<td><span class="badge ' + badgeClass(r.estado) + '">' + (r.estado || '—') + '</span></td>' +
+			'<td class="hide-sm val">' + fmtMoney(r.precio_compra) + '</td>' +
+			'<td class="hide-sm val">' + fmtMoney(r.ingreso_banco) + '</td>' +
+			'<td class="hide-sm">' + fmtDate(r.fecha_ingreso) + '</td>' +
+			'<td class="hide-sm val">' + fmtMoney(totalAport) + '</td>' +
+			'<td class="hide-sm">' + fmtDate(r.created_at) + '</td>' +
+			'<td><div class="actions">' + editBtn + '</div></td>' +
+		  '</tr>'
+		);
+	  }).join('');
+	}
+
+	function applyFilters() {
+	  var q = String(qEl.value || '').trim().toLowerCase();
+
+	  var list = allRows.filter(function(r){
+		var matchesSearch =
+		  !q ||
+		  String(r.titulo || '').toLowerCase().includes(q) ||
+		  String(r.estado || '').toLowerCase().includes(q) ||
+		  String(r.slug || '').toLowerCase().includes(q) ||
+		  String(r.numero_operacion || '').toLowerCase().includes(q);
+
+		var matchesTipo = matchTipo(r.tipo || '');
+		return matchesSearch && matchesTipo;
+	  });
+
+	  render(list);
+	}
+
+	async function load() {
+	  // 👇 Leemos desde la VIEW que trae total_aportaciones
+	  var resp = await supabase
+		.from('propiedades_vista')
+		.select('id, slug, titulo, estado, tipo, precio_compra, numero_operacion, ingreso_banco, fecha_ingreso, total_aportaciones, foto_destacada_path, created_at')
+		.order('created_at', { ascending: false })
+		.limit(200);
+
+	  var data = resp ? resp.data : null;
+	  var error = resp ? resp.error : null;
+
+	  if (error) {
+		rowsEl.innerHTML = '<tr><td colspan="10" class="muted">Error cargando propiedades.</td></tr>';
+		setMsg('❌ ' + error.message, 'err');
+		return;
+	  }
+
+	  var base = Array.isArray(data) ? data : [];
+
+	  var withImg = await Promise.all(base.map(async function(r){
+		var copy = Object.assign({}, r);
+		copy._img = await resolveImageUrl(r.foto_destacada_path);
+		return copy;
+	  }));
+
+	  allRows = withImg;
+	  applyFilters();
+	}
+
+	qEl.addEventListener('input', applyFilters);
+
+	segEl.addEventListener('click', function(e){
+	  var btn = e.target.closest('button[data-tipo]');
+	  if (!btn) return;
+
+	  tipoFilter = btn.dataset.tipo;
+
+	  Array.prototype.slice.call(segEl.querySelectorAll('button')).forEach(function(b){
+		b.classList.toggle('is-active', b === btn);
+		b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+	  });
+
+	  applyFilters();
 	});
-	applyFilters();
-  });
 
-  load();
-</script>
+	load();
+  </script>
 </Admin>
