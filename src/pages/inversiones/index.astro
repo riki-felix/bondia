@@ -220,9 +220,14 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 	  </table>
 	</section>
 
-	<script type="module" define:vars={{ MODE_TOTALS: modeTotals, YEAR: selectedYear }}>
-	  import { supabase } from '/src/scripts/supabaseClient.js';
-
+	<script type="module" define:vars={{ MODE_TOTALS: modeTotals, YEAR: selectedYear,SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL,
+		SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+	  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+	  
+	  const supabase = createClient(
+		SUPABASE_URL,
+		SUPABASE_ANON_KEY
+	  );
 	  const DEFAULT_BUCKET = 'property-image';
 
 	  const rowsEl = document.getElementById('inv-rows');

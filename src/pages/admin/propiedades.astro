@@ -65,8 +65,14 @@ export const prerender = false;
 	  border-spacing: 0;
 	}
   </style>
-  <script type="module">
-	import { supabase } from '/src/scripts/supabaseClient.js';
+  <script type="module" define:vars={{ SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL,
+	  SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+	import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+	
+	const supabase = createClient(
+	  SUPABASE_URL,
+	  SUPABASE_ANON_KEY
+	);
 
 	// Si tu bucket es otro, cámbialo aquí
 	const DEFAULT_BUCKET = 'property-image';
