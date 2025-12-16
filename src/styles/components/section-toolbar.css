@@ -70,4 +70,38 @@
 	}
 	.prop-filter__input--search {
 		min-width: 40.0rem;
+		color: var(--primary-700);
+		border-radius: var(--radius-default);
+		width: 100%;
 	}
+  .table-toolbar{
+	display:flex;
+	flex-wrap:wrap;
+	border-bottom: var(--border);
+	padding: var(--space-m) var(--space-s);
+	gap: var(--space-xl);
+	background-color: var(--primary-850);
+  }
+  .table-filters {
+	  display: flex;
+	  flex-flow: row nowrap;
+	  align-items: center;
+	  gap: var(--space-l);
+  }
+  .filter-chip{
+	appearance: none;
+	-webkit-appearance: none;
+	border: none;
+	background: var(--primary-850);
+	padding: var(--space-s) var(--space-m);
+	font-size: var(--font-size--m);
+	line-height:1;
+	cursor: pointer;
+	border-radius: 2rem;
+	display: block;
+  }
+  .filter-chip.is-active{
+	background-color: var(--color-accent);
+	color: var(--primary-900);
+	font-weight: 600;
+  }

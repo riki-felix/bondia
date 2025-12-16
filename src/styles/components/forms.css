@@ -3,7 +3,6 @@ input {
 	border: 0.5px solid var(--color-cream--700);
 	padding: var(--space-s) var(--space-s);
 	border-radius: 0.1rem;
-	width: 100%;
 	color: var(--color-navy);
 	font-size: var(--font-size--m);
 }

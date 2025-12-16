@@ -24,6 +24,10 @@ const { data: allProperties, error } = await supabase
   .from("propiedades")
   .select("id, titulo, tipo, estado, fecha_compra,liquidacion, precio_compra, precio_venta")
   .eq("tipo", "inversion");
+const { data: propiedadesVista } = await supabase
+	.from("propiedades_vista")
+	.select("id, tipo, fecha_compra, total_aportaciones")
+	.eq("tipo", "inversion");
 
 /* -------------------------------------------------------
    2) AÑOS DISPONIBLES (desde fecha_compra)
@@ -70,7 +74,30 @@ const properties =
 		const d = new Date(p.fecha_compra as string);
 		return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
 	  });
+const propiedadesVistaFiltradas =
+		modeTotals || !propiedadesVista
+		  ? propiedadesVista ?? []
+		  : propiedadesVista.filter((p) => {
+			  if (!p.fecha_compra) return false;
+			  const d = new Date(p.fecha_compra as string);
+			  return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
+			});
+/* -------------------------------------------------------
+   4b) PROPIEDADES VISTA (para total_aportaciones)
+--------------------------------------------------------- */
+const { data: allVista, error: vistaError } = await supabase
+  .from("propiedades_vista")
+  .select("id, tipo, fecha_compra, total_aportaciones")
+  .eq("tipo", "inversion");
 
+const vistaProps =
+  modeTotals || !allVista
+	? (allVista ?? [])
+	: (allVista ?? []).filter((p) => {
+		if (!p.fecha_compra) return false;
+		const d = new Date(p.fecha_compra as string);
+		return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
+	  });
 /* -------------------------------------------------------
    5) RESUMEN DE CATEGORÍAS (helper reutilizable)
 --------------------------------------------------------- */
@@ -112,14 +139,6 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 	  )}
 		
 	</section>
-	
-	<section class="section">
-		{catError && <p>❌ {catError.message}</p>}
-		
-		{!catError && categoriasResumen && categoriasResumen.length > 0 && (
-				<SumCategoriesWidget rows={categoriasResumen} />
-		)}
-	</section>
 	<section class="section-widgets">
 		
 	  {!error && (!allProperties || allProperties.length === 0) && (
@@ -127,11 +146,11 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 		  No hay propiedades de tipo <em>Inversión</em>.
 		</p>
 	  )}
-
+	
 	  {properties && properties.length > 0 && (
 		<>
 		  <CountWidget
-			size="2"
+			size="1"
 			propiedades={properties ?? []}
 			tipo="inversion"
 			label="Inversiones"
@@ -173,53 +192,66 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 			estado="comprado vendido tanteo"
 			liquidacion={false}
 		  />
-
-		  <!-- <SumWidget
-			size="6"
+	
+		  <SumWidget
+			size="2"
 			propiedades={properties ?? []}
 			tipo="inversion"
-			field="precio_compra"
+			campo="precio_compra"
 			label="Compra total"
 		  />
-
+	
 		  <SumWidget
-			size="6"
-			propiedades={properties ?? []}
+			size="2"
+			propiedades={propiedadesVistaFiltradas ?? []}
 			tipo="inversion"
-			field="precio_venta"
-			label="Venta total"
-		  /> -->
+			campo="total_aportaciones"
+			label="Aportaciones"
+		  />
 		</>
 	  )}
 	</section>
-
-	<!-- ✅ TABLA (solo vista, sin editar) -->
-	<section class="section-toolbar" style="margin-top: 18px;">
-	  <input id="inv-q" type="search" placeholder="Buscar por título, estado o slug…" />
-	</section>
-
 	<section class="section-table">
-	  <table class="table-full table-schema">
-		<thead>
-		  <tr>
-			<th>Imagen</th>
-			<th>Nº op.</th>
-			<th>Título</th>
-			<th class="">Creada</th>
-			<th>Estado</th>
-			<th>Liquidación</th>
-			<th class="">Compra</th>
-			<th class="">Aportaciones</th>
-			<th class="">Ingreso banco</th>
-			<th class="">Fecha ingreso</th>
-		  </tr>
-		</thead>
-		<tbody id="inv-rows">
-		  <tr><td colspan="9" class="muted">Cargando…</td></tr>
-		</tbody>
-	  </table>
+		<div class="table-toolbar">
+			<div class="table-filters" id="inv-filters">
+				<button type="button" class="filter-chip is-active" data-filter="all">Todos</button>
+				<button type="button" class="filter-chip" data-filter="comprados">Comprados</button>
+				<button type="button" class="filter-chip" data-filter="vendidos">Vendidos</button>
+				<button type="button" class="filter-chip" data-filter="liquidados">Liquidados</button>
+				<button type="button" class="filter-chip" data-filter="pendientes">Pendientes</button>
+				<button type="button" class="filter-chip" data-filter="sin-firma">Sin firma</button>
+			</div>
+			<input id="inv-q" type="search" class="prop-filter__input--search" placeholder="Buscar por título, estado o slug…" />
+		</div>
+		<table class="table-full table-schema">
+			<thead>
+			<tr>
+				<th>Imagen</th>
+				<th>Nº op.</th>
+				<th>Título</th>
+				<th class="">Creada</th>
+				<th>Estado</th>
+				<th>Liquidación</th>
+				<th class="">Compra</th>
+				<th class="">Aportaciones</th>
+				<th class="">Ingreso banco</th>
+				<th class="">Fecha ingreso</th>
+			</tr>
+			</thead>
+			<tbody id="inv-rows">
+			<tr><td colspan="9" class="muted">Cargando…</td></tr>
+			</tbody>
+		</table>
 	</section>
-
+	
+	
+	<section class="section">
+		{catError && <p>❌ {catError.message}</p>}
+		
+		{!catError && categoriasResumen && categoriasResumen.length > 0 && (
+				<SumCategoriesWidget rows={categoriasResumen} />
+		)}
+	</section>
 	<script type="module" define:vars={{ MODE_TOTALS: modeTotals, YEAR: selectedYear,SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL,
 		SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
 	  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
@@ -232,7 +264,49 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 
 	  const rowsEl = document.getElementById('inv-rows');
 	  const qEl = document.getElementById('inv-q');
-
+	  // --- Quick filters (Polaris-like) ---
+		const filtersEl = document.getElementById('inv-filters');
+		const filterBtns = filtersEl ? Array.from(filtersEl.querySelectorAll('[data-filter]')) : [];
+		let activeFilter = 'all';
+	  
+		function setActiveFilter(next) {
+		  activeFilter = next || 'all';
+		  filterBtns.forEach((b) => b.classList.toggle('is-active', String(b.dataset.filter) === activeFilter));
+		}
+	  
+		filterBtns.forEach((btn) => {
+		  btn.addEventListener('click', () => {
+			setActiveFilter(String(btn.dataset.filter || 'all'));
+			applyFilter();
+		  });
+		});
+	  
+		function isLiquidado(r) {
+		  // tu render usa: const isLiquidado = !!r.liquidacion;
+		  // mantenemos exactamente esa semántica
+		  return !!(r && r.liquidacion);
+		}
+	  
+		function hasIngresoBanco(r) {
+		  const n = Number((r && r.ingreso_banco) ?? 0);
+		  return Number.isFinite(n) && n > 0;
+		}
+	  
+		function matchEstado(r, esperado) {
+		  return String((r && r.estado) || '').trim().toLowerCase() === esperado;
+		}
+	  
+		function matchesQuickFilter(r) {
+		  switch (activeFilter) {
+			case 'comprados':  return matchEstado(r, 'comprado');
+			case 'vendidos':   return matchEstado(r, 'vendido');
+			case 'liquidados': return isLiquidado(r);
+			case 'pendientes': return !isLiquidado(r);
+			case 'sin-firma':  return hasIngresoBanco(r) && !isLiquidado(r);
+			case 'all':
+			default:           return true;
+		  }
+		}
 	  let allRows = [];
 
 	  function fmtDate(iso) {
@@ -335,20 +409,24 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 	  }
 
 	  function applyFilter() {
-		const q = String(qEl.value || '').trim().toLowerCase();
-
-		const list = allRows.filter((r) => {
-		  if (!q) return true;
-		  return (
-			String(r.titulo || '').toLowerCase().includes(q) ||
-			String(r.estado || '').toLowerCase().includes(q) ||
-			String(r.slug || '').toLowerCase().includes(q) ||
-			String(r.numero_operacion || '').toLowerCase().includes(q)
-		  );
-		});
-
-		render(list);
-	  }
+		  const q = String(qEl.value || '').trim().toLowerCase();
+	  
+		  const list = allRows.filter((r) => {
+			// 1) quick filter
+			if (!matchesQuickFilter(r)) return false;
+	  
+			// 2) search
+			if (!q) return true;
+			return (
+			  String(r.titulo || '').toLowerCase().includes(q) ||
+			  String(r.estado || '').toLowerCase().includes(q) ||
+			  String(r.slug || '').toLowerCase().includes(q) ||
+			  String(r.numero_operacion || '').toLowerCase().includes(q)
+			);
+		  });
+	  
+		  render(list);
+		}
 
 	  async function load() {
 		let query = supabase
