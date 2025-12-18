@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import "../../../src/styles/pages/propiedades.css";
+import "../../../src/styles/components/tables.css";
 
 import Layout from "../../components/Layout.astro";
 import TotalsWidget from "../../widgets/TotalsWidget.astro";
@@ -108,142 +109,121 @@ const totals = movimientosGasto.reduce(
 ---
 
 <Layout title={propiedad.titulo}>
-  <header class="main-header">
-	<p>Creada el {new Date(propiedad.created_at).toLocaleString("es-ES")}</p>
-	<p><a href={backUrl}>← Volver al listado</a></p>
-	<a href={`/admin/propiedad/${propiedad.slug}/editar`} class="button--small">
-	  Editar
-	</a>
-  </header>
-
-  <div class="main-row col-2">
-	<!-- =======================================
-		 BLOQUE IZQUIERDO: IMÁGENES
-	======================================== -->
-	<section class="leading-block property-images">
-	  {fotoUrl && (
-		<img
-		  src={fotoUrl}
-		  alt={`Foto de ${propiedad.titulo}`}
-		  loading="lazy"
-		/>
-	  )}
-
-	  {planoUrl && (
-		<img
-		  src={planoUrl}
-		  alt={`Plano de ${propiedad.titulo}`}
-		  loading="lazy"
-		  style="max-width:640px;height:auto;border:1px solid #ddd;border-radius:8px;"
-		/>
-	  )}
-	</section>
-
-	<!-- =======================================
-		 BLOQUE DERECHO: DATOS
-	======================================== -->
-	<section class="trailing-block property-data">
-	  <header class="section-header">
-		<h1 style="margin:0 0 .5rem">{propiedad.titulo}</h1>
-		<div>{cap(propiedad.estado)}</div>
-		<div>{propiedad.direccion ?? ""}</div>
-		<div>{propiedad.superficie_m2 ?? ""}</div>
-		<div>Construido en {propiedad.anio_construccion ?? "—"}</div>
-		<div>Nº Catastro: {propiedad.numero_catastro ?? ""}</div>
-		<div>{cap(propiedad.tipo)}</div>
-	  </header>
-
-	  <!-- COMPRA / VENTA -->
-	  <div class="block compra-venta">
-		<h3>Compra - Venta</h3>
-		<div>Comprado por {formatEuro(propiedad.precio_compra)}</div>
-		<div>Vendido por {formatEuro(propiedad.precio_venta)}</div>
-		<div>IVA 10%: {formatEuro(propiedad.iva_10)}</div>
-		<div>Valor catastral: {formatEuro(propiedad.valor_catastro)}</div>
-		<div>
-		  Fecha compra:{" "}
-		  {propiedad.fecha_compra
-			? new Date(propiedad.fecha_compra).toLocaleDateString("es-ES")
-			: "—"}
-		</div>
-		{propiedad.alquiler_previsto && (
-		  <div>Alquiler previsto: {formatEuro(propiedad.alquiler_previsto)}</div>
-		)}
-	  </div>
-
-	  <!-- GASTOS FIJOS -->
-	  <div class="block gastos-fijos">
-		<h3>Gastos Fijos</h3>
-		<div>Valor ITE: {formatEuro(propiedad.valor_ite)}</div>
-		<div>Coste administrador: {formatEuro(propiedad.coste_administrador)}</div>
-		<div>Cuota comunidad: {formatEuro(propiedad.cuota_comunidad)}</div>
-		<div>Periodicidad cuota: {propiedad.periodicidad_cuota ?? "—"}</div>
-		<div>IBI: {formatEuro(propiedad.ibi)}</div>
-		<div>Suministro luz: {labelLuzAgua(propiedad.suministro_luz)}</div>
-		<div>Suministro agua: {labelLuzAgua(propiedad.suministro_agua)}</div>
-		<div>Suministro gas: {labelGas(propiedad.suministro_gas)}</div>
-	  </div>
-
-	  <!-- METADATOS -->
-	  <div class="block metadata">
-		<div>
-		  Creado: {new Date(propiedad.created_at).toLocaleString("es-ES")}
-		</div>
-		<div>
-		  Actualizado: {new Date(propiedad.updated_at).toLocaleString("es-ES")}
-		</div>
-	  </div>
-	</section>
-  </div>
-
-  <!-- =======================================
-	   WIDGETS
-  ======================================== -->
-  <div class="main-row">
-	<section class="widgets">
-	  <TotalsWidget size="5" totals={totals} movimientos={movimientos ?? []} />
-	  <DifferenceWidget size="5" precio_venta={propiedad.precio_venta} totals={totals} />
-	</section>
-
-	<!-- MOVIMIENTOS -->
-	<section class="block movements">
-	  <h2>Movimientos</h2>
-
-	  <table class="table-movements">
-		<thead>
-		  <tr>
-			<th>Tipo</th>
-			<th>Concepto</th>
-			<th>Importe</th>
-			<th>Estado</th>
-			<th>Fecha</th>
-		  </tr>
-		</thead>
-
-		<tbody>
-		  {movimientos?.length ? (
-			movimientos.map((m) => (
-			  <tr>
-				<td>{cap(m.tipo_movimiento)}</td>
-				<td>{m.concepto ?? "—"}</td>
-				<td>{formatEuro(m.importe)}</td>
-				<td>{cap(m.estado)}</td>
-				<td>
-				  {m.fecha
-					? new Date(m.fecha).toLocaleDateString("es-ES")
-					: "—"}
-				</td>
-			  </tr>
-			))
-		  ) : (
-			<tr>
-			  <td colspan="5" class="muted">
-				No hay movimientos.
-			  </td>
-			</tr>
-		  )}
-		</tbody>
-	  </table>
-	</section>
-  </div>
+	<div class="main-content">
+		<header class="main-header">
+			<p>Creada el {new Date(propiedad.created_at).toLocaleString("es-ES")}</p>
+			<p><a href={backUrl}>← Volver al listado</a></p>
+			<a href={`/admin/propiedad/${propiedad.slug}/editar`} class="button--small">
+			Editar
+			</a>
+		</header>
+		<section class="property-info">
+			<div class="leading-block property-images">
+				{fotoUrl && (
+					<img
+					src={fotoUrl}
+					alt={`Foto de ${propiedad.titulo}`}
+					loading="lazy"
+					/>
+				)}
+			
+				{planoUrl && (
+					<img
+					src={planoUrl}
+					alt={`Plano de ${propiedad.titulo}`}
+					loading="lazy"
+					style="max-width:640px;height:auto;border:1px solid #ddd;border-radius:8px;"
+					/>
+				)}
+			</div>
+			<div class="trailing-block property-metadata">
+				<div class="property-block">
+					<h1>{propiedad.titulo}</h1>
+					<span class="block-value">{cap(propiedad.estado)}</span>
+					<span class="block-value">{propiedad.direccion ?? ""}</span>
+					<span class="block-value">{propiedad.superficie_m2 ?? ""}</span>
+					<span class="block-value">Construido en {propiedad.anio_construccion ?? "—"}</span>
+					<span class="block-value">Nº Catastro: {propiedad.numero_catastro ?? ""}</span>
+					<span class="block-value">{cap(propiedad.tipo)}</span>
+				</div>
+		
+				<div class="property-block compra-venta">
+					<h3>Compra - Venta</h3>
+					<span class="block-value">Comprado por {formatEuro(propiedad.precio_compra)}</span>
+					<span class="block-value">Vendido por {formatEuro(propiedad.precio_venta)}</span>
+					<span class="block-value">IVA 10%: {formatEuro(propiedad.iva_10)}</span>
+					<span class="block-value">Valor catastral: {formatEuro(propiedad.valor_catastro)}</span>
+					<span class="block-value">
+					Fecha compra:{" "}
+					{propiedad.fecha_compra
+						? new Date(propiedad.fecha_compra).toLocaleDateString("es-ES")
+						: "—"}
+					</span>
+					{propiedad.alquiler_previsto && (
+					<span class="block-value">Alquiler previsto: {formatEuro(propiedad.alquiler_previsto)}</span>
+					)}
+				</div>
+		
+				<div class="property-block gastos-fijos">
+					<h3>Gastos Fijos</h3>
+					<span class="block-value">Valor ITE: {formatEuro(propiedad.valor_ite)}</span>
+					<span class="block-value">Coste administrador: {formatEuro(propiedad.coste_administrador)}</span>
+					<span class="block-value">Cuota comunidad: {formatEuro(propiedad.cuota_comunidad)}</span>
+					<span class="block-value">Periodicidad cuota: {propiedad.periodicidad_cuota ?? "—"}</span>
+					<span class="block-value">IBI: {formatEuro(propiedad.ibi)}</span>
+					<span class="block-value">Suministro luz: {labelLuzAgua(propiedad.suministro_luz)}</span>
+					<span class="block-value">Suministro agua: {labelLuzAgua(propiedad.suministro_agua)}</span>
+					<span class="block-value">Suministro gas: {labelGas(propiedad.suministro_gas)}</span>
+				</div>
+		
+				<!-- METADATOS -->
+				<div class="property-block metadata">
+					<span>Creado: {new Date(propiedad.created_at).toLocaleString("es-ES")}</span>
+					<span>Actualizado: {new Date(propiedad.updated_at).toLocaleString("es-ES")}</span>
+				</div>
+			</div>
+		</section>
+		<section class="property-data">
+			<div class="widgets">
+				<TotalsWidget size="5" totals={totals} movimientos={movimientos ?? []} />
+				<DifferenceWidget size="5" precio_venta={propiedad.precio_venta} totals={totals} />
+			</div>
+			<div class="block movements section-table">
+				<table class="table-full">
+					<thead>
+				<tr>
+					<th>Tipo</th>
+					<th>Concepto</th>
+					<th>Importe</th>
+					<th>Estado</th>
+					<th>Fecha</th>
+				</tr>
+				</thead>
+					<tbody>
+				{movimientos?.length ? (
+					movimientos.map((m) => (
+					<tr>
+						<td>{cap(m.tipo_movimiento)}</td>
+						<td>{m.concepto ?? "—"}</td>
+						<td>{formatEuro(m.importe)}</td>
+						<td>{cap(m.estado)}</td>
+						<td>
+						{m.fecha
+							? new Date(m.fecha).toLocaleDateString("es-ES")
+							: "—"}
+						</td>
+					</tr>
+					))
+				) : (
+					<tr>
+					<td colspan="5" class="muted">
+						No hay movimientos.
+					</td>
+					</tr>
+				)}
+				</tbody>
+				</table>
+			</div>
+		</section>
+	</div>
 </Layout>

@@ -211,6 +211,12 @@ export const handler: Handler = async (event) => {
 	if (body.numero_catastro !== undefined) updates.numero_catastro = emptyOrNull(body.numero_catastro);
 	if (body.fecha_compra !== undefined) updates.fecha_compra = toDateISO(body.fecha_compra);
 
+	// ✅ MEDIA (esto es lo que te faltaba)
+	// Si llega undefined, NO toca el campo (no lo borra).
+	// Si llega "" o null, lo vacía.
+	if (body.foto_destacada_path !== undefined) updates.foto_destacada_path = emptyOrNull(body.foto_destacada_path);
+	if (body.plano_path !== undefined) updates.plano_path = emptyOrNull(body.plano_path);
+
 	// dinero
 	if (body.precio_compra !== undefined) updates.precio_compra = toMoneyOrNull(body.precio_compra);
 	if (body.precio_venta !== undefined) updates.precio_venta = toMoneyOrNull(body.precio_venta);
@@ -231,9 +237,9 @@ export const handler: Handler = async (event) => {
 
 	// ✅ estado (normalizado)
 	if (body.estado !== undefined) {
-	  const norm = normalizeEstado(body.estado); // reformando->reforma, alquilado->alquiler
+	  const norm = normalizeEstado(body.estado);
 	  if (norm == null) {
-		updates.estado = null; // si llega vacío lo vacía
+		updates.estado = null;
 	  } else {
 		const e = pickFrom(norm, ESTADO);
 		if (!e) return json({ error: `estado inválido (${norm})` }, 400);
@@ -302,7 +308,6 @@ export const handler: Handler = async (event) => {
 	  updates.slug = await findNextUniqueSlug(supabase, base);
 	}
 
-	// Si no hay nada que actualizar, salimos OK (evita “update {}” raro)
 	if (Object.keys(updates).length === 0) {
 	  return json({ ok: true, id: current.id, slug: current.slug }, 200);
 	}
@@ -311,7 +316,7 @@ export const handler: Handler = async (event) => {
 	  .from('propiedades')
 	  .update(updates)
 	  .eq('id', id)
-	  .select('id, slug, numero_operacion, ingreso_banco, fecha_ingreso, liquidacion, estado')
+	  .select('id, slug, numero_operacion, ingreso_banco, fecha_ingreso, liquidacion, estado, foto_destacada_path, plano_path')
 	  .single();
 
 	if (error) {
@@ -327,6 +332,8 @@ export const handler: Handler = async (event) => {
 	  fecha_ingreso: data.fecha_ingreso,
 	  liquidacion: data.liquidacion,
 	  estado: data.estado,
+	  foto_destacada_path: (data as any).foto_destacada_path ?? null,
+	  plano_path: (data as any).plano_path ?? null,
 	});
   } catch (e: any) {
 	console.error('[updateProperty] fatal:', e);

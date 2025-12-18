@@ -1,6 +1,9 @@
 h1,h2,h3,h4,h5,h6{
 	font-family: var(--font-heading-family);
-	font-weight: 300;
+	font-weight: 600;
+	margin: 0;
+	padding: 0;
+	line-height: 1.2;
 }
 h1 {
 	font-size: var(--font-size--xxl);

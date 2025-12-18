@@ -264,7 +264,6 @@ const isEdit = mode === "edit";
 	<option value="vendido" selected={isEdit && initial && initial.estado === "vendido"}>Vendido</option>
   </select>
 
-  <!-- ✅ NUEVO: Liquidación (toggle/checkbox) -->
   <div class="field">
 	<label for="liquidacion">Liquidación</label>
 	<label style="display:flex; align-items:center; gap:10px; margin-top:6px;">
@@ -308,9 +307,11 @@ const isEdit = mode === "edit";
 
   <label for="foto_destacada">Foto destacada</label>
   <input id="foto_destacada" name="foto_destacada" type="file" accept="image/jpeg,image/png" />
+  <p class="hint" id="fotoHint"></p>
 
   <label for="plano">Plano</label>
   <input id="plano" name="plano" type="file" accept="image/jpeg,image/png" />
+  <p class="hint" id="planoHint"></p>
 
   <div class="actions">
 	<button type="submit" id="submitBtn">{isEdit ? "Guardar cambios" : "Crear"}</button>
@@ -337,6 +338,10 @@ const isEdit = mode === "edit";
   const CREATE_ENDPOINT = "/.netlify/functions/createProperty";
   const UPDATE_ENDPOINT = "/.netlify/functions/updateProperty";
   const DELETE_ENDPOINT = "/.netlify/functions/deleteProperty";
+
+  // ✅ Tus buckets reales
+  const BUCKET_IMAGES = "property-images";
+  const BUCKET_PLANS  = "property-plans";
 
   function emptyOrNull(v) {
 	if (v == null) return null;
@@ -387,11 +392,58 @@ const isEdit = mode === "edit";
 	return Number(n.toFixed(2));
   }
 
+  function safeExt(name) {
+	const ext = (name.split(".").pop() || "").toLowerCase();
+	if (ext === "jpg" || ext === "jpeg" || ext === "png") return ext;
+	return "bin";
+  }
+
+  function safeName(part) {
+	return String(part || "")
+	  .toLowerCase()
+	  .trim()
+	  .replace(/\s+/g, "-")
+	  .replace(/[^a-z0-9\-_.]/g, "")
+	  .slice(0, 80) || "file";
+  }
+
+  async function getSupabaseClient() {
+	// Ajusta ruta si tu cliente está en otro path
+	const mod = await import("/src/scripts/supabaseClient.js");
+	return mod.supabase || mod.default || mod.client;
+  }
+
+  async function uploadOne({ inputEl, bucket, folder, key }) {
+	const file = inputEl && inputEl.files && inputEl.files[0] ? inputEl.files[0] : null;
+	if (!file) return null;
+
+	const ext = safeExt(file.name);
+	const base = safeName(key);
+	const ts = Date.now();
+	const path = `${folder}/${base}/${ts}.${ext}`;
+
+	const supabase = await getSupabaseClient();
+	if (!supabase || !supabase.storage) throw new Error("Supabase client no disponible en el navegador.");
+
+	const { data, error } = await supabase
+	  .storage
+	  .from(bucket)
+	  .upload(path, file, { upsert: true, contentType: file.type || undefined });
+
+	if (error) throw error;
+	return data?.path || path;
+  }
+
   (function () {
 	const form = document.getElementById("prop-form");
 	const btn = document.getElementById("submitBtn");
 	const msg = document.getElementById("msg");
 	const del = document.getElementById("deleteBtn");
+
+	const fotoInput = document.getElementById("foto_destacada");
+	const planoInput = document.getElementById("plano");
+	const fotoHint = document.getElementById("fotoHint");
+	const planoHint = document.getElementById("planoHint");
 
 	if (!form || !btn || !msg) return;
 
@@ -417,6 +469,19 @@ const isEdit = mode === "edit";
 	if (cuotaInput) {
 	  cuotaInput.addEventListener("input", refreshPeriodicidad);
 	  refreshPeriodicidad();
+	}
+
+	if (fotoInput && fotoHint) {
+	  fotoInput.addEventListener("change", () => {
+		const f = fotoInput.files && fotoInput.files[0] ? fotoInput.files[0] : null;
+		fotoHint.textContent = f ? `Seleccionado: ${f.name}` : "";
+	  });
+	}
+	if (planoInput && planoHint) {
+	  planoInput.addEventListener("change", () => {
+		const f = planoInput.files && planoInput.files[0] ? planoInput.files[0] : null;
+		planoHint.textContent = f ? `Seleccionado: ${f.name}` : "";
+	  });
 	}
 
 	form.addEventListener("submit", async function (e) {
@@ -468,7 +533,6 @@ const isEdit = mode === "edit";
 	  var ingreso_banco = canonMoneyNumber(getFieldValue("ingreso_banco"));
 	  var fecha_ingreso = emptyOrNull(getFieldValue("fecha_ingreso"));
 
-	  // ✅ liquidación (toggle)
 	  var liquidacion = getFieldChecked("liquidacion");
 
 	  var valor_catastro = canonMoneyNumber(getFieldValue("valor_catastro"));
@@ -537,6 +601,21 @@ const isEdit = mode === "edit";
 
 	  try {
 		msg.textContent = IS_EDIT ? "Guardando…" : "Creando…";
+
+		// Key estable: en edit usa id. En create usa título+timestamp (temporal).
+		const uploadKey = IS_EDIT ? String(id) : `${titulo}-${Date.now()}`;
+
+		// ✅ Subir foto destacada a bucket de imágenes
+		if (fotoInput) {
+		  const fotoPath = await uploadOne({ inputEl: fotoInput, bucket: BUCKET_IMAGES, folder: "fotos", key: uploadKey });
+		  if (fotoPath) payload.foto_destacada_path = fotoPath;
+		}
+
+		// ✅ Subir plano a bucket de planos
+		if (planoInput) {
+		  const planoPath = await uploadOne({ inputEl: planoInput, bucket: BUCKET_PLANS, folder: "planos", key: uploadKey });
+		  if (planoPath) payload.plano_path = planoPath;
+		}
 
 		var endpoint = IS_EDIT ? UPDATE_ENDPOINT : CREATE_ENDPOINT;
 
