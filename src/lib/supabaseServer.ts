@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient, type CookieOptions, parseCookieHeader } from '@supabase/ssr'
 import type { AstroCookies } from 'astro'
 
 /**
@@ -6,7 +6,7 @@ import type { AstroCookies } from 'astro'
  * This should be used in Astro pages, API routes, and middleware.
  * 
  * @param cookies - Astro cookies object from the request context
- * @param request - Astro request object (for reading cookies from headers)
+ * @param request - Astro request object (for reading cookies from headers as fallback)
  * @returns A Supabase client configured for SSR
  */
 export const createSupabaseServerClient = (cookies: AstroCookies, request?: Request) => {
@@ -18,7 +18,21 @@ export const createSupabaseServerClient = (cookies: AstroCookies, request?: Requ
         get(name: string) {
           // Try to get cookie from Astro cookies first
           const cookie = cookies.get(name);
-          return cookie?.value;
+          if (cookie?.value) {
+            return cookie.value;
+          }
+          
+          // Fallback: parse from request headers if available
+          if (request) {
+            const cookieHeader = request.headers.get('cookie');
+            if (cookieHeader) {
+              const parsedCookies = parseCookieHeader(cookieHeader);
+              const foundCookie = parsedCookies.find(c => c.name === name);
+              return foundCookie?.value;
+            }
+          }
+          
+          return undefined;
         },
         set(name: string, value: string, options: CookieOptions) {
           cookies.set(name, value, {
