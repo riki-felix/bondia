@@ -1,13 +1,13 @@
 ---
 import '../../src/styles/components/sidebar-module.css';
-import { House, Library } from '@lucide/astro';
+import { House, Library,Euro,Boxes,HatGlasses,HeartHandshake,Calendar,BanknoteArrowUp,BanknoteArrowDown,Ratio,Eye } from '@lucide/astro';
 
 ---
 <sidebar class="sidebar">
   <nav class="mainNav">
     <ul>
       <li>
-        <span class="menu-title">Inversiones</span>
+        <span class="menu-title">INVERSIONES</span>
         <ul>
           <li>
             <a class="menu-link" href="/inversiones">
@@ -21,6 +21,7 @@ import { House, Library } from '@lucide/astro';
             </a>
           </li>
           <li><a class="menu-link" href="/inversiones/aportaciones">
+              <Euro size="20" />
               Aportaciones
             </a>
           </li>
@@ -28,6 +29,7 @@ import { House, Library } from '@lucide/astro';
       </li>
       <li>
             <a class="menu-link" href="/sanyus/">
+              <Boxes size="20" />
               Sanyus
             </a>
         <ul>
@@ -35,15 +37,30 @@ import { House, Library } from '@lucide/astro';
           </li>
         </ul>
       </li>
-      <li><a class="menu-link" href="/rds">RDS</a></li>
       <li>
-        Casa
+        <a class="menu-link" href="/rds">
+          <HatGlasses size="20" />
+          RDS
+        </a>
+      </li>
+      <li>
+        CASA
         <ul>
-          <li><a class="menu-link" href="/casa/panorama">Panorama</a></li>
-          <li><a class="menu-link" href="/casa/calendario">Calendario</a></li>
-          <li><a class="menu-link" href="/casa/gastos">Gastos</a></li>
-          <li><a class="menu-link" href="/casa/ingresos">Ingresos</a></li>
-          <li><a class="menu-link" href="/casa/activos">Activos</a></li>
+          <li><a class="menu-link" href="/casa/panorama">
+        <Eye size="20" />
+            Panorama</a></li>
+          <li><a class="menu-link" href="/casa/calendario">
+        <Calendar size="20" />
+            Calendario</a></li>
+          <li><a class="menu-link" href="/casa/gastos">
+        <BanknoteArrowDown size="20" />
+            Gastos</a></li>
+          <li><a class="menu-link" href="/casa/ingresos">
+        <BanknoteArrowUp size="20" />
+            Ingresos</a></li>
+          <li><a class="menu-link" href="/casa/activos">
+        <Ratio size="20" />
+            Activos</a></li>
         </ul>
       </li>
     </ul>

@@ -11,6 +11,13 @@ interface PropiedadActiva {
   titulo: string;
 }
 
+interface ValorMercadoLogRow {
+  changed_at: string;
+  valor_anterior: number | null;
+  valor_nuevo: number | null;
+  source_url?: string | null;
+}
+
 interface CasaActivo {
   id?: string;
   nombre?: string;
@@ -18,7 +25,31 @@ interface CasaActivo {
   categoria_id?: string | null;
   propiedad_id?: string | null;
   valor_estimado?: number | null;
-  fecha_compra?: string | null; // "YYYY-MM-DD"
+  fecha_compra?: string | null;
+
+  // Media (todas)
+  imagen_destacada?: string | null;
+  galeria_imagenes?: string[] | null;
+
+  // Arte (solo si categoría = "Arte")
+  valor_compra?: number | null;
+  valor_mercado?: number | null;
+  fecha_valor_mercado?: string | null;
+  fuente_valoracion?: string | null;
+
+  anio?: number | null;
+  origen?: string | null;
+  medida_ancho_cm?: number | null;
+  medida_alto_cm?: number | null;
+  medida_profundo_cm?: number | null;
+  materiales?: string | null;
+  notas?: string | null;
+  titulo_original?: string | null;
+
+  rareza?: "edicion_limitada" | "edicion_abierta" | "edicion_desconocida" | null;
+  condicion?: "muy_buena" | "buena" | "justa" | null;
+  firma?: boolean | null;
+  certificado?: boolean | null;
 }
 
 interface Props {
@@ -28,6 +59,7 @@ interface Props {
   propiedadesActivas: PropiedadActiva[];
   action?: string;        // endpoint save
   deleteAction?: string | null; // endpoint delete
+  valorMercadoLog?: ValorMercadoLogRow[]; // opcional (si lo pasas desde server)
 }
 
 const {
@@ -37,6 +69,7 @@ const {
   propiedadesActivas = [],
   action = "/.netlify/functions/casa-activo-save",
   deleteAction = "/.netlify/functions/casa-activo-delete",
+  valorMercadoLog = [],
 } = Astro.props as Props;
 
 const isEdit = mode === "edit";
@@ -46,6 +79,36 @@ const valorEstimadoDisplay =
   activo.valor_estimado != null ? formatEuroPlain(activo.valor_estimado) : "";
 
 const fechaCompraValue = activo.fecha_compra ?? "";
+
+// Media
+const imagenDestacadaValue = activo.imagen_destacada ?? "";
+const galeriaValue = (activo.galeria_imagenes ?? []).join("\n");
+
+// Arte displays
+const valorCompraDisplay = activo.valor_compra != null ? formatEuroPlain(activo.valor_compra) : "";
+const valorMercadoDisplay = activo.valor_mercado != null ? formatEuroPlain(activo.valor_mercado) : "";
+const fechaValorMercadoValue = activo.fecha_valor_mercado ?? "";
+const fuenteValoracionValue = activo.fuente_valoracion ?? "";
+const anioValue = activo.anio != null ? String(activo.anio) : "";
+
+const origenValue = activo.origen ?? "";
+const materialesValue = activo.materiales ?? "";
+const notasValue = activo.notas ?? "";
+const tituloOriginalValue = activo.titulo_original ?? "";
+
+const anchoValue = activo.medida_ancho_cm != null ? String(activo.medida_ancho_cm) : "";
+const altoValue = activo.medida_alto_cm != null ? String(activo.medida_alto_cm) : "";
+const profundoValue = activo.medida_profundo_cm != null ? String(activo.medida_profundo_cm) : "";
+
+const rarezaValue = activo.rareza ?? "edicion_desconocida";
+const condicionValue = activo.condicion ?? "buena";
+const firmaChecked = Boolean(activo.firma);
+const certificadoChecked = Boolean(activo.certificado);
+
+// Inicialmente, ¿es arte?
+const initialCatName =
+  categorias.find((c) => c.id === (activo.categoria_id ?? ""))?.nombre ?? "";
+const isArteInitial = initialCatName.trim().toLowerCase() === "arte";
 ---
 
 <form id="casa-activo-form" novalidate>
@@ -73,10 +136,7 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 	  <select id="categoria_id" name="categoria_id">
 		<option value="">Sin categoría</option>
 		{categorias.map((c) => (
-		  <option
-			value={c.id}
-			selected={activo.categoria_id === c.id}
-		  >
+		  <option value={c.id} selected={activo.categoria_id === c.id}>
 			{c.nombre}
 		  </option>
 		))}
@@ -84,24 +144,13 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 	</div>
   </div>
 
-  <label for="descripcion">Descripción</label>
-  <textarea
-	id="descripcion"
-	name="descripcion"
-	rows={3}
-	placeholder="Notas adicionales sobre el activo (estado, detalles, etc.)"
-  >{activo.descripcion ?? ""}</textarea>
-
   <div class="row">
 	<div>
-	  <label for="propiedad_id">Vincular a propiedad (opcional)</label>
+	  <label for="propiedad_id">Propiedad vinculada</label>
 	  <select id="propiedad_id" name="propiedad_id">
-		<option value="">Ninguna</option>
+		<option value="">Sin propiedad</option>
 		{propiedadesActivas.map((p) => (
-		  <option
-			value={p.id}
-			selected={activo.propiedad_id === p.id}
-		  >
+		  <option value={p.id} selected={activo.propiedad_id === p.id}>
 			{p.titulo}
 		  </option>
 		))}
@@ -137,6 +186,267 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 		value={fechaCompraValue}
 	  />
 	</div>
+
+	<div>
+	  <label for="descripcion">Descripción</label>
+	  <textarea
+		id="descripcion"
+		name="descripcion"
+		rows={3}
+		placeholder="Notas, detalles, estado…"
+	  >{activo.descripcion ?? ""}</textarea>
+	</div>
+  </div>
+
+  <hr />
+
+  {/* Media (todas las categorías) */}
+  <h2>Imágenes</h2>
+
+  <div class="row">
+	<div>
+	  <label for="imagen_destacada">Imagen destacada (URL)</label>
+	  <input
+		id="imagen_destacada"
+		name="imagen_destacada"
+		type="url"
+		placeholder="https://…"
+		value={imagenDestacadaValue}
+	  />
+	  <p class="hint">
+		Usa una URL (por ejemplo desde tu storage). Si lo dejas vacío no se guarda.
+	  </p>
+	</div>
+
+	<div>
+	  <label for="galeria_imagenes">Galería (1 URL por línea)</label>
+	  <textarea
+		id="galeria_imagenes"
+		name="galeria_imagenes"
+		rows={4}
+		placeholder={"https://...\nhttps://..."}
+	  >{galeriaValue}</textarea>
+	  <p class="hint">
+		Se guarda como lista. Puedes pegar varias URLs, una por línea.
+	  </p>
+	</div>
+  </div>
+
+  <hr />
+
+  {/* Arte (solo si categoría = Arte) */}
+  <div id="arte-fields" class={isArteInitial ? "" : "is-hidden"}>
+	<h2>Campos de Arte</h2>
+
+	<div class="row">
+	  <div>
+		<label for="valor_compra">Valor de compra</label>
+		<input
+		  id="valor_compra"
+		  name="valor_compra"
+		  type="text"
+		  inputmode="decimal"
+		  placeholder="Ej. 2.500,00"
+		  value={valorCompraDisplay}
+		/>
+	  </div>
+
+	  <div>
+		<label for="valor_mercado">Valor de mercado</label>
+		<input
+		  id="valor_mercado"
+		  name="valor_mercado"
+		  type="text"
+		  inputmode="decimal"
+		  placeholder="Ej. 3.200,00"
+		  value={valorMercadoDisplay}
+		/>
+		<p class="hint">
+		  Los cambios en este campo se registran automáticamente (log).
+		</p>
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div>
+		<label for="fecha_valor_mercado">Fecha de valor de mercado</label>
+		<input
+		  id="fecha_valor_mercado"
+		  name="fecha_valor_mercado"
+		  type="date"
+		  value={fechaValorMercadoValue}
+		/>
+	  </div>
+
+	  <div>
+		<label for="fuente_valoracion">Fuente de la valoración (URL)</label>
+		<input
+		  id="fuente_valoracion"
+		  name="fuente_valoracion"
+		  type="url"
+		  placeholder="https://…"
+		  value={fuenteValoracionValue}
+		/>
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div>
+		<label for="anio">Año (solo año)</label>
+		<input
+		  id="anio"
+		  name="anio"
+		  type="number"
+		  min="1000"
+		  max="3000"
+		  step="1"
+		  placeholder="Ej. 1998"
+		  value={anioValue}
+		/>
+	  </div>
+
+	  <div>
+		<label for="origen">Origen</label>
+		<input
+		  id="origen"
+		  name="origen"
+		  type="text"
+		  value={origenValue}
+		  placeholder="Ej. Galería X, subasta Y…"
+		/>
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div>
+		<label>Medidas (cm)</label>
+		<div class="grid-3">
+		  <input
+			id="medida_ancho_cm"
+			name="medida_ancho_cm"
+			type="text"
+			inputmode="decimal"
+			placeholder="Ancho"
+			value={anchoValue}
+		  />
+		  <input
+			id="medida_alto_cm"
+			name="medida_alto_cm"
+			type="text"
+			inputmode="decimal"
+			placeholder="Alto"
+			value={altoValue}
+		  />
+		  <input
+			id="medida_profundo_cm"
+			name="medida_profundo_cm"
+			type="text"
+			inputmode="decimal"
+			placeholder="Profundo"
+			value={profundoValue}
+		  />
+		</div>
+		<p class="hint">Puedes usar decimales. Si no aplica, déjalo vacío.</p>
+	  </div>
+
+	  <div>
+		<label for="materiales">Materiales</label>
+		<input
+		  id="materiales"
+		  name="materiales"
+		  type="text"
+		  value={materialesValue}
+		  placeholder="Ej. Óleo sobre lienzo, madera…"
+		/>
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div>
+		<label for="titulo_original">Título original</label>
+		<input
+		  id="titulo_original"
+		  name="titulo_original"
+		  type="text"
+		  value={tituloOriginalValue}
+		/>
+	  </div>
+
+	  <div>
+		<label for="notas">Notas</label>
+		<input id="notas" name="notas" type="text" value={notasValue} />
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div>
+		<label for="rareza">Rareza</label>
+		<select id="rareza" name="rareza">
+		  <option value="edicion_limitada" selected={rarezaValue === "edicion_limitada"}>Edición limitada</option>
+		  <option value="edicion_abierta" selected={rarezaValue === "edicion_abierta"}>Edición abierta</option>
+		  <option value="edicion_desconocida" selected={rarezaValue === "edicion_desconocida"}>Edición desconocida</option>
+		</select>
+	  </div>
+
+	  <div>
+		<label for="condicion">Condición</label>
+		<select id="condicion" name="condicion">
+		  <option value="muy_buena" selected={condicionValue === "muy_buena"}>Muy buena</option>
+		  <option value="buena" selected={condicionValue === "buena"}>Buena</option>
+		  <option value="justa" selected={condicionValue === "justa"}>Justa</option>
+		</select>
+	  </div>
+	</div>
+
+	<div class="row">
+	  <div class="checks">
+		<label class="check">
+		  <input id="firma" name="firma" type="checkbox" checked={firmaChecked} />
+		  Firma
+		</label>
+
+		<label class="check">
+		  <input id="certificado" name="certificado" type="checkbox" checked={certificadoChecked} />
+		  Certificado
+		</label>
+	  </div>
+
+	  <div>
+		{isEdit && valorMercadoLog?.length ? (
+		  <div class="log">
+			<h3>Log de valor de mercado</h3>
+			<table>
+			  <thead>
+				<tr>
+				  <th>Fecha</th>
+				  <th>Anterior</th>
+				  <th>Nuevo</th>
+				  <th>Fuente</th>
+				</tr>
+			  </thead>
+			  <tbody>
+				{valorMercadoLog.map((r) => (
+				  <tr>
+					<td>{new Date(r.changed_at).toLocaleString()}</td>
+					<td>{r.valor_anterior == null ? "—" : formatEuroPlain(r.valor_anterior)}</td>
+					<td>{r.valor_nuevo == null ? "—" : formatEuroPlain(r.valor_nuevo)}</td>
+					<td>
+					  {r.source_url ? (
+						<a href={r.source_url} target="_blank" rel="noreferrer">link</a>
+					  ) : "—"}
+					</td>
+				  </tr>
+				))}
+			  </tbody>
+			</table>
+		  </div>
+		) : (
+		  <p class="hint">
+			El log se registra automáticamente al cambiar “Valor de mercado”.
+		  </p>
+		)}
+	  </div>
+	</div>
   </div>
 
   <div class="actions">
@@ -158,29 +468,37 @@ const fechaCompraValue = activo.fecha_compra ?? "";
   .row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 1rem;
-	margin-bottom: 1rem;
+	gap: 14px;
+	margin: 14px 0;
   }
-  .hint {
-	font-size: .85rem;
-	opacity: .7;
-	margin:.25rem 0 0;
+  @media (max-width: 820px) {
+	.row { grid-template-columns: 1fr; }
   }
-  .actions {
-	display:flex;
-	gap:.75rem;
-	align-items:center;
-	margin-top:.75rem;
+  label { display:block; font-weight: 600; margin-bottom: 6px; }
+  input, select, textarea {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid rgba(0,0,0,.15);
+	border-radius: 10px;
   }
-  .danger {
-	background:#b00020;
-	color:#fff;
-	border:none;
-	padding:.55rem .9rem;
-	border-radius:.5rem;
-	cursor:pointer;
+  textarea { resize: vertical; }
+  .hint { margin: 6px 0 0; opacity: .75; font-size: .9rem; }
+  .actions { margin-top: 18px; display:flex; gap: 10px; }
+  button {
+	padding: 10px 14px;
+	border-radius: 12px;
+	border: 1px solid rgba(0,0,0,.15);
+	cursor: pointer;
   }
-  .danger:hover { opacity:.9; }
+  button.danger { border-color: rgba(220,38,38,.5); }
+  hr { margin: 18px 0; border: 0; border-top: 1px solid rgba(0,0,0,.08); }
+  h2 { margin-top: 6px; }
+  .is-hidden { display: none; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .checks { display:flex; gap: 18px; align-items:center; flex-wrap: wrap; }
+  .check { display:flex; gap: 8px; align-items:center; font-weight: 600; }
+  .log table { width: 100%; border-collapse: collapse; }
+  .log th, .log td { border-bottom: 1px solid rgba(0,0,0,.08); padding: 8px; text-align: left; }
 </style>
 
 <script
@@ -197,17 +515,43 @@ const fechaCompraValue = activo.fecha_compra ?? "";
   const btn  = document.getElementById('casa-activo-submit');
   const deleteBtn = document.getElementById('casa-activo-delete');
 
+  const catSelect = document.getElementById('categoria_id');
+  const arteBlock = document.getElementById('arte-fields');
+
   function emptyOrNull(v) {
 	if (v == null) return null;
 	const s = String(v).trim();
 	return s ? s : null;
   }
 
-  async function handleSubmit(e) {
-	e.preventDefault();
-	msg.textContent = '';
-	msg.style.color = '';
+  function isArteSelected() {
+	if (!catSelect) return false;
+	const opt = catSelect.options[catSelect.selectedIndex];
+	const name = (opt?.textContent || '').trim().toLowerCase();
+	return name === 'arte';
+  }
+
+  function toggleArte() {
+	if (!arteBlock) return;
+	arteBlock.classList.toggle('is-hidden', !isArteSelected());
+  }
+
+  if (catSelect) {
+	catSelect.addEventListener('change', toggleArte);
+	toggleArte();
+  }
+
+  function parseGallery(text) {
+	const s = (text || '').trim();
+	if (!s) return null;
+	return s.split('\n').map(x => x.trim()).filter(Boolean);
+  }
+
+  async function handleSubmit(ev) {
+	ev.preventDefault();
 	btn.disabled = true;
+	msg.textContent = 'Guardando…';
+	msg.style.color = '';
 
 	try {
 	  const nombre = form.nombre.value.trim();
@@ -226,7 +570,37 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 		propiedad_id: emptyOrNull(form.propiedad_id.value),
 		valor_estimado: emptyOrNull(form.valor_estimado.value),
 		fecha_compra: emptyOrNull(form.fecha_compra.value),
+
+		// Media (siempre)
+		imagen_destacada: emptyOrNull(form.imagen_destacada?.value),
+		galeria_imagenes: parseGallery(form.galeria_imagenes?.value),
 	  };
+
+	  if (isArteSelected()) {
+		Object.assign(payload, {
+		  valor_compra: emptyOrNull(form.valor_compra?.value),
+		  valor_mercado: emptyOrNull(form.valor_mercado?.value),
+		  fecha_valor_mercado: emptyOrNull(form.fecha_valor_mercado?.value),
+		  fuente_valoracion: emptyOrNull(form.fuente_valoracion?.value),
+
+		  anio: emptyOrNull(form.anio?.value),
+		  origen: emptyOrNull(form.origen?.value),
+
+		  medida_ancho_cm: emptyOrNull(form.medida_ancho_cm?.value),
+		  medida_alto_cm: emptyOrNull(form.medida_alto_cm?.value),
+		  medida_profundo_cm: emptyOrNull(form.medida_profundo_cm?.value),
+
+		  materiales: emptyOrNull(form.materiales?.value),
+		  notas: emptyOrNull(form.notas?.value),
+		  titulo_original: emptyOrNull(form.titulo_original?.value),
+
+		  rareza: emptyOrNull(form.rareza?.value),
+		  condicion: emptyOrNull(form.condicion?.value),
+
+		  firma: !!form.firma?.checked,
+		  certificado: !!form.certificado?.checked,
+		});
+	  }
 
 	  const res = await fetch(SAVE_ENDPOINT, {
 		method: 'POST',
@@ -244,8 +618,6 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 
 	  msg.textContent = '✅ Activo guardado correctamente. Redirigiendo…';
 	  msg.style.color = 'green';
-
-	  // Redirigimos al listado de activos de casa
 	  window.location.href = '/admin/casa/activos';
 	} catch (err) {
 	  console.error('[Guardar activo casa] Error:', err);
@@ -259,11 +631,10 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 	form.addEventListener('submit', handleSubmit);
   }
 
-  if (deleteBtn) {
+  if (deleteBtn && DELETE_ENDPOINT && IS_EDIT) {
 	deleteBtn.addEventListener('click', async () => {
-	  if (!confirm('¿Seguro que quieres eliminar este activo? Esta acción no se puede deshacer.')) {
-		return;
-	  }
+	  if (!confirm('¿Eliminar este activo? Esta acción no se puede deshacer.')) return;
+
 	  deleteBtn.disabled = true;
 	  btn.disabled = true;
 	  msg.textContent = 'Eliminando activo…';
@@ -283,6 +654,7 @@ const fechaCompraValue = activo.fecha_compra ?? "";
 		const raw = await res.text();
 		let data = {};
 		try { data = JSON.parse(raw || '{}'); } catch {}
+
 		if (!res.ok) {
 		  throw new Error(data.error || raw || 'Error al eliminar el activo');
 		}

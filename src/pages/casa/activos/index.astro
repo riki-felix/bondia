@@ -4,6 +4,7 @@ export const prerender = false;
 
 import "../../../../src/styles/pages/propiedades.css";
 import Layout from "../../../components/Layout.astro";
+import SectionHeader from "../../../components/SectionHeader.astro";
 import { supabaseServer } from "../../../lib/supabaseServer";
 import { formatEuro, toNum } from "../../../lib/money";
 
@@ -251,133 +252,132 @@ if (propsItems.length > 0) {
 ---
 
 <Layout title="Activos | Casa">
-  <header class="main-header">
-	<h1>Activos (Casa)</h1>
-	<p class="muted">
-	  Activos personales + propiedades marcadas como <strong>activo</strong>.
-	</p>
-  </header>
+	<div class="page propiedades main-content">
+		<SectionHeader
+		  title="Activos personales"
+		/>
 
-  {/* Filtros */}
-  {totalCount > 0 && (
-	<section class="inv-year-filter" style="margin-bottom:1.25rem;">
-	  <form method="get" class="filters" style="display:flex; gap:.75rem; flex-wrap:wrap;">
-
-		{/* Año */}
-		<div style="display:flex; flex-direction:column;">
-		  <label>Año</label>
-		  <select name="year">
-			<option value="">Todos</option>
-			{years.map((y) => (
-			  <option value={y} selected={selectedYear === y}>
-				{y}
-			  </option>
-			))}
-		  </select>
-		</div>
-
-		{/* Mes */}
-		<div style="display:flex; flex-direction:column;">
-		  <label>Mes</label>
-		  <select name="month">
-			<option value="">Todos</option>
-			{monthNames.map((m, i) => (
-			  <option value={i + 1} selected={selectedMonth === i + 1}>
-				{m}
-			  </option>
-			))}
-		  </select>
-		</div>
-
-		{/* Categoría */}
-		<div style="display:flex; flex-direction:column;">
-		  <label>Categoría</label>
-		  <select name="cat">
-			<option value="">Todas</option>
-			{catOptions.map((c) => (
-			  <option value={c.slug} selected={selectedCat === c.slug}>
-				{c.nombre}
-			  </option>
-			))}
-		  </select>
-		</div>
-
-		{/* Buscador */}
-		<div style="display:flex; flex-direction:column; flex:1;">
-		  <label>Buscar</label>
-		  <input
-			name="q"
-			type="search"
-			placeholder="Nombre o categoría…"
-			value={qParam}
-		  />
-		</div>
-
-		<div style="display:flex; flex-direction:column; justify-content:flex-end;">
-		  <button class="button--small" type="submit">
-			Filtrar
-		  </button>
-		</div>
-	  </form>
-
-	  <p class="muted" style="margin-top:.4rem; font-size:.85rem;">
-		Mostrando <strong>{filteredCount}</strong> de{" "}
-		<strong>{totalCount}</strong> activos.
-	  </p>
-	</section>
-  )}
-
-  {/* Widgets */}
-  {filteredCount > 0 && (
-	<section class="widgets" style="margin-bottom:1.5rem;">
-	  <ActivosCountWidget size={2} items={filtered} />
-	  <ActivosTotalWidget size={3} items={filtered} />
-	  <ActivosPropsValueWidget size={3} items={filtered} />
-	  <ActivosOtrosValueWidget size={2} items={filtered} />
-	</section>
-  )}
-
-  {/* Tabla */}
-  {filteredCount > 0 && (
-	<section class="block">
-	  <table class="table-movements">
-		<thead>
-		  <tr>
-			<th>Nombre</th>
-			<th>Origen</th>
-			<th>Categoría</th>
-			<th>Fecha</th>
-			<th style="text-align:right;">Valor</th>
-		  </tr>
-		</thead>
-		<tbody>
-		  {filtered.map((item) => (
-			<tr>
-			  <td>
-				{item.origen === "activo" ? (
-				  <a href={`/casa/activos/${item.slug}`}>{item.nombre}</a>
-				) : (
-				  <a href={`/propiedades/${item.slug}`}>{item.nombre}</a>
-				)}
-			  </td>
-			  <td>{item.origen === "activo" ? "Activo" : "Propiedad"}</td>
-			  <td>{item.categoriaNombre}</td>
-			  <td>
-				{item.fechaClave
-				  ? new Date(item.fechaClave).toLocaleDateString("es-ES")
-				  : "—"}
-			  </td>
-			  <td style="text-align:right;">
-				{item.valorPrincipal != null
-				  ? formatEuro(item.valorPrincipal)
-				  : "—"}
-			  </td>
-			</tr>
-		  ))}
-		</tbody>
-	  </table>
-	</section>
-  )}
+		{/* Filtros */}
+		{totalCount > 0 && (
+			<section class="inv-year-filter" style="margin-bottom:1.25rem;">
+			<form method="get" class="filters" style="display:flex; gap:.75rem; flex-wrap:wrap;">
+		
+				{/* Año */}
+				<div style="display:flex; flex-direction:column;">
+				<label>Año</label>
+				<select name="year">
+					<option value="">Todos</option>
+					{years.map((y) => (
+					<option value={y} selected={selectedYear === y}>
+						{y}
+					</option>
+					))}
+				</select>
+				</div>
+		
+				{/* Mes */}
+				<div style="display:flex; flex-direction:column;">
+				<label>Mes</label>
+				<select name="month">
+					<option value="">Todos</option>
+					{monthNames.map((m, i) => (
+					<option value={i + 1} selected={selectedMonth === i + 1}>
+						{m}
+					</option>
+					))}
+				</select>
+				</div>
+		
+				{/* Categoría */}
+				<div style="display:flex; flex-direction:column;">
+				<label>Categoría</label>
+				<select name="cat">
+					<option value="">Todas</option>
+					{catOptions.map((c) => (
+					<option value={c.slug} selected={selectedCat === c.slug}>
+						{c.nombre}
+					</option>
+					))}
+				</select>
+				</div>
+		
+				{/* Buscador */}
+				<div style="display:flex; flex-direction:column; flex:1;">
+				<label>Buscar</label>
+				<input
+					name="q"
+					type="search"
+					placeholder="Nombre o categoría…"
+					value={qParam}
+				/>
+				</div>
+		
+				<div style="display:flex; flex-direction:column; justify-content:flex-end;">
+				<button class="button--small" type="submit">
+					Filtrar
+				</button>
+				</div>
+			</form>
+		
+			<p class="muted" style="margin-top:.4rem; font-size:.85rem;">
+				Mostrando <strong>{filteredCount}</strong> de{" "}
+				<strong>{totalCount}</strong> activos.
+			</p>
+			</section>
+		)}
+		
+		{/* Widgets */}
+		{filteredCount > 0 && (
+			<section class="widgets" style="margin-bottom:1.5rem;">
+			<ActivosCountWidget size={2} items={filtered} />
+			<ActivosTotalWidget size={3} items={filtered} />
+			<ActivosPropsValueWidget size={3} items={filtered} />
+			<ActivosOtrosValueWidget size={2} items={filtered} />
+			</section>
+		)}
+		
+		{/* Tabla */}
+		{filteredCount > 0 && (
+			<section class="block">
+			<table class="table-movements">
+				<thead>
+				<tr>
+					<th>Nombre</th>
+					<th>Origen</th>
+					<th>Categoría</th>
+					<th>Fecha</th>
+					<th style="text-align:right;">Valor</th>
+				</tr>
+				</thead>
+				<tbody>
+				{filtered.map((item) => (
+					<tr>
+					<td>
+						{item.origen === "activo" ? (
+						<a href={`/casa/activos/${item.slug}`}>{item.nombre}</a>
+						) : (
+						<a href={`/propiedades/${item.slug}`}>{item.nombre}</a>
+						)}
+					</td>
+					<td>{item.origen === "activo" ? "Activo" : "Propiedad"}</td>
+					<td>{item.categoriaNombre}</td>
+					<td>
+						{item.fechaClave
+						? new Date(item.fechaClave).toLocaleDateString("es-ES")
+						: "—"}
+					</td>
+					<td style="text-align:right;">
+						{item.valorPrincipal != null
+						? formatEuro(item.valorPrincipal)
+						: "—"}
+					</td>
+					</tr>
+				))}
+				</tbody>
+			</table>
+			</section>
+		)}
+	</div>
 </Layout>
 
 <style>
