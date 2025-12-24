@@ -1,4 +1,4 @@
-import { createServerClient, parseCookieHeader } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import type { AstroCookies } from 'astro'
 
 /**
@@ -6,7 +6,7 @@ import type { AstroCookies } from 'astro'
  * This should be used in Astro pages, API routes, and middleware.
  * 
  * @param cookies - Astro cookies object from the request context
- * @param request - Astro request object (optional, for reading cookies from headers)
+ * @param request - Astro request object (for reading cookies from headers)
  * @returns A Supabase client configured for SSR
  */
 export const createSupabaseServerClient = (cookies: AstroCookies, request?: Request) => {
@@ -15,23 +15,29 @@ export const createSupabaseServerClient = (cookies: AstroCookies, request?: Requ
     process.env.SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          // If we have the request, parse cookies from headers
-          if (request) {
-            const cookieHeader = request.headers.get('cookie') ?? '';
-            return parseCookieHeader(cookieHeader);
-          }
-          // Fallback: return empty array (cookies will be set on first auth action)
-          return [];
+        get(name: string) {
+          // Try to get cookie from Astro cookies first
+          const cookie = cookies.get(name);
+          return cookie?.value;
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookies.set(name, value, options as any)
-          })
-        }
-      }
+        set(name: string, value: string, options: CookieOptions) {
+          cookies.set(name, value, {
+            ...options,
+            path: options.path ?? '/',
+            sameSite: (options.sameSite as 'strict' | 'lax' | 'none') ?? 'lax',
+            secure: options.secure ?? true,
+            httpOnly: options.httpOnly ?? true,
+          });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookies.delete(name, {
+            ...options,
+            path: options.path ?? '/',
+          });
+        },
+      },
     }
-  )
+  );
 }
 
 /**
