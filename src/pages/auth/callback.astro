@@ -1,16 +1,46 @@
 ---
+import { createSupabaseServerClient } from '../../lib/supabaseServer';
+
 export const prerender = false;
+
+// Extract session tokens from the URL hash fragment
+const url = new URL(Astro.request.url);
+const hashParams = new URLSearchParams(url.hash.slice(1));
+const accessToken = hashParams.get('access_token');
+const refreshToken = hashParams.get('refresh_token');
+
+let errorMessage = '';
+let redirectPath = '/admin';
+
+if (!accessToken || !refreshToken) {
+  errorMessage = 'Invalid authentication link. Please try logging in again.';
+  redirectPath = '/login';
+} else {
+  try {
+    // Create Supabase client and set the session
+    const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (error) {
+      console.error('Session setup error:', error.message);
+      errorMessage = 'Failed to establish session. Please try logging in again.';
+      redirectPath = '/login';
+    }
+  } catch (err) {
+    console.error('Unexpected error during auth callback:', err);
+    errorMessage = 'An unexpected error occurred. Please try logging in again.';
+    redirectPath = '/login';
+  }
+}
+
+// Redirect with error message if any
+if (errorMessage) {
+  return Astro.redirect(`${redirectPath}?error=${encodeURIComponent(errorMessage)}`);
+}
+
+// Success - redirect to admin
+return Astro.redirect(redirectPath);
 ---
-<html><body>
-  <p>Verificando enlace...</p>
-  <script is:inline type="module">
-	import { supabase } from '/src/scripts/supabaseClient.js';
-	const u = new URL(location.href);
-	const h = new URLSearchParams(u.hash.slice(1));
-	const access_token  = h.get('access_token');
-	const refresh_token = h.get('refresh_token');
-	if (!access_token || !refresh_token) { location.replace('/login'); }
-	const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-	location.replace(error ? '/login' : '/admin');
-  </script>
-</body></html>

@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIContext } from 'astro';
-import { supabaseServer } from '../../../lib/supabaseServer'; // Ajusta la ruta si es necesario
+import { createSupabaseServerClient } from '../../../lib/supabaseServer';
 
 export async function OPTIONS() {
   return new Response(null, { status: 204 });
@@ -9,7 +9,7 @@ export async function OPTIONS() {
 
 export async function POST(ctx: APIContext) {
   try {
-	const { request } = ctx;
+	const { request, cookies } = ctx;
 
 	if (!request.headers.get('content-type')?.includes('application/json')) {
 	  return json({ error: 'Content-Type must be application/json' }, 415);
@@ -17,7 +17,7 @@ export async function POST(ctx: APIContext) {
 
 	const body = await request.json().catch(() => ({} as any));
 
-	const supabase = supabaseServer();
+	const supabase = createSupabaseServerClient(cookies, request);
 	
 	// 1) PKCE / OAuth (recibe la URL completa con el ?code=...)
 	if (typeof body.codeUrl === 'string' && body.codeUrl.startsWith('http')) {

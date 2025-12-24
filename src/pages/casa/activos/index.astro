@@ -5,7 +5,7 @@ export const prerender = false;
 import "../../../../src/styles/pages/propiedades.css";
 import Layout from "../../../components/Layout.astro";
 import SectionHeader from "../../../components/SectionHeader.astro";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../../lib/supabaseServer";
 import { formatEuro, toNum } from "../../../lib/money";
 
 import ActivosCountWidget from "../../../widgets/ActivosCountWidget.astro";
@@ -13,7 +13,7 @@ import ActivosTotalWidget from "../../../widgets/ActivosTotalWidget.astro";
 import ActivosPropsValueWidget from "../../../widgets/ActivosPropsValueWidget.astro";
 import ActivosOtrosValueWidget from "../../../widgets/ActivosOtrosValueWidget.astro";
 
-const supabase = supabaseServer();
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 const url = Astro.url;
 
 // ----------------------

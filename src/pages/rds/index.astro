@@ -6,7 +6,7 @@ import SectionHeader from "../../components/SectionHeader.astro";
 import RdsCountWidget from "../../widgets/rds/RdsCountWidget.astro";
 import RdsTotalsWidget from "../../widgets/rds/RdsTotalsWidget.astro";
 import RdsCalendarWidget from "../../widgets/rds/RdsCalendarWidget.astro";
-import { supabaseServer } from "../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../lib/supabaseServer";
 import "../../../src/styles/components/tables.css";
 import "../../../src/styles/components/section-toolbar.css";
 
@@ -41,7 +41,7 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const selectedYear = Number(url.searchParams.get("year") ?? currentYear);
 
-const supabase = supabaseServer();
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 
 // --- Pisos ---
 const { data: pisosData, error: pisosError } = await supabase

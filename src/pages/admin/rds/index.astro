@@ -10,7 +10,7 @@ import RdsTotalsWidget from "../../../widgets/rds/RdsTotalsWidget.astro";
 import RdsCalendarWidget from "../../../widgets/rds/RdsCalendarWidget.astro";
 import { fmt, round2 } from "../../../widgets/propContext";
 
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../../lib/supabaseServer";
 
 interface PisoRds {
   id: string;
@@ -34,7 +34,7 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const selectedYear = Number(url.searchParams.get("year") ?? currentYear);
 
-const supabase = supabaseServer();
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 
 // Pisos, ordenados por fecha de creación
 const { data: pisosData, error: pisosError } = await supabase

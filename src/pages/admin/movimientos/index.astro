@@ -5,9 +5,9 @@ import Admin from "../../../components/Admin.astro";
 import SectionHeader from "../../../components/SectionHeader.astro";
 import "../../../styles/components/tables.css";
 import "../../../styles/components/section-toolbar.css";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../../lib/supabaseServer";
 
-const { data: fechas, error } = await supabaseServer()
+const { data: fechas, error } = await createSupabaseServerClient(Astro.cookies, Astro.request)
   .from("movimientos")
   .select("fecha")
   .not("fecha", "is", null);
