@@ -3,9 +3,10 @@ import CountWidget from "../widgets/CountWidget.astro";
 import SumWidget from "../widgets/SumWidget.astro";
 import Layout from "../components/Layout.astro";
 export const prerender = false;
-import { supabaseServer } from "../lib/supabaseServer";
+import { createSupabaseServerClient } from "../lib/supabaseServer";
 
-const { data: propiedades, error } = await supabaseServer()
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+const { data: propiedades, error } = await supabase
   .from('propiedades')
   .select('*');
 ---

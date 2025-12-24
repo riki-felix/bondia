@@ -3,10 +3,10 @@ export const prerender = false;
 
 import "../../../../src/styles/pages/propiedades.css";
 import Layout from "../../../components/Layout.astro";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../../lib/supabaseServer";
 import { formatEuro } from "../../../lib/money";
 
-const supabase = supabaseServer();
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 const { slug } = Astro.params;
 
 // 1) Cargar activo por slug, con categoría y propiedad vinculada

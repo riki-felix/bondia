@@ -8,7 +8,7 @@ import Layout from "../../components/Layout.astro";
 import TotalsWidget from "../../widgets/TotalsWidget.astro";
 import DifferenceWidget from "../../widgets/DifferenceWidget.astro";
 
-import { supabaseServer } from "../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../lib/supabaseServer";
 import { formatEuro } from "../../lib/money";
 
 /* ============================================================
@@ -43,7 +43,7 @@ const { slug } = Astro.params;
 /* ============================================================
    1) Cargar propiedad
 ============================================================ */
-const { data: propiedad, error: propError } = await supabaseServer()
+const { data: propiedad, error: propError } = await createSupabaseServerClient(Astro.cookies, Astro.request)
   .from("propiedades")
   .select("*")
   .eq("slug", slug)
@@ -57,7 +57,7 @@ if (propError || !propiedad) {
 /* ============================================================
    2) Cargar movimientos
 ============================================================ */
-const { data: movimientos, error: movError } = await supabaseServer()
+const { data: movimientos, error: movError } = await createSupabaseServerClient(Astro.cookies, Astro.request)
   .from("movimientos")
   .select("*")
   .eq("propiedad_id", propiedad.id);

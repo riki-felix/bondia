@@ -1,6 +1,6 @@
 ---
 import Layout from "./Layout.astro"; // por si lo quieres envolver, pero aquí no es estrictamente necesario
-import { supabaseServer } from "../lib/supabaseServer";
+import { createSupabaseServerClient } from "../lib/supabaseServer";
 
 interface Props {
   title?: string;
@@ -10,7 +10,7 @@ interface Props {
 const { title = "Movimientos casa", tipoMov } = Astro.props;
 
 // Carga de datos base en servidor (para filtros)
-const sb = supabaseServer();
+const sb = createSupabaseServerClient(Astro.cookies, Astro.request);
 
 /** Propiedades tipo "activo" */
 const { data: activosRaw, error: activosError } = await sb

@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import Admin from "../../../components/Admin.astro";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { createSupabaseServerClient } from "../../../lib/supabaseServer";
 
 interface PisoRds {
   id: string;
@@ -28,7 +28,7 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const selectedYear = Number(url.searchParams.get("year") ?? currentYear);
 
-const supabase = supabaseServer();
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 
 // Piso
 const { data: pisoData, error: pisoError } = await supabase
