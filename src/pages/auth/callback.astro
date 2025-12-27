@@ -89,13 +89,14 @@ if (code) {
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
 
-          if (accessToken && refreshToken) {
+          // Validate tokens before using them
+          if (accessToken && refreshToken && accessToken.trim() && refreshToken.trim()) {
             console.log('Found tokens in URL fragment, establishing session...');
             
             // Use setSession to establish the session with the tokens from the fragment
             const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
+              access_token: accessToken.trim(),
+              refresh_token: refreshToken.trim(),
             });
 
             if (error) {
@@ -116,16 +117,17 @@ if (code) {
             }
           }
 
-          // If we reach here and there's no code either, show an error
+          // Check for code in query params (PKCE flow)
           const urlParams = new URLSearchParams(window.location.search);
           const code = urlParams.get('code');
           
-          if (!code) {
+          if (!code && !accessToken) {
+            // No code and no tokens - this is an error
             console.error('No authentication code or tokens found in callback URL');
             window.location.href = '/login?error=no_code';
           }
           // If there is a code, the server-side logic above will handle it
-          // We just wait for the server redirect
+          // We just wait for the server redirect (which happens synchronously before this script runs)
         } catch (err) {
           console.error('Unexpected error in auth callback:', err);
           window.location.href = '/login?error=invalid_magic_link';
