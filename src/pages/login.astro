@@ -31,8 +31,8 @@ const redirectUrl = url.searchParams.get('redirect');
         </div>
       )}
       <form id="login-form">
-        <input type="email" name="email" placeholder="tu@email.com" required />
-        <button type="submit">Acceder</button>
+        <input id="email" type="email" name="email" placeholder="tu@email.com" required />
+        <button id="login-button" type="submit">Acceder</button>
       </form>
       <p id="msg"></p>
     </section>
@@ -40,9 +40,26 @@ const redirectUrl = url.searchParams.get('redirect');
     <div id="bg-blur"></div>
     <script is:inline type="module">
       import { supabase } from '/src/scripts/supabaseClient.js';
+      import { sendMagicLink } from '/src/scripts/supabase-auth-sign-in.js';
+      
       
       const form = document.getElementById('login-form');
       const msg = document.getElementById('msg');
+      
+      const emailInput = document.querySelector('#email');
+      const loginButton = document.querySelector('#login-button');
+      
+      loginButton.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const response = await sendMagicLink(email);
+      
+        if (!response.success) {
+          console.error(response.message);
+          alert(response.message);
+        } else {
+          alert(response.message);
+        }
+      });
       
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -71,6 +88,7 @@ const redirectUrl = url.searchParams.get('redirect');
         }
       });
     </script>
+    
     <script>
     (() => {
       // Variables de paleta, transición y estado
