@@ -10,13 +10,23 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return Response.redirect(new URL('/login?error=Invalid request path', ctx.url.origin).href);
   }
 
+  /**
+   * Check if a path should be allowed without authentication
+   */
   const isAllowlisted = (p: string) => {
+    // Authentication and public pages
     if (p === '/login') return true;
-    if (p.startsWith('/auth/callback')) return true;
-    if (p.startsWith('/well-known')) {
-      console.warn(`[Middleware] Allowlisted path intercepted: "${p}"`);
-      return true;
-    }
+    if (p === '/auth/callback') return true;
+    
+    // Static assets and build artifacts
+    if (p.startsWith('/_astro/')) return true;
+    if (p.startsWith('/favicon.ico')) return true;
+    if (p.startsWith('/robots.txt')) return true;
+    if (p.startsWith('/.well-known/')) return true;
+    
+    // API endpoints that handle their own auth
+    if (p.startsWith('/api/auth/')) return true;
+    
     return false;
   };
 

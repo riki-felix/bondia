@@ -39,39 +39,56 @@ const redirectUrl = url.searchParams.get('redirect');
     <canvas id="bg"></canvas>
     <div id="bg-blur"></div>
     <script is:inline type="module">
-      import { supabase } from '/src/scripts/supabaseClient.js';
-      import { sendMagicLink } from '/src/scripts/supabase-auth-sign-in.js';
+      import { sendMagicLink, validateEmail } from '/src/scripts/supabase-auth.js';
       
       const form = document.getElementById('login-form');
       const msg = document.getElementById('msg');
+      const emailInput = document.getElementById('email');
+      const submitButton = document.getElementById('login-button');
       
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Centralized email validation
-        const email = form.email.value.trim();
-        const emailField = form.email;
+        // Get and validate email
+        const email = emailInput.value.trim();
         
-        if (!email || !emailField.validity.valid) {
+        // Client-side validation
+        if (!validateEmail(email)) {
           msg.textContent = 'Error: Please enter a valid email address.';
           msg.style.color = '#ff6b6b';
           return;
         }
         
+        // Disable form during submission
+        submitButton.disabled = true;
+        submitButton.textContent = 'Enviando...';
+        
         // Provide user feedback
         msg.textContent = 'Sending magic link...';
         msg.style.color = '#FFF6E1';
         
-        // Send magic link
-        const response = await sendMagicLink(email);
-        
-        // Handle response with centralized error handling
-        if (!response.success) {
-          msg.textContent = `Error: ${response.message}`;
+        try {
+          // Send magic link
+          const response = await sendMagicLink(email);
+          
+          // Handle response with centralized error handling
+          if (!response.success) {
+            msg.textContent = `Error: ${response.message}`;
+            msg.style.color = '#ff6b6b';
+          } else {
+            msg.textContent = 'Check your email for the magic link!';
+            msg.style.color = '#4ade80';
+            // Clear the form on success
+            emailInput.value = '';
+          }
+        } catch (error) {
+          msg.textContent = 'Error: An unexpected error occurred. Please try again.';
           msg.style.color = '#ff6b6b';
-        } else {
-          msg.textContent = 'Check your email for the magic link!';
-          msg.style.color = '#4ade80';
+          console.error('[Login] Unexpected error:', error);
+        } finally {
+          // Re-enable form
+          submitButton.disabled = false;
+          submitButton.textContent = 'Acceder';
         }
       });
     </script>
