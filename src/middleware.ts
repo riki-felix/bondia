@@ -50,16 +50,24 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error) {
-      console.error('Session verification error:', error.message);
+      console.error('[Auth Middleware] Session verification error:', {
+        message: error.message,
+        status: error.status,
+        path: path,
+        url: ctx.url.href
+      });
       // Redirect to login with error message
       return ctx.redirect(`/login?error=${encodeURIComponent('Session verification failed. Please log in again.')}`);
     }
 
     if (!session) {
+      console.log('[Auth Middleware] No active session found for protected route:', path);
       // No active session - redirect to login
       const returnUrl = encodeURIComponent(path);
       return ctx.redirect(`/login?redirect=${returnUrl}&error=${encodeURIComponent('Please log in to access this page.')}`);
     }
+
+    console.log('[Auth Middleware] Valid session found for user:', session.user.email);
 
     // Session is valid - store user in locals for use in pages
     ctx.locals.user = session.user;
@@ -67,7 +75,13 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
     return next();
   } catch (err) {
-    console.error('Unexpected error in auth middleware:', err);
+    console.error('[Auth Middleware] Unexpected error in auth middleware:', {
+      error: err,
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      path: path,
+      url: ctx.url.href
+    });
     return ctx.redirect(`/login?error=${encodeURIComponent('An unexpected error occurred. Please try again.')}`);
   }
 });
