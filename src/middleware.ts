@@ -16,8 +16,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const isAllowlisted = (p: string) => {
     // Authentication and public pages
     if (p === '/login') return true;
-    if (p.startsWith('/auth/callback')) return true;
-    if (p.startsWith('/auth/')) return true;
+    if (p === '/auth/callback') return true;
     
     // Static assets and build artifacts
     if (p.startsWith('/_astro/')) return true;
