@@ -21,6 +21,12 @@ if (error === 'auth_required') {
   errorMessage = 'Credenciales inválidas. Por favor, inténtalo de nuevo.';
 } else if (error === 'session_expired') {
   errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+} else if (error === 'invalid_magic_link') {
+  errorMessage = 'El enlace mágico no es válido o ha expirado. Por favor, solicita uno nuevo.';
+} else if (error === 'no_code') {
+  errorMessage = 'No se recibió el código de autenticación. Por favor, inténtalo de nuevo.';
+} else if (error === 'session_failed') {
+  errorMessage = 'No se pudo establecer la sesión. Por favor, inténtalo de nuevo.';
 } else if (error) {
   errorMessage = 'Ha ocurrido un error. Por favor, inténtalo de nuevo.';
 }
@@ -107,13 +113,14 @@ if (success === 'check_email') {
           });
 
           if (error) {
-            console.error('Login error:', error);
+            console.error('Login error:', error.message, error);
             window.location.href = `/login?error=invalid_credentials`;
           } else {
+            console.log('Magic link sent successfully to:', email);
             window.location.href = `/login?success=check_email`;
           }
         } catch (err) {
-          console.error('Unexpected error:', err);
+          console.error('Unexpected error during login:', err);
           window.location.href = `/login?error=unknown`;
         } finally {
           submitButton.disabled = false;
