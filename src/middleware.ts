@@ -1,87 +1,34 @@
-// src/middleware.ts
 import { defineMiddleware } from 'astro/middleware';
 import { createSupabaseServerClient } from './lib/supabaseServer';
 
-/**
- * Checks if a path is whitelisted (publicly accessible without authentication)
- */
-const isAllowlisted = (p: string): boolean => {
-  // Auth routes
-  if (p === '/login') return true;
-  if (p.startsWith('/auth/callback')) return true;
-  if (p.startsWith('/api/auth/')) return true;
-
-  // Static assets
-  if (p.startsWith('/favicon')) return true;
-  if (p.startsWith('/robots.txt')) return true;
-  if (p.startsWith('/manifest')) return true;
-  if (p.startsWith('/_astro')) return true;
-  if (p.startsWith('/assets')) return true;
-  if (p.startsWith('/_image')) return true;
-  if (p.startsWith('/.well-known')) return true;
-
-  // Vite dev internals
-  if (p.startsWith('/@fs')) return true;
-  if (p.startsWith('/@id')) return true;
-  if (p.startsWith('/@vite')) return true;
-
-  return false;
-};
-
-/**
- * Middleware to enforce session-based access control across the site.
- * - Whitelisted routes (login, auth callback, static assets) are allowed without authentication
- * - All other routes require a valid Supabase session
- * - Unauthenticated users are redirected to /login with an error message
- */
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const path = ctx.url.pathname;
 
-  // Allow whitelisted routes to pass through
-  if (isAllowlisted(path)) {
-    return next();
-  }
+  const isAllowlisted = (p) => {
+    if (p === '/login') return true;
+    if (p.startsWith('/auth/callback')) return true;
+    if (p.startsWith('/well-known')) {
+      console.warn(`Allowlisted path intercepted: "${p}"`);
+      return true;
+    }
+    return false;
+  };
 
-  // Create Supabase client with cookie-based session management
+  if (isAllowlisted(path)) return next();
+
   const supabase = createSupabaseServerClient(ctx.cookies, ctx.request);
+  const { data: { session }, error } = await supabase.auth.getSession();
 
-  try {
-    // Check for an active session
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error('[Auth Middleware] Session verification error:', {
-        message: error.message,
-        status: error.status,
-        path: path,
-        url: ctx.url.href
-      });
-      // Redirect to login with error message
-      return ctx.redirect(`/login?error=${encodeURIComponent('Session verification failed. Please log in again.')}`);
-    }
-
-    if (!session) {
-      console.log('[Auth Middleware] No active session found for protected route:', path);
-      // No active session - redirect to login
-      const returnUrl = encodeURIComponent(path);
-      return ctx.redirect(`/login?redirect=${returnUrl}&error=${encodeURIComponent('Please log in to access this page.')}`);
-    }
-
-    console.log('[Auth Middleware] Valid session found for user:', session.user.email);
-
-    // Session is valid - store user in locals for use in pages
-    ctx.locals.user = session.user;
-    ctx.locals.session = session;
-
-    return next();
-  } catch (err) {
-    console.error('[Auth Middleware] Unexpected error in auth middleware:', {
-      error: err,
-      message: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      path: path,
-      url: ctx.url.href
-    });
-    return ctx.redirect(`/login?error=${encodeURIComponent('An unexpected error occurred. Please try again.')}`);
+  if (error) {
+    console.error("Error fetching session:", error.message);
   }
+
+  if (!session) {
+    const safePath = path && typeof path === 'string' ? encodeURIComponent(path) : '/';
+    console.warn(`Redirecting to login, invalid path: "${safePath}"`);
+    return Response.redirect(`/login?redirect=${safePath}&error=Please log in to access this page.`);
+  }
+
+  ctx.locals.user = session.user;
+  return next();
 });

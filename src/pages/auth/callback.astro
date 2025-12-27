@@ -1,150 +1,36 @@
 ---
 export const prerender = false;
 ---
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verificando autenticación...</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-    }
-    .spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid white;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .error {
-      background: rgba(255, 107, 107, 0.2);
-      padding: 1rem;
-      border-radius: 8px;
-      margin-top: 1rem;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="spinner"></div>
-    <p id="status">Verificando enlace de autenticación...</p>
-    <div id="error" class="error" style="display: none;"></div>
-  </div>
+<html>
+  <body>
+    <p>Processing authentication...</p>
+    <script is:inline type="module">
+      import { supabase } from '/src/scripts/supabaseClient.js';
 
-  <script is:inline>
-    async function handleCallback() {
-      const statusEl = document.getElementById('status');
-      const errorEl = document.getElementById('error');
+      const url = new URL(location.href);
+      const hashParams = new URLSearchParams(url.hash.slice(1));
+      const access_token = hashParams.get('access_token');
+      const refresh_token = hashParams.get('refresh_token');
 
-      try {
-        console.log('[Auth Callback] Starting authentication callback process');
-        console.log('[Auth Callback] Current URL:', window.location.href);
-
-        // Hash fragments are only available client-side
-        const hashParams = new URLSearchParams(window.location.hash.slice(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const errorParam = hashParams.get('error');
-        const errorDescription = hashParams.get('error_description');
-
-        console.log('[Auth Callback] Hash parameters parsed:', {
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken,
-          error: errorParam,
-          errorDescription: errorDescription
-        });
-
-        // Check for error in hash
-        if (errorParam) {
-          console.error('[Auth Callback] Error in URL parameters:', errorParam, errorDescription);
-          throw new Error(errorDescription || errorParam);
-        }
-
-        // Validate tokens
-        if (!accessToken || !refreshToken) {
-          console.error('[Auth Callback] Missing tokens in URL hash');
-          throw new Error('Invalid authentication link. Missing tokens.');
-        }
-
-        statusEl.textContent = 'Estableciendo sesión...';
-        console.log('[Auth Callback] Tokens validated, calling server to set session');
-
-        // Call server-side API to establish session in cookies
-        const response = await fetch('/api/auth/set', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          }),
-          credentials: 'same-origin',
-        });
-
-        if (!response.ok) {
-          let errorMessage = 'Failed to establish session';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            // If JSON parsing fails, keep the default error message
-          }
-          console.error('[Auth Callback] Server returned error:', errorMessage);
-          throw new Error(errorMessage);
-        }
-
-        console.log('[Auth Callback] Session established successfully on server');
-
-        // Success - redirect to admin
-        statusEl.textContent = '¡Autenticación exitosa! Redirigiendo...';
-        console.log('[Auth Callback] Redirecting to /admin');
-        
-        setTimeout(() => {
-          window.location.href = '/admin';
-        }, 500);
-
-      } catch (err) {
-        console.error('[Auth Callback] Authentication error:', err);
-        console.error('[Auth Callback] Error details:', {
-          message: err.message,
-          stack: err.stack,
-          type: err.constructor.name
-        });
-        
-        errorEl.style.display = 'block';
-        errorEl.textContent = err.message || 'Error al autenticar. Por favor, inténtalo de nuevo.';
-        statusEl.textContent = '';
-        
-        // Redirect to login after delay
-        setTimeout(() => {
-          const errorMsg = encodeURIComponent(err.message || 'Authentication failed');
-          console.log('[Auth Callback] Redirecting to /login with error:', errorMsg);
-          window.location.href = `/login?error=${errorMsg}`;
-        }, 3000);
+      // Handle expired links
+      if (url.searchParams.get('error') === 'otp_expired') {
+        console.error("Magic link expired.");
+        location.replace(`/login?error=link-expired`);
       }
-    }
 
-    handleCallback();
-  </script>
-</body>
+      if (!access_token || !refresh_token) {
+        console.error("Missing tokens in URL fragment.");
+        location.replace('/login?error=missing-tokens');
+      } else {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (error) {
+          console.error("Failed to establish session:", error.message);
+          location.replace(`/login?error=failed-session`);
+        } else {
+          console.log("Session established successfully.");
+          location.replace('/admin');
+        }
+      }
+    </script>
+  </body>
 </html>

@@ -49,42 +49,19 @@ const redirectUrl = url.searchParams.get('redirect');
       const emailInput = document.querySelector('#email');
       const loginButton = document.querySelector('#login-button');
       
-      loginButton.addEventListener('click', async () => {
-        const email = emailInput.value.trim();
-        const response = await sendMagicLink(email);
-      
-        if (!response.success) {
-          console.error(response.message);
-          alert(response.message);
-        } else {
-          alert(response.message);
-        }
-      });
-      
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = form.email.value;
-        msg.textContent = 'Enviando enlace mágico...';
+        const email = form.email.value.trim();
+        msg.textContent = 'Sending magic link...';
         msg.style.color = '#FFF6E1';
         
-        try {
-          const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-              emailRedirectTo: window.location.origin + '/auth/callback'
-            }
-          });
-          
-          if (error) {
-            msg.textContent = 'Error: ' + error.message;
-            msg.style.color = '#ff6b6b';
-          } else {
-            msg.textContent = '¡Revisa tu email! Te hemos enviado un enlace para acceder.';
-            msg.style.color = '#4ade80';
-          }
-        } catch (err) {
-          msg.textContent = 'Error inesperado. Por favor, inténtalo de nuevo.';
+        const response = await sendMagicLink(email);
+        if (!response.success) {
+          msg.textContent = `Error: ${response.message}`;
           msg.style.color = '#ff6b6b';
+        } else {
+          msg.textContent = 'Check your email for the magic link!';
+          msg.style.color = '#4ade80';
         }
       });
     </script>
