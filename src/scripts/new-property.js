@@ -1,6 +1,4 @@
 // src/scripts/new-property.js
-import { supabase } from '/src/scripts/supabaseClient.js';
-
 export default function initNewPropertyForm() {
   const enhance = () => {
 	const form = document.getElementById("f");
@@ -23,17 +21,10 @@ export default function initNewPropertyForm() {
 	  const address = fd.get("address")?.toString().trim();
 
 	  try {
-		// ← obtenemos la sesión para mandar user_id al backend
-		const { data: { session } } = await supabase.auth.getSession();
-		const user_id = session?.user?.id;
-		if (!user_id) {
-		  throw new Error("No hay sesión. Inicia sesión de nuevo.");
-		}
-
 		const res = await fetch("/.netlify/functions/createProperty", {
 		  method: "POST",
 		  headers: { "Content-Type": "application/json" },
-		  body: JSON.stringify({ title, address, user_id }),
+		  body: JSON.stringify({ title, address }),
 		  credentials: "same-origin",
 		});
 
