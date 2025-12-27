@@ -20,10 +20,6 @@ import Head from "./Head.astro";
 			<div class="preview">
 				<a href="/">Ir a Bondia</a>
 			</div>
-			<div class="log">
-				<span id="status">Comprobando sesión...</span>
-				<button id="logout" class="logout">Cerrar sesión</button>			
-			</div>
 		</div>
 	</header>
 	
@@ -68,28 +64,6 @@ import Head from "./Head.astro";
 		</div>
 	</main>
 	<footer class="admin-footer">
-		<script is:inline type="module">
-		  import { supabase } from '/src/scripts/supabaseClient.js';
-		
-		  const status = document.getElementById('status');
-		  const logout = document.getElementById('logout');
-		
-		  async function checkSession() {
-			const { data } = await supabase.auth.getSession();
-			if (data.session) {
-			  status.textContent = '';
-			} else {
-			  location.replace('/login');
-			}
-		  }
-		
-		  logout.addEventListener('click', async () => {
-			await supabase.auth.signOut();
-			location.replace('/login');
-		  });
-		
-		  checkSession();
-		</script>
 	</footer>	
   </body>
 </html>
