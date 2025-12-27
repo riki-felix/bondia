@@ -1,0 +1,35 @@
+---
+import { createSupabaseServerClient } from '../../lib/supabaseServer';
+
+export const prerender = false;
+
+// Handle the OAuth callback
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+
+// Get the code from the URL
+const code = Astro.url.searchParams.get('code');
+
+if (code) {
+  // Exchange the code for a session
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    console.error('Auth callback error:', error);
+    return Astro.redirect('/login?error=invalid_credentials');
+  }
+
+  // Verify the session was created
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    console.error('Session not established after code exchange');
+    return Astro.redirect('/login?error=session_failed');
+  }
+
+  // Redirect to admin page after successful login
+  return Astro.redirect('/admin');
+} else {
+  // No code provided, redirect to login
+  return Astro.redirect('/login?error=no_code');
+}
+---
