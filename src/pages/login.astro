@@ -1,0 +1,125 @@
+---
+import '../../src/styles/base/reset.css';
+import '../../src/styles/base/tokens.css';
+import '../../src/styles/base/typography.css';
+import '../../src/styles/base/base.css';
+import '../../src/styles/layout/auth-module.css';
+import Head from '../components/Head.astro';
+
+export const prerender = false;
+
+// Get error message from query params if present
+const error = Astro.url.searchParams.get('error');
+const success = Astro.url.searchParams.get('success');
+
+let errorMessage = '';
+let successMessage = '';
+
+if (error === 'auth_required') {
+  errorMessage = 'Debes iniciar sesión para acceder a esta página.';
+} else if (error === 'invalid_credentials') {
+  errorMessage = 'Credenciales inválidas. Por favor, inténtalo de nuevo.';
+} else if (error === 'session_expired') {
+  errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+} else if (error) {
+  errorMessage = 'Ha ocurrido un error. Por favor, inténtalo de nuevo.';
+}
+
+if (success === 'check_email') {
+  successMessage = 'Revisa tu correo electrónico para el enlace de inicio de sesión.';
+}
+---
+
+<!doctype html>
+<html lang="es">
+  <Head />
+  <body>
+    <main style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: var(--color-background, #f5f5f5);">
+      <div style="width: 100%; max-width: 400px; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h1 style="text-align: center; margin-bottom: 2rem; color: var(--color-text, #333);">Bondia</h1>
+        
+        {errorMessage && (
+          <div style="padding: 1rem; margin-bottom: 1rem; background: #fee; border: 1px solid #fcc; border-radius: 4px; color: #c33;">
+            {errorMessage}
+          </div>
+        )}
+        
+        {successMessage && (
+          <div style="padding: 1rem; margin-bottom: 1rem; background: #efe; border: 1px solid #cfc; border-radius: 4px; color: #3c3;">
+            {successMessage}
+          </div>
+        )}
+
+        <form id="login-form" method="post">
+          <div style="margin-bottom: 1.5rem;">
+            <label for="email" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--color-text, #333);">
+              Correo electrónico
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              autocomplete="email"
+              style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;"
+              placeholder="tu@email.com"
+            />
+          </div>
+
+          <button
+            type="submit"
+            style="width: 100%; padding: 0.75rem; background: var(--color-primary, #0066cc); color: white; border: none; border-radius: 4px; font-size: 1rem; font-weight: 500; cursor: pointer;"
+          >
+            Enviar enlace de inicio de sesión
+          </button>
+
+          <div id="loading" style="display: none; text-align: center; margin-top: 1rem; color: var(--color-text-secondary, #666);">
+            Enviando...
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <script>
+      import { supabase } from '../scripts/supabaseClient.js';
+
+      const form = document.getElementById('login-form') as HTMLFormElement;
+      const emailInput = document.getElementById('email') as HTMLInputElement;
+      const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      const loadingDiv = document.getElementById('loading') as HTMLDivElement;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = emailInput.value.trim();
+        if (!email) return;
+
+        // Show loading state
+        submitButton.disabled = true;
+        loadingDiv.style.display = 'block';
+
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+          });
+
+          if (error) {
+            console.error('Login error:', error);
+            window.location.href = `/login?error=invalid_credentials`;
+          } else {
+            window.location.href = `/login?success=check_email`;
+          }
+        } catch (err) {
+          console.error('Unexpected error:', err);
+          window.location.href = `/login?error=unknown`;
+        } finally {
+          submitButton.disabled = false;
+          loadingDiv.style.display = 'none';
+        }
+      });
+    </script>
+  </body>
+</html>
