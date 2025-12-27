@@ -7,7 +7,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   
   if (!path || typeof path !== 'string') {
     console.error('[Middleware] Invalid path value:', path);
-    return Response.redirect('/login?error=Invalid request path');
+    return Response.redirect(new URL('/login?error=Invalid request path', ctx.url.origin).href);
   }
 
   const isAllowlisted = (p: string) => {
@@ -36,7 +36,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
       console.error('[Middleware] Error fetching session:', error.message);
       const safePath = encodeURIComponent(path);
       const errorMessage = encodeURIComponent('Session validation failed. Please log in again.');
-      return Response.redirect(`/login?redirect=${safePath}&error=${errorMessage}`);
+      return Response.redirect(new URL(`/login?redirect=${safePath}&error=${errorMessage}`, ctx.url.origin).href);
     }
 
     // Handle unauthenticated access
@@ -44,7 +44,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
       console.warn(`[Middleware] Unauthenticated access attempt to: "${path}"`);
       const safePath = encodeURIComponent(path);
       const errorMessage = encodeURIComponent('Please log in to access this page.');
-      return Response.redirect(`/login?redirect=${safePath}&error=${errorMessage}`);
+      return Response.redirect(new URL(`/login?redirect=${safePath}&error=${errorMessage}`, ctx.url.origin).href);
     }
 
     // Valid session - attach user to context and continue
@@ -56,6 +56,6 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     console.error('[Middleware] Unexpected server error:', err);
     const safePath = encodeURIComponent(path);
     const errorMessage = encodeURIComponent('An unexpected error occurred. Please try again.');
-    return Response.redirect(`/login?redirect=${safePath}&error=${errorMessage}`);
+    return Response.redirect(new URL(`/login?redirect=${safePath}&error=${errorMessage}`, ctx.url.origin).href);
   }
 });

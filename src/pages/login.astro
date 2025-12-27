@@ -50,8 +50,9 @@ const redirectUrl = url.searchParams.get('redirect');
         
         // Centralized email validation
         const email = form.email.value.trim();
+        const emailField = form.email;
         
-        if (!email) {
+        if (!email || !emailField.validity.valid) {
           msg.textContent = 'Error: Please enter a valid email address.';
           msg.style.color = '#ff6b6b';
           return;
