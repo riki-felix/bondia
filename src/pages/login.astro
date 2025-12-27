@@ -42,20 +42,30 @@ const redirectUrl = url.searchParams.get('redirect');
       import { supabase } from '/src/scripts/supabaseClient.js';
       import { sendMagicLink } from '/src/scripts/supabase-auth-sign-in.js';
       
-      
       const form = document.getElementById('login-form');
       const msg = document.getElementById('msg');
       
-      const emailInput = document.querySelector('#email');
-      const loginButton = document.querySelector('#login-button');
-      
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Centralized email validation
         const email = form.email.value.trim();
+        const emailField = form.email;
+        
+        if (!email || !emailField.validity.valid) {
+          msg.textContent = 'Error: Please enter a valid email address.';
+          msg.style.color = '#ff6b6b';
+          return;
+        }
+        
+        // Provide user feedback
         msg.textContent = 'Sending magic link...';
         msg.style.color = '#FFF6E1';
         
+        // Send magic link
         const response = await sendMagicLink(email);
+        
+        // Handle response with centralized error handling
         if (!response.success) {
           msg.textContent = `Error: ${response.message}`;
           msg.style.color = '#ff6b6b';
