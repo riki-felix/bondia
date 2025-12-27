@@ -50,11 +50,25 @@ Before testing, ensure you have:
 **Purpose**: Verify auth callback establishes session correctly
 
 **Steps**:
-1. Click the magic link in email
-2. **Expected**: Browser opens callback page showing "Verificando enlace de autenticación..."
-3. **Expected**: Then shows "¡Autenticación exitosa! Redirigiendo..."
-4. **Expected**: Redirects to `/admin`
-5. **Expected**: Admin page loads successfully showing user interface
+1. Open browser DevTools Console (F12)
+2. Click the magic link in email
+3. **Expected**: Browser opens callback page showing "Verificando enlace de autenticación..."
+4. **Expected**: Console logs showing:
+   - `[Auth Callback] Starting authentication callback process`
+   - `[Auth Callback] Current URL: ...`
+   - `[Auth Callback] Hash parameters parsed: ...`
+   - `[Auth Callback] Tokens validated, calling server to set session`
+   - `[Auth Callback] Session established successfully on server`
+   - `[Auth Callback] Redirecting to /admin`
+5. **Expected**: Then shows "¡Autenticación exitosa! Redirigiendo..."
+6. **Expected**: Redirects to `/admin`
+7. **Expected**: Admin page loads successfully showing user interface
+8. **Expected**: Console logs showing `[Auth Middleware] Valid session found for user: ...`
+
+**Debugging**: If callback fails:
+- Check console for `[Auth Callback] Error ...` messages
+- Verify tokens are present in URL hash: `#access_token=...&refresh_token=...`
+- Check Network tab for `/api/auth/set` POST request and response
 
 **Status**: ⬜ Not tested (requires setup)
 
@@ -229,6 +243,46 @@ Manual security verification:
 - Some tests require email access (use a test email account)
 - Magic links typically expire after 1 hour
 - Session tokens typically expire after 1 hour (with auto-refresh)
+
+---
+
+## Debugging with Console Logs
+
+The application includes detailed console logging to help debug authentication issues:
+
+### Authentication Callback Logs (`[Auth Callback]`)
+When processing a magic link, the callback page logs:
+- Starting authentication process
+- Current URL being processed
+- Hash parameters (access_token, refresh_token presence)
+- Token validation status
+- Server API call to `/api/auth/set`
+- Session establishment success/failure
+- Redirect actions
+
+**To view**: Open DevTools Console (F12) before clicking the magic link
+
+### Middleware Logs (`[Auth Middleware]`)
+When accessing protected routes, the middleware logs:
+- Session verification errors (with status, path, URL)
+- Missing session for protected routes
+- Valid session found (with user email)
+- Unexpected errors with full stack traces
+
+**To view**: Open DevTools Console (F12) and navigate to any page
+
+### Checking Cookie Storage
+1. Open DevTools (F12)
+2. Go to Application > Cookies
+3. Look for cookies starting with `sb-`
+4. Verify they have `HttpOnly` and `Secure` flags (in production)
+
+### Checking Network Requests
+1. Open DevTools (F12) > Network tab
+2. Click the magic link
+3. Look for POST to `/api/auth/set`
+4. Check request payload (should have access_token and refresh_token)
+5. Check response status (should be 204 No Content)
 
 ---
 
