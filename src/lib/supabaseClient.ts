@@ -6,9 +6,9 @@ export const supabaseClient = () =>
 	import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
 	{
 	  auth: {
-		persistSession: true,
-		autoRefreshToken: true,
-		detectSessionInUrl: true
+	    persistSession: true,
+	    autoRefreshToken: true,
+	    detectSessionInUrl: true
 	  }
 	}
   )
