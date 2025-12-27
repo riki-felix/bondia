@@ -29,33 +29,28 @@ function getRedirectUrl() {
  * @returns {Promise<{success: boolean, message: string}>} Result of the operation
  */
 export async function sendMagicLink(email) {
-  try {
-    if (!email || typeof email !== 'string') {
-      return { success: false, message: 'Invalid email address provided.' };
-    }
-
-    const redirectTo = getRedirectUrl();
-    console.log('[Auth] Sending magic link with redirect URL:', redirectTo);
-
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: redirectTo,
-      },
-    });
-
-    if (error) {
-      console.error('[Auth] Error sending magic link:', error.message);
-      return { success: false, message: error.message };
-    }
-
-    console.log('[Auth] Magic link sent successfully:', data);
-    return { success: true, message: 'Magic link sent successfully!' };
-  } catch (e) {
-    console.error('[Auth] Unexpected error:', e);
-    return { success: false, message: 'An unexpected error occurred.' };
-  }
-}
+   try {
+     const redirectTo =
+       window.location.host.includes('localhost')
+         ? 'http://localhost:8888/' // Localhost Redirect
+         : 'https://bondia.netlify.app/'; // Production Redirect
+ 
+     const { error } = await supabase.auth.signInWithOtp({
+       email,
+       options: { redirectTo },
+     });
+ 
+     if (error) {
+       console.error('Error sending magic link:', error.message);
+       return { success: false, message: error.message };
+     }
+ 
+     return { success: true, message: 'Magic link sent! Check your email.' };
+   } catch (err) {
+     console.error('Unexpected error:', err.message);
+     return { success: false, message: 'An unexpected error occurred.' };
+   }
+ }
 
 /**
  * Validates an email address format.
