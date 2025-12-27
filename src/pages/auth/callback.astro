@@ -107,8 +107,7 @@ export const prerender = false;
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
           } catch (e) {
-            // If JSON parsing fails, use the default error message
-            errorMessage = 'Failed to establish session';
+            // If JSON parsing fails, keep the default error message
           }
           console.error('[Auth Callback] Server returned error:', errorMessage);
           throw new Error(errorMessage);
