@@ -26,7 +26,7 @@ The script maps CSV columns to database columns as follows:
 | TRANSFE          | transfe          | Transfer date (ISO format)                        |
 | FECHA COMPRA     | fecha_compra     | Purchase date (ISO format)                        |
 | FECHA VENTA      | fecha_venta      | Sale date (ISO format, nullable)                  |
-| OCUPADO          | ocupado          | Boolean (Libre → TRUE)                            |
+| OCUPADO          | ocupado          | Boolean (Libre → TRUE) **Note: Per requirements, the `ocupado` field is TRUE when property is "Libre" (available)**                  |
 
 ## Calculated Columns
 
@@ -48,7 +48,7 @@ The script performs these transformations:
 2. **Boolean values**:
    - VERDADERO → TRUE
    - Empty/other → FALSE
-   - Libre (in OCUPADO) → TRUE
+   - Libre (in OCUPADO field) → TRUE **Note: Per requirements, `ocupado` is TRUE when property is available ("Libre")**
 
 3. **Dates**: Converts to ISO format (YYYY-MM-DD)
 
@@ -106,3 +106,4 @@ ID,NOMBRE,ESTADO,FECHA INICIO,PAGO,APORTACIÓN,Retribución,INGRESO BANCO,JA,TRA
 - The script handles quoted values properly
 - All monetary values use European number format in CSV (€25.000,00)
 - Boolean fields accept VERDADERO or Libre (for ocupado field)
+- The `ocupado` field has specific semantics: it is TRUE when the CSV says "Libre" (available), per the requirements

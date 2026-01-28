@@ -50,7 +50,10 @@ def clean_boolean(value):
 def clean_ocupado(value):
 	"""
 	Convert ocupado string to SQL boolean:
-	- Libre -> TRUE
+	NOTE: Per requirements, ocupado field is TRUE when property is "Libre" (available)
+	This may seem counter-intuitive, but follows the specification:
+	- Libre (available) -> TRUE
+	- Ocupado (occupied) -> FALSE
 	- Empty/other -> FALSE
 	"""
 	if pd.isna(value) or value == "":
@@ -81,7 +84,7 @@ def clean_date(value):
 			except ValueError:
 				continue
 		return date_str
-	except:
+	except Exception:
 		return None
 
 def escape_sql_string(value):

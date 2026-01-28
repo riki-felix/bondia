@@ -34,7 +34,7 @@ def test_transformations():
 	boolean_tests = [
 		("VERDADERO", True),
 		("", False),
-		("Libre", True),  # for ocupado field
+		("Libre", True),  # NOTE: Per requirements, ocupado is TRUE when property is "Libre" (available)
 	]
 	for input_val, expected in boolean_tests:
 		if input_val == "Libre":
