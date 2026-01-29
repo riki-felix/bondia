@@ -28,3 +28,9 @@ pnpm-debug.log*
 
 # Supabase
 supabase/.temp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
