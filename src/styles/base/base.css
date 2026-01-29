@@ -30,7 +30,7 @@ body {
 		max-width: var(--page-width);
 		padding: 0;
 		margin: var(--header) auto 0 auto;
-		width: calc(100% - var(--sidebar));
+		width: calc(100% - calc(var(--sidebar) / 2));
 	}
 }
 #bg {
