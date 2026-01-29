@@ -5,11 +5,11 @@ Transforms data according to the specified column mappings and creates a new CSV
 """
 import pandas as pd
 import re
+import sys
 from pathlib import Path
 from datetime import datetime
 
 # ============= CONFIG =============
-SCHEMA_SQL = "propiedades_schema.sql"
 INPUT_CSV = "Sin título 3.csv"
 OUTPUT_CSV = "propiedades_merged.csv"
 
@@ -88,16 +88,15 @@ def clean_date(value):
 def main():
     csv_path = Path(INPUT_CSV)
     if not csv_path.exists():
-        print(f"ERROR: CSV file not found: {csv_path}")
-        return
+        print(f"ERROR: CSV file not found: {csv_path}", file=sys.stderr)
+        sys.exit(1)
     
-    schema_path = Path(SCHEMA_SQL)
-    if not schema_path.exists():
-        print(f"ERROR: Schema file not found: {schema_path}")
-        return
-    
-    # Read CSV
-    df = pd.read_csv(csv_path)
+    # Read CSV with error handling
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"ERROR: Failed to read CSV file: {e}", file=sys.stderr)
+        sys.exit(1)
     
     print(f"-- Processing {len(df)} rows from {INPUT_CSV}")
     
@@ -156,8 +155,12 @@ def main():
     # Create output dataframe
     output_df = pd.DataFrame(output_rows)
     
-    # Write to CSV
-    output_df.to_csv(OUTPUT_CSV, index=False)
+    # Write to CSV with error handling
+    try:
+        output_df.to_csv(OUTPUT_CSV, index=False)
+    except Exception as e:
+        print(f"ERROR: Failed to write output CSV: {e}", file=sys.stderr)
+        sys.exit(1)
     
     print(f"✓ Merged CSV file generated: {OUTPUT_CSV}")
     print(f"✓ Processed {len(output_df)} properties")
