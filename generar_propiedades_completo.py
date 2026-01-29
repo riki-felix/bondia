@@ -65,8 +65,10 @@ def clean_boolean_verdadero(value):
 def clean_boolean_ocupado(value):
 	"""
 	Convert ocupado string to SQL boolean:
-	- Libre -> TRUE
-	- Empty/other -> FALSE
+	- Libre -> TRUE (property is free/available for rent)
+	- Empty/other -> FALSE (property is occupied)
+	Note: This follows the business logic where "Libre" means the property 
+	is available (TRUE), not occupied (FALSE)
 	"""
 	if pd.isna(value) or value == "":
 		return False
@@ -214,6 +216,10 @@ def main():
 				if ingreso_banco is not None:
 					efectivo -= ingreso_banco
 				efectivo = round(efectivo, 2)
+			
+			# Normalize negative zero to zero
+			if efectivo is not None and abs(efectivo) < 0.01:
+				efectivo = 0.0
 			
 			if jasp_10_percent is None and ingreso_banco is not None:
 				jasp_10_percent = round(ingreso_banco * 0.10, 2)

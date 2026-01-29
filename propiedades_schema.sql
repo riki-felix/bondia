@@ -32,13 +32,13 @@ CREATE TABLE IF NOT EXISTS public.propiedades (
 -- pago: Payment status (boolean, Realizado → TRUE)
 -- aportacion: Contribution amount
 -- retribucion: Return/distribution amount
--- retencion: Tax retention (from CSV or calculated as 19% of retribucion)
+-- retencion: Tax retention amount from CSV
 -- ingreso_banco: Bank deposit amount
--- efectivo: Cash amount (from CSV or calculated: retribucion - retencion - ingreso_banco)
--- jasp_10_percent: 10% from CSV or calculated as 10% of ingreso_banco
+-- efectivo: Cash amount from CSV
+-- jasp_10_percent: 10% amount from CSV
 -- ja: JA status (boolean, VERDADERO → TRUE)
 -- transfe: Transfer date
 -- fecha_compra: Purchase date
 -- fecha_venta: Sale date
--- ocupado: Property occupancy status (boolean, Libre → TRUE)
+-- ocupado: Property occupancy status (boolean, Libre → TRUE means available)
 -- notas: Additional notes
