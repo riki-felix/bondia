@@ -6,14 +6,8 @@ import '../../src/styles/base/base.css';
 import '../../src/styles/components/forms.css';
 import '../../src/styles/layout/admin.css';
 import Head from "./Head.astro";
-import { createSupabaseServerClient } from '../lib/supabaseServer';
 
 export const prerender = false;
-
-// Get current user session
-const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
-const { data: { session } } = await supabase.auth.getSession();
-const userEmail = session?.user?.email || '';
 ---
 
 <!doctype html>
@@ -27,14 +21,6 @@ const userEmail = session?.user?.email || '';
 		<div class="actions">
 			<div class="preview">
 				<a href="/">Ir a Bondia</a>
-			</div>
-			<div class="session-info" style="display: flex; align-items: center; gap: 1rem; margin-left: 1rem;">
-				<span style="font-size: 0.875rem; color: var(--color-text-secondary, #666);">
-					{userEmail}
-				</span>
-				<button id="logout-btn" style="padding: 0.5rem 1rem; background: var(--color-danger, #c33); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">
-					Cerrar sesión
-				</button>
 			</div>
 		</div>
 	</header>
@@ -81,23 +67,5 @@ const userEmail = session?.user?.email || '';
 	</main>
 	<footer class="admin-footer">
 	</footer>
-
-	<script>
-		import { supabase } from '../scripts/supabaseClient.js';
-
-		const logoutBtn = document.getElementById('logout-btn');
-		if (logoutBtn) {
-			logoutBtn.addEventListener('click', async () => {
-				try {
-					await supabase.auth.signOut();
-					window.location.href = '/login';
-				} catch (error) {
-					console.error('Logout error:', error);
-					// Redirect anyway to clear client state
-					window.location.href = '/login';
-				}
-			});
-		}
-	</script>
   </body>
 </html>
