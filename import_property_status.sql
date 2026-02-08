@@ -4,18 +4,18 @@
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -23,7 +23,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -31,18 +31,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -50,7 +50,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -58,18 +58,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -77,7 +77,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -85,18 +85,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -104,7 +104,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -112,18 +112,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -131,7 +131,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -139,18 +139,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -158,7 +158,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -166,18 +166,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -185,7 +185,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -193,18 +193,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -212,7 +212,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -220,18 +220,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -239,7 +239,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -247,18 +247,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -266,7 +266,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -274,18 +274,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -293,7 +293,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -301,18 +301,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -320,7 +320,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -328,18 +328,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -347,7 +347,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -355,18 +355,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -374,7 +374,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -382,18 +382,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -401,7 +401,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -409,18 +409,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -428,7 +428,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -436,18 +436,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -455,7 +455,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -463,18 +463,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -482,7 +482,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -490,18 +490,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -509,7 +509,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -517,18 +517,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -536,7 +536,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -544,18 +544,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -563,7 +563,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -571,18 +571,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -590,7 +590,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -598,18 +598,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -617,7 +617,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,
@@ -625,18 +625,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Property: 
 INSERT INTO public.propiedades (
-  id, nombre, estado, fecha_inicio, pago,
+  id, titulo, estado, created_at, pago,
   aportacion, retribucion, retencion, ingreso_banco, efectivo,
-  jasp_10_percent, ja, transfe, fecha_compra, fecha_venta, ocupado
+  jasp_10_percent, liquidacion, transfe, fecha_compra, fecha_venta, ocupado
 ) VALUES (
   '', '', NULL, NULL, FALSE,
   NULL, NULL, NULL, NULL, NULL,
   NULL, FALSE, NULL, NULL, NULL, FALSE
 )
 ON CONFLICT (id) DO UPDATE SET
-  nombre = '',
+  titulo = '',
   estado = NULL,
-  fecha_inicio = NULL,
+  created_at = NULL,
   pago = FALSE,
   aportacion = NULL,
   retribucion = NULL,
@@ -644,7 +644,7 @@ ON CONFLICT (id) DO UPDATE SET
   ingreso_banco = NULL,
   efectivo = NULL,
   jasp_10_percent = NULL,
-  ja = FALSE,
+  liquidacion = FALSE,
   transfe = NULL,
   fecha_compra = NULL,
   fecha_venta = NULL,

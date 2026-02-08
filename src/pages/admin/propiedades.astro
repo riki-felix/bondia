@@ -25,15 +25,23 @@ export const prerender = false;
 	<table class="table-full table-schema--light">
 	  <thead>
 		<tr>
-		  <th>Imagen</th>
 		  <th>Nº op.</th>
 		  <th>Título</th>
 		  <th>Estado</th>
-		  <th class="hide-sm">Compra</th>
-		  <th class="hide-sm">Ingreso banco</th>
-		  <th class="hide-sm">Fecha ingreso</th>
-		  <th class="hide-sm">Aportaciones</th>
-		  <th class="hide-sm">Creada</th>
+		  <th>Inicio</th>
+		  <th>Pago</th>
+		  <th>Aportación</th>
+		  <th>Retribución</th>
+		  <th>Retención</th>
+		  <th>Ingreso</th>
+		  <th>Fecha ingreso</th>
+		  <th>Efectivo</th>
+		  <th>JASP</th>
+		  <th>Liquidación</th>
+		  <th>Fecha compra</th>
+		  <th>Fecha venta</th>
+		  <th>Ocupado</th>
+		  <th>Notas</th>
 		  <th style="width:1%">Acciones</th>
 		</tr>
 	  </thead>
@@ -65,210 +73,138 @@ export const prerender = false;
 	  border-spacing: 0;
 	}
   </style>
-  <script type="module" define:vars={{ SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL,
-	  SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
-	import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-	
-	const supabase = createClient(
-	  SUPABASE_URL,
-	  SUPABASE_ANON_KEY
-	);
-
-	// Si tu bucket es otro, cámbialo aquí
-	const DEFAULT_BUCKET = 'property-image';
-
-	const rowsEl = document.getElementById('rows');
-	const qEl = document.getElementById('q');
-	const segEl = document.getElementById('tipo-seg');
-	const msgEl = document.getElementById('status');
-
-	var allRows = [];
-	var tipoFilter = 'all';
-
-	function setMsg(text, kind) {
-	  msgEl.textContent = text;
-	  msgEl.className = 'status ' + (kind || 'ok');
-	  msgEl.style.display = 'block';
-	  if ((kind || 'ok') === 'ok') {
-		setTimeout(function(){ msgEl.style.display = 'none'; }, 2500);
-	  }
+  <script type="module" define:vars={{
+	SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL,
+	SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+  }}>
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  const rowsEl = document.getElementById('rows');
+  const qEl = document.getElementById('q');
+  const segEl = document.getElementById('tipo-seg');
+  const msgEl = document.getElementById('status');
+  
+  var allRows = [];
+  var tipoFilter = 'all';
+  
+  function setMsg(text, kind) {
+	msgEl.textContent = text;
+	msgEl.className = 'status ' + (kind || 'ok');
+	msgEl.style.display = 'block';
+	if ((kind || 'ok') === 'ok') {
+	  setTimeout(function() { msgEl.style.display = 'none'; }, 2500);
 	}
-
-	function fmtDate(iso) {
-	  if (!iso) return '';
-	  try {
-		const d = new Date(iso);
-		return d.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
-	  } catch (e) {
-		return String(iso);
-	  }
+  }
+  
+  function fmtDate(iso) {
+	if (!iso) return '—';
+	try {
+	  const date = new Date(iso);
+	  return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+	} catch (e) {
+	  return String(iso);
 	}
-
-	function fmtMoney(n) {
-	  if (n === null || n === undefined || n === '') return '';
-	  var num = Number(n);
-	  if (!Number.isFinite(num)) return String(n);
-	  return num.toLocaleString('es-ES', { style:'currency', currency:'EUR' });
+  }
+  
+  function fmtMoney(value) {
+	if (value == null) return '—';
+	return parseFloat(value).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+  }
+  
+  function badgeClass(estado) {
+	const s = String(estado || '').toLowerCase();
+	if (['vendido'].includes(s)) return 'err';
+	if (['alquiler'].includes(s)) return 'ok';
+	if (['reforma', 'comprado', 'negociacion', 'tanteo'].includes(s)) return 'neutral';
+	return 'neutral';
+  }
+  
+  function render(list) {
+	if (!Array.isArray(list) || list.length === 0) {
+	  rowsEl.innerHTML = '<tr><td colspan="17" class="muted">No hay datos para mostrar.</td></tr>';
+	  return;
 	}
-
-	function normalize(str) {
-	  return String(str || '')
-		.normalize('NFD')
-		.replace(/[\u0300-\u036f]/g,'')
-		.toLowerCase()
-		.trim();
+  
+	rowsEl.innerHTML = list.map(function(row) {
+	  return `
+		<tr data-id="${row.id}">
+		  <td>${row.numero_operacion || '—'}</td>
+		  <td>${row.titulo || '—'}</td>
+		  <td><span class="badge ${badgeClass(row.estado)}">${row.estado || '—'}</span></td>
+		  <td>${fmtDate(row.created_at)}</td>
+		  <td>${row.pago ? 'Sí' : 'No'}</td>
+		  <td>${fmtMoney(row.aportacion)}</td>
+		  <td>${fmtMoney(row.retribucion)}</td>
+		  <td>${fmtMoney(row.retencion)}</td>
+		  <td>${fmtMoney(row.ingreso_banco)}</td>
+		  <td>${fmtDate(row.fecha_ingreso)}</td>
+		  <td>${fmtMoney(row.efectivo)}</td>
+		  <td>${fmtMoney(row.jasp_10_percent)}</td>
+		  <td>${row.liquidacion ? 'Sí' : 'No'}</td>
+		  <td>${fmtDate(row.fecha_compra)}</td>
+		  <td>${fmtDate(row.fecha_venta)}</td>
+		  <td>${row.ocupado ? 'Sí' : 'No'}</td>
+		  <td>${row.notas || '—'}</td>
+		  <td style="text-align: center">
+			<a href="/admin/edit/${row.id}" class="btn">Editar</a>
+		  </td>
+		</tr>`;
+	}).join('');
+  }
+  
+  async function loadData() {
+	const { data, error } = await supabase
+	  .from('propiedades')
+	  .select('id, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, fecha_ingreso, efectivo, jasp_10_percent, liquidacion, fecha_compra, fecha_venta, ocupado, notas, numero_operacion')
+	  .order('numero_operacion', { ascending: true });
+  
+	if (error) {
+	  console.error('Error loading data:', error);
+	  rowsEl.innerHTML = '<tr><td colspan="17" class="muted">Error al cargar datos.</td></tr>';
+	  setMsg('❌ ' + error.message, 'err');
+	  return;
 	}
-
-	function matchTipo(valorTipo) {
-	  if (tipoFilter === 'all') return true;
-	  var t = normalize(valorTipo);
-	  if (tipoFilter === 'activos') return t === 'activo' || t === 'activos';
-	  if (tipoFilter === 'inversion') return t === 'inversion';
-	  return true;
-	}
-
-	function badgeClass(estado) {
-	  var s = String(estado || '').toLowerCase();
-	  if (['vendido'].indexOf(s) >= 0) return 'err';
-	  if (['alquiler'].indexOf(s) >= 0) return 'ok';
-	  if (['reforma','comprado','negociacion','tanteo'].indexOf(s) >= 0) return 'neutral';
-	  return 'neutral';
-	}
-
-	async function resolveImageUrl(rawPath) {
-	  if (!rawPath) return '';
-	  if (/^https?:\/\//.test(rawPath)) return rawPath;
-
-	  var bucket = DEFAULT_BUCKET;
-	  var path = rawPath;
-
-	  var firstSlash = rawPath.indexOf('/');
-	  if (firstSlash > 0 && !rawPath.startsWith('public/')) {
-		var maybeBucket = rawPath.slice(0, firstSlash);
-		var rest = rawPath.slice(firstSlash + 1);
-		if (['property-image','property-images','propiedades','media'].indexOf(maybeBucket) >= 0) {
-		  bucket = maybeBucket;
-		  path = rest;
-		}
-	  }
-
-	  var pub = supabase.storage.from(bucket).getPublicUrl(path);
-	  if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
-
-	  try {
-		var signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-		if (signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
-	  } catch (e) {}
-
-	  return '';
-	}
-
-	function render(list) {
-	  if (!Array.isArray(list) || list.length === 0) {
-		rowsEl.innerHTML = '<tr><td colspan="10" class="muted">No hay propiedades todavía.</td></tr>';
-		return;
-	  }
-
-	  rowsEl.innerHTML = list.map(function(r){
-		var viewHref = r.slug ? ('/propiedad/' + encodeURIComponent(r.slug)) : ('/propiedad/' + r.id);
-		var editHref = r.slug ? ('/admin/propiedad/' + encodeURIComponent(r.slug) + '/editar') : '';
-
-		var img = r._img
-		  ? '<img class="thumb" src="' + r._img + '" alt="">'
-		  : '<div class="thumb" style="border:1px solid #eee"></div>';
-
-		var editBtn = editHref
-		  ? '<a class="btn" href="' + editHref + '">Editar</a>'
-		  : '<button class="btn" disabled title="Falta slug">Editar</button>';
-
-		var numOp = (r.numero_operacion === null || r.numero_operacion === undefined || r.numero_operacion === '')
-		  ? '—'
-		  : String(r.numero_operacion);
-
-		var totalAport = (r.total_aportaciones === null || r.total_aportaciones === undefined)
-		  ? 0
-		  : r.total_aportaciones;
-
-		return (
-		  '<tr data-id="' + r.id + '" data-slug="' + (r.slug || '') + '">' +
-			'<td>' + img + '</td>' +
-			'<td><strong>' + numOp + '</strong></td>' +
-			'<td><a href="' + viewHref + '">' + (r.titulo || '(sin título)') + '</a></td>' +
-			'<td><span class="badge ' + badgeClass(r.estado) + '">' + (r.estado || '—') + '</span></td>' +
-			'<td class="hide-sm val">' + fmtMoney(r.precio_compra) + '</td>' +
-			'<td class="hide-sm val">' + fmtMoney(r.ingreso_banco) + '</td>' +
-			'<td class="hide-sm">' + fmtDate(r.fecha_ingreso) + '</td>' +
-			'<td class="hide-sm val">' + fmtMoney(totalAport) + '</td>' +
-			'<td class="hide-sm">' + fmtDate(r.created_at) + '</td>' +
-			'<td><div class="actions">' + editBtn + '</div></td>' +
-		  '</tr>'
-		);
-	  }).join('');
-	}
-
-	function applyFilters() {
-	  var q = String(qEl.value || '').trim().toLowerCase();
-
-	  var list = allRows.filter(function(r){
-		var matchesSearch =
-		  !q ||
-		  String(r.titulo || '').toLowerCase().includes(q) ||
-		  String(r.estado || '').toLowerCase().includes(q) ||
-		  String(r.slug || '').toLowerCase().includes(q) ||
-		  String(r.numero_operacion || '').toLowerCase().includes(q);
-
-		var matchesTipo = matchTipo(r.tipo || '');
-		return matchesSearch && matchesTipo;
-	  });
-
-	  render(list);
-	}
-
-	async function load() {
-	  // 👇 Leemos desde la VIEW que trae total_aportaciones
-	  var resp = await supabase
-		.from('propiedades_vista')
-		.select('id, slug, titulo, estado, tipo, precio_compra, numero_operacion, ingreso_banco, fecha_ingreso, total_aportaciones, foto_destacada_path, created_at')
-		.order('created_at', { ascending: false })
-		.limit(200);
-
-	  var data = resp ? resp.data : null;
-	  var error = resp ? resp.error : null;
-
-	  if (error) {
-		rowsEl.innerHTML = '<tr><td colspan="10" class="muted">Error cargando propiedades.</td></tr>';
-		setMsg('❌ ' + error.message, 'err');
-		return;
-	  }
-
-	  var base = Array.isArray(data) ? data : [];
-
-	  var withImg = await Promise.all(base.map(async function(r){
-		var copy = Object.assign({}, r);
-		copy._img = await resolveImageUrl(r.foto_destacada_path);
-		return copy;
-	  }));
-
-	  allRows = withImg;
-	  applyFilters();
-	}
-
-	qEl.addEventListener('input', applyFilters);
-
-	segEl.addEventListener('click', function(e){
-	  var btn = e.target.closest('button[data-tipo]');
-	  if (!btn) return;
-
-	  tipoFilter = btn.dataset.tipo;
-
-	  Array.prototype.slice.call(segEl.querySelectorAll('button')).forEach(function(b){
-		b.classList.toggle('is-active', b === btn);
-		b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
-	  });
-
-	  applyFilters();
+  
+	allRows = data || [];
+	applyFilters();
+  }
+  
+  function applyFilters() {
+	const query = qEl.value.toLowerCase();
+	const filteredRows = allRows.filter(row => {
+	  return (
+		(!query || 
+		  row.titulo?.toLowerCase().includes(query) || 
+		  row.estado?.toLowerCase().includes(query) || 
+		  (String(row.numero_operacion || '')).toLowerCase().includes(query)
+		) 
+		&& (tipoFilter === 'all' || row.tipo === tipoFilter)
+	  );
 	});
-
-	load();
+  
+	render(filteredRows);
+  }
+  
+  // Handle search input
+  qEl.addEventListener('input', applyFilters);
+  
+  // Handle filter by type
+  segEl.addEventListener('click', function(event) {
+	const button = event.target.closest('button[data-tipo]');
+	if (!button) return;
+  
+	tipoFilter = button.dataset.tipo;
+  
+	Array.from(segEl.querySelectorAll('button')).forEach(btn => {
+	  btn.classList.toggle('is-active', btn === button);
+	  btn.setAttribute('aria-selected', btn === button);
+	});
+  
+	applyFilters();
+  });
+  
+  loadData();
   </script>
 </Admin>
