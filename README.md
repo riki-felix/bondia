@@ -1,10 +1,6 @@
-# Astro Supabase Starter
+# Bondia
 
-![Astro Supabase Starter Preview](astro-supabase-starter-preview.png)
-
-**View demo:** [https://astro-supabase-starter.netlify.app/](https://astro-supabase-starter.netlify.app/)
-
-The Astro Supabase starter demonstrates how to integrate **Supabase** into an Astro project deployed on Netlify.
+A property management and investment tracking application built with Astro and Supabase.
 
 ## Deploying to Netlify
 
