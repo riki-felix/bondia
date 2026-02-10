@@ -3,9 +3,9 @@ import CountWidget from "../widgets/CountWidget.astro";
 import SumWidget from "../widgets/SumWidget.astro";
 import Layout from "../components/Layout.astro";
 export const prerender = false;
-import { createSupabaseServerClient } from "../lib/supabaseServer";
+import { supabaseClient } from "../lib/supabaseClient";  // ✅ Change this
 
-const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+const supabase = supabaseClient();  // ✅ And this
 const { data: propiedades, error } = await supabase
   .from('propiedades')
   .select('*');
