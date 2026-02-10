@@ -121,7 +121,7 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 	  
 	  <div class="prop-filter">
 		</div>
-	{!error && years && years.length > 0 && (
+		{!error && years && years.length > 0 && (
 		
 		<div class="year-filter">
 		  <label for="year-select" class="year-filter__label">
@@ -129,11 +129,18 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 		  </label>
 		  <select id="year-select" name="year" class="year-filter__select">
 			<option value="all" selected={modeTotals}>TODOS</option>
-			  {years.map((y) => (
-				<option value={String(y)} selected={!modeTotals && selectedYear === y}>
-				  {y}
-				</option>
-			  ))}
+			  {years.map((y) => {
+				const currentYear = new Date().getFullYear();
+				const isSelected = modeTotals 
+				  ? false 
+				  : (selectedYear ? selectedYear === y : y === currentYear);
+				
+				return (
+				  <option value={String(y)} selected={isSelected}>
+					{y}
+				  </option>
+				);
+			  })}
 		  </select>
 		</div>
 	  )}
