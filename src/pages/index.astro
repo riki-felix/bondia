@@ -3,40 +3,93 @@ import CountWidget from "../widgets/CountWidget.astro";
 import SumWidget from "../widgets/SumWidget.astro";
 import Layout from "../components/Layout.astro";
 export const prerender = false;
-import { supabaseClient } from "../lib/supabaseClient";  // ✅ Change this
+import { supabaseClient } from "../lib/supabaseClient";
 
-const supabase = supabaseClient();  // ✅ And this
-const { data: propiedades, error } = await supabase
-  .from('propiedades')
-  .select('*');
+// Debug environment variables
+console.log('[INDEX] Environment check:');
+console.log('[INDEX] PUBLIC_SUPABASE_URL exists:', !!import.meta.env.PUBLIC_SUPABASE_URL);
+console.log('[INDEX] PUBLIC_SUPABASE_ANON_KEY exists:', !!import.meta.env.PUBLIC_SUPABASE_ANON_KEY);
+console.log('[INDEX] URL value:', import.meta.env.PUBLIC_SUPABASE_URL?.substring(0, 30) + '...');
+
+let supabase;
+let propiedades = null;
+let error = null;
+let initError = null;
+
+try {
+  console.log('[INDEX] Creating Supabase client...');
+  supabase = supabaseClient();
+  console.log('[INDEX] Supabase client created successfully');
+  
+  console.log('[INDEX] Fetching propiedades...');
+  const result = await supabase.from('propiedades').select('*');
+  propiedades = result.data;
+  error = result.error;
+  
+  console.log('[INDEX] Fetch complete');
+  console.log('[INDEX] Data count:', propiedades?.length ?? 0);
+  console.log('[INDEX] Error:', error?.message ?? 'none');
+} catch (e) {
+  initError = e;
+  console.error('[INDEX] Initialization error:', e);
+}
 ---
 
 <Layout title="Casa">
   <div class="main-content">
-  <section class="section-dashboard">
-    <h1>Hola Carlos, bon dia.</h1>
-  </section>
-  <section class="section-hub">
-    <div class="card-hub">
-      <a href="/inversiones" class="card-hub__link">
-        <h2>Inversiones</h2>
-      </a>
-    </div>
-    <div class="card-hub">
-      <a href="/sanyus" class="card-hub__link">
-        <h2>Sanyus</h2>
-      </a>
-    </div>
-    <div class="card-hub">
-      <a href="/rds" class="card-hub__link">
-        <h2>RDS</h2>
-      </a>
-    </div>
-    <div class="card-hub">
-      <a href="/casa/panorama" class="card-hub__link">
-        <h2>Panorama actual</h2>
-      </a>
-    </div>
-  </section>
+    <!-- Debug panel (only in dev) -->
+    {import.meta.env.DEV && (
+      <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+        <strong style="color: #856404;">🐛 Debug Info:</strong><br/>
+        <hr style="margin: 10px 0;"/>
+        <strong>Environment:</strong><br/>
+        PUBLIC_SUPABASE_URL: {import.meta.env.PUBLIC_SUPABASE_URL ? '✅ Set' : '❌ Missing'}<br/>
+        PUBLIC_SUPABASE_ANON_KEY: {import.meta.env.PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}<br/>
+        <hr style="margin: 10px 0;"/>
+        <strong>Client Status:</strong><br/>
+        Supabase Client: {supabase ? '✅ Created' : '❌ Failed'}<br/>
+        Init Error: {initError ? '❌ ' + initError.message : '✅ None'}<br/>
+        <hr style="margin: 10px 0;"/>
+        <strong>Data Status:</strong><br/>
+        Propiedades: {propiedades ? `✅ ${propiedades.length} items` : '❌ No data'}<br/>
+        Query Error: {error ? '❌ ' + error.message : '✅ None'}<br/>
+      </div>
+    )}
+    
+    <!-- Show errors in production too -->
+    {(initError || error) && (
+      <div style="background: #f8d7da; border: 2px solid #dc3545; padding: 15px; margin: 10px; border-radius: 5px;">
+        <strong>⚠️ Error Loading Page</strong><br/>
+        {initError && <p>Initialization: {initError.message}</p>}
+        {error && <p>Query: {error.message}</p>}
+      </div>
+    )}
+    
+    <section class="section-dashboard">
+      <h1>Hola Carlos, bon dia.</h1>
+    </section>
+    
+    <section class="section-hub">
+      <div class="card-hub">
+        <a href="/inversiones" class="card-hub__link">
+          <h2>Inversiones</h2>
+        </a>
+      </div>
+      <div class="card-hub">
+        <a href="/sanyus" class="card-hub__link">
+          <h2>Sanyus</h2>
+        </a>
+      </div>
+      <div class="card-hub">
+        <a href="/rds" class="card-hub__link">
+          <h2>RDS</h2>
+        </a>
+      </div>
+      <div class="card-hub">
+        <a href="/casa/panorama" class="card-hub__link">
+          <h2>Panorama actual</h2>
+        </a>
+      </div>
+    </section>
   </div>
 </Layout>
