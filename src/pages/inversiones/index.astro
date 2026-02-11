@@ -22,11 +22,11 @@ const supabase = supabaseClient();
 --------------------------------------------------------- */
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select("id, titulo, tipo, estado, fecha_compra,liquidacion, precio_compra, precio_venta")
+  .select("id, titulo, tipo, estado, fecha_compra, fecha_ingreso,liquidacion, precio_compra, precio_venta")
   .eq("tipo", "inversion");
 const { data: propiedadesVista } = await supabase
 	.from("propiedades_vista")
-	.select("id, tipo, fecha_compra, total_aportaciones")
+	.select("id, tipo, fecha_compra,fecha_ingreso, total_aportaciones")
 	.eq("tipo", "inversion");
 
 /* -------------------------------------------------------
@@ -35,8 +35,8 @@ const { data: propiedadesVista } = await supabase
 const yearSet = new Set<number>();
 
 (allProperties ?? []).forEach((p) => {
-  if (!p.fecha_compra) return;
-  const d = new Date(p.fecha_compra as string);
+  if (!p.fecha_ingreso) return;
+  const d = new Date(p.fecha_ingreso as string);
   if (Number.isNaN(d.getTime())) return;
   yearSet.add(d.getFullYear());
 });
@@ -70,16 +70,16 @@ const properties =
   modeTotals || !allProperties
 	? allProperties ?? []
 	: allProperties.filter((p) => {
-		if (!p.fecha_compra) return false;
-		const d = new Date(p.fecha_compra as string);
+		if (!p.fecha_ingreso) return false;
+		const d = new Date(p.fecha_ingreso as string);
 		return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
 	  });
 const propiedadesVistaFiltradas =
 		modeTotals || !propiedadesVista
 		  ? propiedadesVista ?? []
 		  : propiedadesVista.filter((p) => {
-			  if (!p.fecha_compra) return false;
-			  const d = new Date(p.fecha_compra as string);
+			  if (!p.fecha_ingreso) return false;
+			  const d = new Date(p.fecha_ingreso as string);
 			  return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
 			});
 /* -------------------------------------------------------
@@ -87,15 +87,15 @@ const propiedadesVistaFiltradas =
 --------------------------------------------------------- */
 const { data: allVista, error: vistaError } = await supabase
   .from("propiedades_vista")
-  .select("id, tipo, fecha_compra, total_aportaciones")
+  .select("id, tipo, fecha_compra,fecha_ingreso, total_aportaciones")
   .eq("tipo", "inversion");
 
 const vistaProps =
   modeTotals || !allVista
 	? (allVista ?? [])
 	: (allVista ?? []).filter((p) => {
-		if (!p.fecha_compra) return false;
-		const d = new Date(p.fecha_compra as string);
+		if (!p.fecha_ingreso) return false;
+		const d = new Date(p.fecha_ingreso as string);
 		return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedYear;
 	  });
 /* -------------------------------------------------------
@@ -233,7 +233,6 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 		<table class="table-full table-schema">
 			<thead>
 			<tr>
-				<th>Imagen</th>
 				<th>Nº op.</th>
 				<th>Título</th>
 				<th class="">Creada</th>
@@ -393,7 +392,6 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 
 		  return (
 			'<tr data-id="' + r.id + '" data-slug="' + (r.slug || '') + '">' +
-			  '<td>' + img + '</td>' +
 			  '<td><strong>' + numOp + '</strong></td>' +
 			  '<td><a href="' + href + '">' + (r.titulo || '(sin título)') + '</a></td>' +
 			  '<td class="">' + fmtDate(r.created_at) + '</td>' +
@@ -447,7 +445,7 @@ const { rows: categoriasResumen, error: catError } = await loadCategoriasResumen
 		if (!MODE_TOTALS && YEAR) {
 		  const from = YEAR + '-01-01';
 		  const to = YEAR + '-12-31';
-		  query = query.gte('fecha_compra', from).lte('fecha_compra', to);
+		  query = query.gte('fecha_ingreso', from).lte('fecha_ingreso', to);
 		}
 	  
 		const resp = await query;

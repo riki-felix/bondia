@@ -22,6 +22,21 @@ body {
 .site {
 	
 }
+.brand {
+	padding: var(--page-margin);
+	display: block;
+	font-size: var(--font-size--xl);
+	display: flex;
+	width: var(--sidebar);
+	.brand-logo {
+		fill: var(--color-white);
+		width: 5.0rem;
+		&.light {
+			fill: var(--color-dark);		
+		}
+	}
+}
+
 .site-main {
 	padding: 0 0 0 var(--sidebar);
 	display: flex;

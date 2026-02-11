@@ -17,9 +17,6 @@ body {
 	z-index: 50;
 	display: flex;
 	flex-flow: row nowrap;
-	.brand-logo {
-		padding: var(--page-margin);
-	}
 	#status {
 		display: none;
 	}
