@@ -70,31 +70,26 @@ export default function LiquidacionesTable({
 }: LiquidacionesTableProps) {
   const [rows, setRows] = useState<SettlementRow[]>(initialData);
   const [search, setSearch] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [ejercicioFilter, setEjercicioFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // Property options for select cells
-  const propertyOptions = useMemo(
-    () => properties.map((p) => ({ value: p.id, label: p.titulo })),
-    [properties]
-  );
-
-  // Ejercicio year options: 2020 → current year
+  // Ejercicio year options from actual data
   const ejercicioOptions = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const opts = [];
-    for (let y = 2020; y <= currentYear; y++) {
-      opts.push({ value: String(y), label: String(y) });
+    const years = new Set<number>();
+    for (const r of rows) {
+      if (r.ejercicio != null) years.add(r.ejercicio);
     }
-    return opts;
-  }, []);
+    return Array.from(years)
+      .sort((a, b) => b - a)
+      .map((y) => ({ value: String(y), label: String(y) }));
+  }, [rows]);
 
   // ── Filtering ──
   const filteredRows = useMemo(() => {
     let result = rows;
 
-    if (propertyFilter !== "all") {
-      result = result.filter((r) => r.propiedad_id === propertyFilter);
+    if (ejercicioFilter !== "all") {
+      result = result.filter((r) => String(r.ejercicio) === ejercicioFilter);
     }
 
     if (search.trim()) {
@@ -107,7 +102,7 @@ export default function LiquidacionesTable({
     }
 
     return result;
-  }, [rows, propertyFilter, search]);
+  }, [rows, ejercicioFilter, search]);
 
   // ── Totals ──
   const totals = useMemo(() => {
@@ -263,15 +258,15 @@ export default function LiquidacionesTable({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-          <SelectTrigger className="w-[200px] h-9">
-            <SelectValue placeholder="Propiedad" />
+        <Select value={ejercicioFilter} onValueChange={setEjercicioFilter}>
+          <SelectTrigger className="w-[120px] h-9">
+            <SelectValue placeholder="Ejercicio" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas las propiedades</SelectItem>
-            {propertyOptions.map((p) => (
-              <SelectItem key={p.value} value={p.value}>
-                {p.label}
+            <SelectItem value="all">Todos</SelectItem>
+            {ejercicioOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -307,22 +302,22 @@ export default function LiquidacionesTable({
             {/* ── Totals row ── */}
             <TableRow className="bg-muted/20 font-semibold border-b-2">
               <TableCell colSpan={3} />
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.retribucion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.retencion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.neto)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.efectivo)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.transferencia)}
               </TableCell>
               <TableCell />
@@ -355,7 +350,7 @@ export default function LiquidacionesTable({
                     <EditableCell
                       value={row.propiedad_id}
                       type="select"
-                      options={propertyOptions}
+                      options={properties.map((p) => ({ value: p.id, label: p.titulo }))}
                       onSave={(v) => saveField(row.id, "propiedad_id", v)}
                     />
                   </TableCell>

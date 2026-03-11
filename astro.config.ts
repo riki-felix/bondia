@@ -9,7 +9,12 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     server: {
-      allowedHosts: ['.netlify.app']
+      allowedHosts: ['.netlify.app'],
+      hmr: {
+        // Ensure HMR works correctly behind the Netlify dev proxy
+        clientPort: 4321,
+        port: 4321,
+      },
     },
     resolve: {
       alias: {

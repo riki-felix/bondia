@@ -77,3 +77,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Incognito mode — blur money values */
+[data-incognito] [data-money] {
+  filter: blur(8px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}

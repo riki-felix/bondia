@@ -269,30 +269,12 @@ export const handler: Handler = async (event) => {
 	  updates.numero_operacion = toIntOrNull(body.numero_operacion);
 	}
 
-	// ingreso banco + fecha ingreso (juntos, y permite vaciar ambos)
-	const ingresoRaw = body.ingreso_banco;
-	const fechaRaw = body.fecha_ingreso;
-
-	const ingresoTouched = ingresoRaw !== undefined;
-	const fechaTouched = fechaRaw !== undefined;
-
-	const ingreso_banco = toMoneyOrNull(ingresoRaw);
-	const fecha_ingreso = toDateISO(fechaRaw);
-
-	if ((ingresoTouched && !fechaTouched) || (!ingresoTouched && fechaTouched)) {
-	  return json({ error: 'ingreso_banco y fecha_ingreso deben informarse juntos' }, 400);
+	// ingreso banco + fecha ingreso (independientes en update parcial)
+	if (body.ingreso_banco !== undefined) {
+	  updates.ingreso_banco = toMoneyOrNull(body.ingreso_banco);
 	}
-
-	if (ingresoTouched && fechaTouched) {
-	  const bothNull = ingreso_banco == null && fecha_ingreso == null;
-	  const bothFilled = ingreso_banco != null && fecha_ingreso != null;
-
-	  if (!bothNull && !bothFilled) {
-		return json({ error: 'ingreso_banco y fecha_ingreso deben ir ambos o vacíos ambos' }, 400);
-	  }
-
-	  updates.ingreso_banco = ingreso_banco;
-	  updates.fecha_ingreso = fecha_ingreso;
+	if (body.fecha_ingreso !== undefined) {
+	  updates.fecha_ingreso = toDateISO(body.fecha_ingreso);
 	}
 
 	// liquidación

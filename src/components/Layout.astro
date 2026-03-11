@@ -1,20 +1,17 @@
 ---
 import '../styles/globals.css';
 import Head from "./Head.astro";
-import Header from "./Header.astro";
-import Sidebar from "./Sidebar.astro";
+import { SidebarLayout } from "./SidebarLayout";
+
+const currentPath = Astro.url.pathname;
 ---
 
 <!doctype html>
 <html lang="es">
   <Head />
   <body class="min-h-screen bg-background font-sans antialiased">
-    <Header />
-    <div class="flex">
-      <Sidebar />
-      <main class="flex-1 p-6 overflow-auto">
-        <slot />
-      </main>
-    </div>
+    <SidebarLayout client:load currentPath={currentPath}>
+      <slot />
+    </SidebarLayout>
   </body>
 </html>

@@ -281,12 +281,12 @@ export default function InversionesTable({
       </div>
 
       {/* ── Table ── */}
-      <div className="rounded-lg border overflow-auto">
+      <div className="rounded-lg border overflow-auto max-h-[80vh] [&_[data-slot=table-wrapper]]:overflow-visible">
         <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40">
-              <TableHead className="w-[50px]">ID</TableHead>
-              <TableHead className="min-w-[200px]">NOMBRE</TableHead>
+          <TableHeader className="sticky top-0 z-20">
+            <TableRow className="bg-muted">
+              <TableHead className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-muted">ID</TableHead>
+              <TableHead className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]">NOMBRE</TableHead>
               <TableHead className="w-[110px]">ESTADO</TableHead>
               <TableHead className="w-[120px]">FECHA INICIO</TableHead>
               <TableHead className="w-[100px]">PAGO</TableHead>
@@ -318,27 +318,29 @@ export default function InversionesTable({
             </TableRow>
 
             {/* ── Totals row ── */}
-            <TableRow className="bg-muted/20 font-semibold border-b-2">
-              <TableCell colSpan={5} />
-              <TableCell className="text-right tabular-nums text-sm">
+            <TableRow className="bg-background font-semibold border-b-2">
+              <TableCell className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-background" />
+              <TableCell className="sticky left-[50px] z-30 bg-background shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]" />
+              <TableCell colSpan={3} />
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.retribucion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.retencion)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm bg-yellow-50">
+              <TableCell data-money className="text-right tabular-nums text-sm bg-yellow-50">
                 {formatEuro(totals.ingreso_banco)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.efectivo)}
               </TableCell>
-              <TableCell className="text-right tabular-nums text-sm">
+              <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.jasp_10_percent)}
               </TableCell>
-              <TableCell colSpan={6} />
+              <TableCell colSpan={7} />
             </TableRow>
           </TableHeader>
 
@@ -353,7 +355,7 @@ export default function InversionesTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((row) => {
+              filteredRows.map((row, idx) => {
                 const isLiq = !!row.liq;
                 // Use liquidación values when available
                 const displayAportacion = isLiq ? row.liq!.aportacion : row.aportacion;
@@ -362,15 +364,18 @@ export default function InversionesTable({
                 const displayIngresoBanco = isLiq ? row.liq!.transferencia : row.ingreso_banco;
                 const displayEfectivo = isLiq ? row.liq!.efectivo : row.efectivo;
 
+                // Per-year sequential ID when a year is selected; global numero_operacion otherwise
+                const displayId = yearFilter !== "all" ? idx + 1 : row.numero_operacion;
+
                 return (
                 <TableRow key={row.id} className={isLiq ? "bg-green-50/40" : ""}>
                   {/* ID */}
-                  <TableCell className="text-sm font-medium tabular-nums">
-                    {row.numero_operacion ?? "—"}
+                  <TableCell className={`text-sm font-medium tabular-nums min-w-[50px] max-w-[50px] sticky left-0 z-10 ${isLiq ? "bg-green-50" : "bg-background"}`}>
+                    {displayId ?? "—"}
                   </TableCell>
 
                   {/* NOMBRE */}
-                  <TableCell>
+                  <TableCell className={`sticky left-[50px] z-10 shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)] ${isLiq ? "bg-green-50" : "bg-background"}`}>
                     <EditableCell
                       value={row.titulo}
                       type="text"

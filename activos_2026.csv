@@ -1,0 +1,20 @@
+ID;NOMBRE;ESTADO;FECHA INICIO;PAGO;APORTACIÓN;Retribución;RETENCIÓN;INGRESO BANCO;EFECTIVO;JASP 10%;JA;TRANSFE;FECHA COMPRA;FECHA VENTA;OCUPADO;NOTAS
+;;;;;313.348,03 €;57.070,82 €;10.843,46;32.430,21 €;34.028,12 €;2.220,74;;;;;;
+1;COLLSEROLA 91 SOB AT 2ª L'H;Vendido;28 mar 2025;Realizado;51.418,58 €;1.657,39 €;3145,90 €;4.519,28 €;8.892,11 €;€;VERDADERO;5/1/2026;;28/10/2025;Libre;
+2;TREBALL 2 1º 1ª L'H;Vendido;16 abr 2025;Realizado;65.870,96 €;8.419,24 €;1599,66 €;5.703,58 €;1.116,00 €;€;VERDADERO;5/1/2026;;3/11/2025;Libre;
+3;AV. MIRAFLORES 14 3º 1ª L'H;Vendido;18 jun 2025;Realizado;68.594,70 €;11.422,91 €;2.170,35 €;1.440,56 €;7.812,00 €;144,06 €;VERDADERO;12/1/2026;;28/11/202;Libre;
+4;ANTIGA TRAVESSERA 5 3º 1ª L'H;Vendido;13 jun 2025;Realizado;71.926,77 €;5.258,59 €;999,13 €;4.259,46 €;-0,00 €;425,95 €;VERDADERO;12/1/2026;;12/11/2025;Libre;Piso  motopiso
+5;MARE DE DÉU DE NÚRIA 23 ENT 1ª L'H;Vendido;21 may 2025;Realizado;49.386,32 €;9.082,95 €;1.725,76 €;5.565,19 €;1.792,00 €;556,52 €;VERDADERO;12/1/2026;;17/11/2025;Libre;
+6;PARÍS 72 AT 2ª L'H;Vendido;5 may 2025;Realizado;42.645,40 €;16.786,21 €;3.189,38 €;6.336,83 €;7.260,00 €;633,68 €;VERDADERO;13/1/26;;12/12/2025;Libre;
+7;AIGÜES DEL LLOBREGAT 131 BJOS 1ª L'H;Vendido;11 jun 2025;Realizado;80.794,84 €;14.520,16 €;2.758,83 €;4.605,31 €;7.156,02 €;460,53 €;VERDADERO;13/1/26;;17/12/2025;Libre;Hubo un problema 
+8;MARTÍ I JULIÀ;Bloqueado;10 ago 2022;Pendiente;4.200,00 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Libre;Problema con el registro
+9;ROSES 8 3º 1ª L'H;Vendido;16 dic 2025;Pendiente;52.839,81 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;SEMANA .    3 ?;Libre;Aportacion segun hoja david
+10;ALEGRIA 32 1º 2ª L'H;En proceso;9 abr 2025;Pendiente;;;0;0,00 €;0,00 €;0,00 €;FALSO;;;SEMANA .   3?;Libre;Pendiente de aprobación la Caixa?
+11;ABEDUL 6 4º 1ª L'H;En proceso;11 jun 2025;Pendiente;54.844,90 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Ocupado;
+12;AV. PONENT 30 3º 1ª L'H;Comprado;24 dic 2025;Pendiente;50.961,25 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;2026?;Libre;Vendido por 130 k
+13;TEIDE 86 2º 4ª L'H;Comprado;11 nov 2025;Pendiente;9.915,00 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Libre;
+14;PIERA 7 AT 1ª L'H;En proceso;2 ene 2026;Pendiente;12.380,00 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;;
+15;ENGINYER MONCUNILL 36 4º 4ª L'H;En proceso;8 ene 2026;Pendiente;47.183,27 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Libre;Ocupa fuera 
+16;ESTEVE GRAU 22 AT 2ª L'H;Comprado;2 feb 2026;Pendiente;500,00 €;;0;;0,00 €;0;FALSO;;;;;
+;Floridablanca 37 L'H;En proceso;;Pendiente;6.000,00 €;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Libre;novedad semana 49
+;MAS 114 Entro 2ª L'H (ascensor);En proceso;;Pendiente;;;0;0,00 €;0,00 €;0,00 €;FALSO;;;;Libre;Posible reforma y venta (novedad semana 49

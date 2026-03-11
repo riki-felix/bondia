@@ -129,7 +129,7 @@ export function EditableCell({
   // ── Readonly money (calculated fields) ──
   if (type === "readonly-money") {
     return (
-      <span className={`text-right tabular-nums text-sm ${className}`}>
+      <span data-money className={`text-right tabular-nums text-sm ${className}`}>
         {fmtMoney(value as number | null)}
       </span>
     );
@@ -191,6 +191,7 @@ export function EditableCell({
 
     return (
       <div
+        data-money={type === "money" || undefined}
         className={`cursor-pointer rounded px-1 py-0.5 hover:bg-muted/60 min-h-[28px] flex items-center ${
           type === "money" ? "justify-end tabular-nums" : ""
         } ${bgClass} ${className}`}
