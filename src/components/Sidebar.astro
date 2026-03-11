@@ -1,68 +1,30 @@
 ---
-import '../../src/styles/components/sidebar-module.css';
-import { House, Library,Euro,Boxes,HatGlasses,HeartHandshake,Calendar,BanknoteArrowUp,BanknoteArrowDown,Ratio,Eye } from '@lucide/astro';
+import { Building2, Receipt } from '@lucide/astro';
 
+const currentPath = Astro.url.pathname;
+
+function isActive(href: string): string {
+  return currentPath.startsWith(href) ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground';
+}
 ---
-<sidebar class="sidebar">
-  <nav class="mainNav">
-    <ul>
-      <li>
-        <span class="menu-title">INVERSIONES</span>
-        <ul>
-          <li>
-            <a class="menu-link" href="/inversiones">
-              <Library size="20" />
-              Control
-            </a>
-          </li>
-          <li><a class="menu-link" href="/inversiones/propiedades">
-            <House size="20" />
-              Pisos
-            </a>
-          </li>
-          <li><a class="menu-link" href="/inversiones/aportaciones">
-              <Euro size="20" />
-              Aportaciones
-            </a>
-          </li>
-        </ul>
-      </li>
-      <li>
-            <a class="menu-link" href="/sanyus/">
-              <Boxes size="20" />
-              Sanyus
-            </a>
-        <ul>
-          <li>
-          </li>
-        </ul>
-      </li>
-      <li>
-        <a class="menu-link" href="/rds">
-          <HatGlasses size="20" />
-          RDS
-        </a>
-      </li>
-      <li>
-        CASA
-        <ul>
-          <li><a class="menu-link" href="/casa/panorama">
-        <Eye size="20" />
-            Panorama</a></li>
-          <li><a class="menu-link" href="/casa/calendario">
-        <Calendar size="20" />
-            Calendario</a></li>
-          <li><a class="menu-link" href="/casa/gastos">
-        <BanknoteArrowDown size="20" />
-            Gastos</a></li>
-          <li><a class="menu-link" href="/casa/ingresos">
-        <BanknoteArrowUp size="20" />
-            Ingresos</a></li>
-          <li><a class="menu-link" href="/casa/activos">
-        <Ratio size="20" />
-            Activos</a></li>
-        </ul>
-      </li>
-    </ul>
+<aside class="hidden md:flex w-56 flex-col border-r bg-sidebar min-h-[calc(100vh-3.5rem)]">
+  <nav class="flex flex-col gap-1 p-4">
+    <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-3">
+      Menú
+    </span>
+    <a
+      href="/inversiones"
+      class:list={["flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors", isActive("/inversiones")]}
+    >
+      <Building2 size="18" />
+      Inversiones
+    </a>
+    <a
+      href="/liquidaciones"
+      class:list={["flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors", isActive("/liquidaciones")]}
+    >
+      <Receipt size="18" />
+      Liquidaciones
+    </a>
   </nav>
-</sidebar>
+</aside>

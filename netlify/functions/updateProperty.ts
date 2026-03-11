@@ -8,7 +8,7 @@ const SUPABASE_SERVICE_ROLE =
   process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const PERIOD = new Set(['mensual', 'bimensual', 'trimestral', 'anual']);
-const ESTADO = new Set(['tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
+const ESTADO = new Set(['sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
 const LUZ = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const AGUA = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const GAS = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
@@ -300,6 +300,18 @@ export const handler: Handler = async (event) => {
 	  const b = toBoolOrNull(body.liquidacion);
 	  if (b == null) return json({ error: 'liquidacion inválido' }, 400);
 	  updates.liquidacion = b;
+	}
+
+	// ocupado
+	if (body.ocupado !== undefined) {
+	  const b = toBoolOrNull(body.ocupado);
+	  if (b == null) return json({ error: 'ocupado inválido' }, 400);
+	  updates.ocupado = b;
+	}
+
+	// fecha_venta
+	if (body.fecha_venta !== undefined) {
+	  updates.fecha_venta = toDateISO(body.fecha_venta);
 	}
 
 	// slug si cambia título

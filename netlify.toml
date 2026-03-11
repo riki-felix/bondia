@@ -1,6 +1,15 @@
+[functions]
+  directory = "netlify/functions"
+
 [build]
   publish = "dist"
   command = "npm run build"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 4321
+  port = 8888
+  autoLaunch = false
 
 [template]
   required-extensions = ["supabase"]

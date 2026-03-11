@@ -1,9 +1,5 @@
 ---
-import '../../src/styles/base/reset.css';
-import '../../src/styles/base/tokens.css';
-import '../../src/styles/base/typography.css';
-import '../../src/styles/components/forms.css';
-import '../../src/styles/base/base.css';
+import '../styles/globals.css';
 import Head from "./Head.astro";
 import Header from "./Header.astro";
 import Sidebar from "./Sidebar.astro";
@@ -12,11 +8,13 @@ import Sidebar from "./Sidebar.astro";
 <!doctype html>
 <html lang="es">
   <Head />
-  <body class="site">
+  <body class="min-h-screen bg-background font-sans antialiased">
     <Header />
-    <main class="site-main">
+    <div class="flex">
       <Sidebar />
-      <slot />
-    </main>
+      <main class="flex-1 p-6 overflow-auto">
+        <slot />
+      </main>
+    </div>
   </body>
 </html>

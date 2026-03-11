@@ -32,7 +32,7 @@ function json(payload: any, statusCode = 200) {
 }
 
 const PERIOD = new Set(['mensual', 'bimensual', 'trimestral', 'anual']);
-const ESTADO = new Set(['tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
+const ESTADO = new Set(['sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
 const LUZ = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const AGUA = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const GAS = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
