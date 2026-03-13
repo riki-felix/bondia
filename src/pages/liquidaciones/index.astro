@@ -12,7 +12,7 @@ const supabase = supabaseClient();
 const { data: allSettlements, error } = await supabase
   .from("liquidaciones")
   .select(
-    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
+    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
   )
   .order("numero_liquidacion", { ascending: true });
 

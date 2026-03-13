@@ -216,7 +216,7 @@ export function EditableCell({
     <Input
       ref={inputRef}
       type={type === "date" ? "date" : type === "money" ? "text" : "text"}
-      className={`h-7 text-sm ${type === "money" ? "text-right" : ""} ${bgClass}`}
+      className={`h-7 text-sm ${type === "money" ? "text-right" : ""} ${bgClass} ${className}`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}

@@ -40,6 +40,7 @@ interface SettlementRow {
   propiedad_id: string;
   fecha_liquidacion: string;
   numero_liquidacion: number;
+  numero_operacion: number | null;
   aportacion: number;
   retribucion: number;
   retencion: number;
@@ -47,6 +48,7 @@ interface SettlementRow {
   efectivo: number;
   transferencia: number;
   fecha_transferencia: string | null;
+  fecha_aportacion: string | null;
   liquidado: boolean;
   ejercicio: number | null;
   propiedad_titulo?: string;
@@ -60,6 +62,26 @@ interface PropertyOption {
 interface LiquidacionesTableProps {
   initialData: SettlementRow[];
   properties: PropertyOption[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+function calcDuracion(fechaAportacion: string | null, fechaTransferencia: string | null): { days: number; months: number } | null {
+  if (!fechaAportacion || !fechaTransferencia) return null;
+  const a = new Date(fechaAportacion);
+  const b = new Date(fechaTransferencia);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  const diffMs = b.getTime() - a.getTime();
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const months = Math.round(days / 30);
+  return { days, months };
+}
+
+function calcBeneficio(retribucion: number, aportacion: number, duracion: { days: number; months: number } | null): number | null {
+  if (!duracion || aportacion === 0) return null;
+  const meses = Math.max(duracion.months, 1);
+  const ratio = retribucion / aportacion;
+  return (ratio / meses) * 100;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -172,6 +194,52 @@ export default function LiquidacionesTable({
     [properties]
   );
 
+  // ── Swap numero_liquidacion ──
+  const swapOrder = useCallback(
+    async (id: string, newNum: number) => {
+      const current = rows.find((r) => r.id === id);
+      if (!current || current.numero_liquidacion === newNum) return;
+
+      const oldNum = current.numero_liquidacion;
+
+      // Optimistic update
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id === id) return { ...r, numero_liquidacion: newNum };
+          if (r.numero_liquidacion === newNum) return { ...r, numero_liquidacion: oldNum };
+          return r;
+        })
+      );
+
+      try {
+        const res = await fetch("/.netlify/functions/swapSettlementOrder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, numero_liquidacion: newNum }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          let msg = "Error al reordenar";
+          try { msg = JSON.parse(text).error || msg; } catch {}
+          throw new Error(msg);
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Error al reordenar";
+        toast.error(message);
+        // Revert
+        setRows((prev) =>
+          prev.map((r) => {
+            if (r.id === id) return { ...r, numero_liquidacion: oldNum };
+            if (r.numero_liquidacion === oldNum && r.id !== id) return { ...r, numero_liquidacion: newNum };
+            return r;
+          })
+        );
+      }
+    },
+    [rows]
+  );
+
   // ── Create new settlement ──
   const createSettlement = useCallback(async () => {
     try {
@@ -229,7 +297,7 @@ export default function LiquidacionesTable({
     const { data } = await supabase
       .from("liquidaciones")
       .select(
-        "id, propiedad_id, fecha_liquidacion, numero_liquidacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
+        "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
       )
       .order("numero_liquidacion", { ascending: true });
 
@@ -248,6 +316,7 @@ export default function LiquidacionesTable({
       <LiquidacionesSummary
         totalTransferencia={totals.transferencia}
         totalEfectivo={totals.efectivo}
+        totalAportacion={totals.aportacion}
       />
 
       {/* ── Toolbar ── */}
@@ -284,7 +353,8 @@ export default function LiquidacionesTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead className="w-[50px]">Nº</TableHead>
+              <TableHead className="w-[60px]">Nº</TableHead>
+              <TableHead className="w-[50px]">OP</TableHead>
               <TableHead className="min-w-[200px]">PROPIEDAD</TableHead>
               <TableHead className="w-[130px]">FECHA</TableHead>
               <TableHead className="w-[120px] text-right">APORTACIÓN</TableHead>
@@ -294,6 +364,9 @@ export default function LiquidacionesTable({
               <TableHead className="w-[120px] text-right">EFECTIVO</TableHead>
               <TableHead className="w-[130px] text-right">TRANSFERENCIA</TableHead>
               <TableHead className="w-[130px]">FECHA TRANSFE</TableHead>
+              <TableHead className="w-[130px]">FECHA APORTACIÓN</TableHead>
+              <TableHead className="w-[130px] text-right">DURACIÓN</TableHead>
+              <TableHead className="w-[100px] text-right">BENEFICIO</TableHead>
               <TableHead className="w-[80px] text-center">LIQUIDADO</TableHead>
               <TableHead className="w-[90px]">EJERCICIO</TableHead>
               <TableHead className="w-[50px]" />
@@ -301,7 +374,7 @@ export default function LiquidacionesTable({
 
             {/* ── Totals row ── */}
             <TableRow className="bg-muted/20 font-semibold border-b-2">
-              <TableCell colSpan={3} />
+              <TableCell colSpan={4} />
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
@@ -324,6 +397,9 @@ export default function LiquidacionesTable({
               <TableCell />
               <TableCell />
               <TableCell />
+              <TableCell />
+              <TableCell />
+              <TableCell />
             </TableRow>
           </TableHeader>
 
@@ -331,7 +407,7 @@ export default function LiquidacionesTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={13}
+                  colSpan={17}
                   className="text-center text-muted-foreground py-8"
                 >
                   No hay liquidaciones para mostrar.
@@ -341,8 +417,26 @@ export default function LiquidacionesTable({
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
                   {/* Nº */}
-                  <TableCell className="text-sm font-medium tabular-nums">
-                    {row.numero_liquidacion}
+                  <TableCell>
+                    <EditableCell
+                      value={String(row.numero_liquidacion)}
+                      type="text"
+                      className="w-[50px] [&_input]:px-1 [&_input]:text-center"
+                      onSave={(v) => {
+                        const n = Number(v);
+                        if (Number.isFinite(n) && n >= 1) swapOrder(row.id, n);
+                      }}
+                    />
+                  </TableCell>
+
+                  {/* OP */}
+                  <TableCell>
+                    <EditableCell
+                      value={row.numero_operacion != null ? String(row.numero_operacion) : null}
+                      type="text"
+                      className="w-[50px] [&_input]:px-1 [&_input]:text-center"
+                      onSave={(v) => saveField(row.id, "numero_operacion", v ? Number(v) : null)}
+                    />
                   </TableCell>
 
                   {/* PROPIEDAD */}
@@ -438,6 +532,41 @@ export default function LiquidacionesTable({
                       }
                     />
                   </TableCell>
+
+                  {/* FECHA APORTACIÓN */}
+                  <TableCell>
+                    <EditableCell
+                      value={
+                        row.fecha_aportacion
+                          ? row.fecha_aportacion.substring(0, 10)
+                          : null
+                      }
+                      type="date"
+                      onSave={(v) =>
+                        saveField(row.id, "fecha_aportacion", v)
+                      }
+                    />
+                  </TableCell>
+
+                  {/* DURACIÓN (calculated) */}
+                  {(() => {
+                    const duracion = calcDuracion(row.fecha_aportacion, row.fecha_transferencia);
+                    const beneficio = calcBeneficio(row.retribucion, row.aportacion, duracion);
+                    return (
+                      <>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
+                          {duracion
+                            ? `${duracion.days}d (${duracion.months}m)`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
+                          {beneficio != null
+                            ? `${Math.round(beneficio)}%`
+                            : "—"}
+                        </TableCell>
+                      </>
+                    );
+                  })()}
 
                   {/* LIQUIDADO */}
                   <TableCell className="text-center">
