@@ -13,7 +13,7 @@ const supabase = supabaseClient();
 const { data: allProperties, error } = await supabase
   .from("propiedades")
   .select(
-    "id, numero_operacion, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
+    "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
   )
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
@@ -44,15 +44,19 @@ const properties: Property[] = (allProperties ?? []).map((p: any) => ({
   liq: liqByProp.get(p.id) ?? null,
 })) as Property[];
 
-// Extract unique years from fecha_ingreso + ejercicio from liquidaciones
+// Extract unique years from ejercicio, fecha_ingreso + ejercicio from liquidaciones
 const yearSet = new Set<number>();
 properties.forEach((p) => {
-  const dateStr = p.fecha_ingreso || p.created_at;
-  if (!dateStr) return;
-  const d = new Date(dateStr);
-  if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  // Property's own ejercicio takes priority
+  if (p.ejercicio != null) yearSet.add(p.ejercicio);
   // Also include ejercicio from linked liquidación
   if (p.liq?.ejercicio != null) yearSet.add(p.liq.ejercicio);
+  // Fallback to fecha_ingreso/created_at
+  const dateStr = p.fecha_ingreso || p.created_at;
+  if (dateStr) {
+    const d = new Date(dateStr);
+    if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  }
 });
 const years = Array.from(yearSet).sort((a, b) => b - a);
 

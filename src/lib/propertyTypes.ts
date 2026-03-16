@@ -4,6 +4,7 @@
 export interface Property {
   id: string;
   numero_operacion: number | null;
+  ejercicio: number | null;
   titulo: string | null;
   estado: string | null;
   created_at: string | null;
@@ -35,7 +36,8 @@ export interface Property {
 }
 
 export const ESTADO_OPTIONS = [
-  { value: "sin_estado", label: "Sin Estado" },
+  { value: "borrador", label: "Borrador" },
+  { value: "activa", label: "Activa" },
   { value: "tanteo", label: "Tanteo" },
   { value: "negociacion", label: "Negociación" },
   { value: "comprado", label: "Comprado" },
@@ -56,4 +58,4 @@ export const OCUPADO_OPTIONS = [
 
 /** Columns that are fetched from Supabase for the inversiones table */
 export const PROPERTY_SELECT =
-  "id, numero_operacion, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug" as const;
+  "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug" as const;

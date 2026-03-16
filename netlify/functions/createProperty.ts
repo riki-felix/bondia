@@ -32,7 +32,7 @@ function json(payload: any, statusCode = 200) {
 }
 
 const PERIOD = new Set(['mensual', 'bimensual', 'trimestral', 'anual']);
-const ESTADO = new Set(['sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
+const ESTADO = new Set(['borrador', 'activa', 'sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
 const LUZ = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const AGUA = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const GAS = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
@@ -178,7 +178,7 @@ export const handler: Handler = async (event) => {
 
 	const ibi = toMoneyOrNull(body?.ibi);
 
-	let estado: string | null = null;
+	let estado: string = 'borrador';
 	if (body?.estado !== undefined) {
 	  const e = pickFrom(body?.estado, ESTADO);
 	  if (!e) return json({ error: 'estado inválido' }, 400);
@@ -213,6 +213,12 @@ export const handler: Handler = async (event) => {
 	const plano_path = emptyToNull(body?.plano_path);
 
 	let numero_operacion = toIntOrNull(body?.numero_operacion);
+	let ejercicio = toIntOrNull(body?.ejercicio);
+
+	// Borradores nunca tienen numero_operacion
+	if (estado === 'borrador') {
+	  numero_operacion = null;
+	}
 
 	const ingreso_banco = toMoneyOrNull(body?.ingreso_banco);
 	const fecha_ingreso = toDateISO(body?.fecha_ingreso);
@@ -231,24 +237,6 @@ export const handler: Handler = async (event) => {
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
 	  auth: { persistSession: false, autoRefreshToken: false },
 	});
-
-	if (numero_operacion == null) {
-	  const { data: last, error: lastErr } = await supabase
-		.from('propiedades')
-		.select('numero_operacion')
-		.not('numero_operacion', 'is', null)
-		.order('numero_operacion', { ascending: false })
-		.limit(1)
-		.maybeSingle();
-
-	  if (lastErr) {
-		console.error('[createProperty] max(numero_operacion) error:', lastErr);
-		return json({ error: lastErr.message || 'max_numero_operacion_error' }, 500);
-	  }
-
-	  const prev = (last && last.numero_operacion != null) ? Number(last.numero_operacion) : 0;
-	  numero_operacion = prev + 1;
-	}
 
 	const payload: Record<string, any> = { titulo, tipo };
 
@@ -269,7 +257,7 @@ export const handler: Handler = async (event) => {
 	if (periodicidad_cuota != null) payload.periodicidad_cuota = periodicidad_cuota;
 	if (ibi != null) payload.ibi = ibi;
 
-	if (estado != null) payload.estado = estado;
+	payload.estado = estado;
 	if (suministro_luz != null) payload.suministro_luz = suministro_luz;
 	if (suministro_agua != null) payload.suministro_agua = suministro_agua;
 	if (suministro_gas != null) payload.suministro_gas = suministro_gas;
@@ -277,7 +265,8 @@ export const handler: Handler = async (event) => {
 	if (foto_destacada_path != null) payload.foto_destacada_path = foto_destacada_path;
 	if (plano_path != null) payload.plano_path = plano_path;
 
-	payload.numero_operacion = numero_operacion;
+	if (numero_operacion != null) payload.numero_operacion = numero_operacion;
+	if (ejercicio != null) payload.ejercicio = ejercicio;
 
 	if (hasIngreso) {
 	  payload.ingreso_banco = ingreso_banco;

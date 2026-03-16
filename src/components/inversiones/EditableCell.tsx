@@ -37,6 +37,10 @@ function estadoVariant(
   estado: string | null
 ): "default" | "secondary" | "success" | "warning" | "destructive" | "outline" {
   switch (estado?.toLowerCase()) {
+    case "borrador":
+      return "outline";
+    case "activa":
+      return "default";
     case "vendido":
       return "success";
     case "comprado":

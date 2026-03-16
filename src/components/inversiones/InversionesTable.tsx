@@ -56,7 +56,7 @@ export default function InversionesTable({
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [showArchive, setShowArchive] = useState(false);
+  const [onlyActive, setOnlyActive] = useState(false);
   const [showLiquidadas, setShowLiquidadas] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [yearFilter, setYearFilter] = useState<string>(
@@ -64,13 +64,7 @@ export default function InversionesTable({
   );
 
   // ── Filtering ──
-  const isArchived = (r: Property) =>
-    r.numero_operacion == null && r.estado === "sin_estado";
-
-  const archivedCount = useMemo(
-    () => rows.filter(isArchived).length,
-    [rows]
-  );
+  const isDraft = (r: Property) => r.estado === "borrador";
 
   const liquidadasCount = useMemo(
     () => rows.filter((r) => !!r.liq).length,
@@ -80,11 +74,9 @@ export default function InversionesTable({
   const filteredRows = useMemo(() => {
     let result = rows;
 
-    // Archive vs active split
-    if (showArchive) {
-      result = result.filter(isArchived);
-    } else {
-      result = result.filter((r) => !isArchived(r));
+    // Solo activos: hide borradores when filter is on
+    if (onlyActive) {
+      result = result.filter((r) => !isDraft(r));
     }
 
     // Liquidadas filter
@@ -92,12 +84,15 @@ export default function InversionesTable({
       result = result.filter((r) => !!r.liq);
     }
 
-    // Year filter (skip when viewing archive)
-    if (!showArchive && yearFilter !== "all") {
+    // Year filter
+    if (yearFilter !== "all") {
       const y = Number(yearFilter);
       result = result.filter((r) => {
-        // Match by liq ejercicio if available, otherwise by fecha_ingreso
+        // Property's own ejercicio takes priority
+        if (r.ejercicio != null) return r.ejercicio === y;
+        // Then liq ejercicio
         if (r.liq?.ejercicio != null) return r.liq.ejercicio === y;
+        // Fallback to fecha_ingreso/created_at
         const dateStr = r.fecha_ingreso || r.created_at;
         if (!dateStr) return false;
         return new Date(dateStr).getFullYear() === y;
@@ -117,10 +112,11 @@ export default function InversionesTable({
     }
 
     return result;
-  }, [rows, yearFilter, search, showArchive, showLiquidadas]);
+  }, [rows, yearFilter, search, onlyActive, showLiquidadas]);
 
-  // ── Totals ──
+  // ── Totals (borradores never count) ──
   const totals = useMemo(() => {
+    const nonDraftRows = filteredRows.filter((r) => !isDraft(r));
     const moneyFields = [
       "aportacion",
       "retribucion",
@@ -131,7 +127,7 @@ export default function InversionesTable({
     ] as const;
     const result: Record<string, number> = {};
     for (const f of moneyFields) {
-      result[f] = sumColumn(filteredRows as unknown as Record<string, unknown>[], f);
+      result[f] = sumColumn(nonDraftRows as unknown as Record<string, unknown>[], f);
     }
     return result;
   }, [filteredRows]);
@@ -144,6 +140,11 @@ export default function InversionesTable({
         prev.map((r) => {
           if (r.id !== id) return r;
           const updated = { ...r, [field]: value };
+
+          // Borradores nunca tienen numero_operacion
+          if (field === "estado" && value === "borrador") {
+            updated.numero_operacion = null;
+          }
 
           // Recalculate dependent fields when inputs change
           if (
@@ -167,6 +168,11 @@ export default function InversionesTable({
       // Build the update payload
       const payload: Record<string, unknown> = { [field]: value };
 
+      // Borradores nunca tienen numero_operacion
+      if (field === "estado" && value === "borrador") {
+        payload.numero_operacion = null;
+      }
+
       // If it's a trigger for calculated fields, include those too
       const row = rows.find((r) => r.id === id);
       if (row && (field === "retribucion" || field === "ingreso_banco")) {
@@ -187,10 +193,11 @@ export default function InversionesTable({
           .update(payload)
           .eq("id", id);
 
-        if (error) throw error;
+        if (error) throw new Error(error.message || error.code || "Error desconocido de Supabase");
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Error al guardar";
+        console.error("[saveField]", field, value, message);
         toast.error(message);
         // Revert on failure
         setRows((prev) =>
@@ -211,7 +218,7 @@ export default function InversionesTable({
     const { data: fresh } = await supabase
       .from("propiedades")
       .select(
-        "id, numero_operacion, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
+        "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
       )
       .eq("tipo", "inversion")
       .order("numero_operacion", { ascending: true });
@@ -258,11 +265,11 @@ export default function InversionesTable({
         </Select>
         <Button
           size="sm"
-          variant={showArchive ? "default" : "outline"}
-          onClick={() => setShowArchive((v) => !v)}
+          variant={onlyActive ? "default" : "outline"}
+          onClick={() => setOnlyActive((v) => !v)}
         >
           <Archive className="h-4 w-4 mr-1" />
-          Archivo{archivedCount > 0 ? ` (${archivedCount})` : ""}
+          Solo activos
         </Button>
         <Button
           size="sm"
@@ -286,6 +293,7 @@ export default function InversionesTable({
           <TableHeader className="sticky top-0 z-20">
             <TableRow className="bg-muted">
               <TableHead className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-muted">ID</TableHead>
+              <TableHead className="w-[70px]">AÑO</TableHead>
               <TableHead className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]">NOMBRE</TableHead>
               <TableHead className="w-[110px]">ESTADO</TableHead>
               <TableHead className="w-[120px]">FECHA INICIO</TableHead>
@@ -320,6 +328,7 @@ export default function InversionesTable({
             {/* ── Totals row ── */}
             <TableRow className="bg-background font-semibold border-b-2">
               <TableCell className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-background" />
+              <TableCell />
               <TableCell className="sticky left-[50px] z-30 bg-background shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]" />
               <TableCell colSpan={3} />
               <TableCell data-money className="text-right tabular-nums text-sm">
@@ -348,7 +357,7 @@ export default function InversionesTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={18}
+                  colSpan={19}
                   className="text-center text-muted-foreground py-8"
                 >
                   No hay propiedades para mostrar.
@@ -365,13 +374,44 @@ export default function InversionesTable({
                 const displayEfectivo = isLiq ? row.liq!.efectivo : row.efectivo;
 
                 // Per-year sequential ID when a year is selected; global numero_operacion otherwise
-                const displayId = yearFilter !== "all" ? idx + 1 : row.numero_operacion;
+                const isBorrador = row.estado === "borrador";
 
                 return (
-                <TableRow key={row.id} className={isLiq ? "bg-green-50/40" : ""}>
+                <TableRow key={row.id} className={isLiq ? "bg-green-50/40" : isBorrador ? "opacity-60" : ""}>
                   {/* ID */}
                   <TableCell className={`text-sm font-medium tabular-nums min-w-[50px] max-w-[50px] sticky left-0 z-10 ${isLiq ? "bg-green-50" : "bg-background"}`}>
-                    {displayId ?? "—"}
+                    {isBorrador ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <EditableCell
+                        value={row.numero_operacion}
+                        type="text"
+                        onSave={(v) => {
+                          const parsed = v == null || String(v).trim() === "" ? null : parseInt(String(v), 10);
+                          if (v != null && String(v).trim() !== "" && (!Number.isFinite(parsed!) || parsed! < 1)) {
+                            toast.error("El ID debe ser un número entero positivo");
+                            return;
+                          }
+                          saveField(row.id, "numero_operacion", parsed);
+                        }}
+                      />
+                    )}
+                  </TableCell>
+
+                  {/* AÑO (ejercicio) */}
+                  <TableCell className="text-sm tabular-nums">
+                    <EditableCell
+                      value={row.liq?.ejercicio ?? row.ejercicio}
+                      type="text"
+                      onSave={(v) => {
+                        const parsed = v == null || String(v).trim() === "" ? null : parseInt(String(v), 10);
+                        if (v != null && String(v).trim() !== "" && (!Number.isFinite(parsed!) || parsed! < 1000 || parsed! > 2100)) {
+                          toast.error("El año debe ser un número válido (ej: 2026)");
+                          return;
+                        }
+                        saveField(row.id, "ejercicio", parsed);
+                      }}
+                    />
                   </TableCell>
 
                   {/* NOMBRE */}

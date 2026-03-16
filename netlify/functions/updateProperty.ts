@@ -8,7 +8,7 @@ const SUPABASE_SERVICE_ROLE =
   process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const PERIOD = new Set(['mensual', 'bimensual', 'trimestral', 'anual']);
-const ESTADO = new Set(['sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
+const ESTADO = new Set(['borrador', 'activa', 'sin_estado', 'tanteo', 'negociacion', 'comprado', 'reforma', 'alquiler', 'vendido']);
 const LUZ = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const AGUA = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
 const GAS = new Set(['sin_suministro', 'pinchado', 'pinchada', 'contratado', 'contratada']);
@@ -267,6 +267,11 @@ export const handler: Handler = async (event) => {
 	// nº operación
 	if (body.numero_operacion !== undefined) {
 	  updates.numero_operacion = toIntOrNull(body.numero_operacion);
+	}
+
+	// ejercicio (año fiscal)
+	if (body.ejercicio !== undefined) {
+	  updates.ejercicio = toIntOrNull(body.ejercicio);
 	}
 
 	// ingreso banco + fecha ingreso (independientes en update parcial)

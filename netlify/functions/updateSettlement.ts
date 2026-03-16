@@ -84,6 +84,14 @@ export const handler: Handler = async (event) => {
       return json({ error: error.message }, 500);
     }
 
+    // Sync ejercicio to the property when liquidación is completed
+    if (data.liquidado && data.ejercicio != null && data.propiedad_id) {
+      await supabase
+        .from('propiedades')
+        .update({ ejercicio: data.ejercicio })
+        .eq('id', data.propiedad_id);
+    }
+
     return json(data);
   } catch (e: any) {
     console.error('[updateSettlement] fatal:', e);

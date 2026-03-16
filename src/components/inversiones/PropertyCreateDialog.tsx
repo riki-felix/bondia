@@ -36,7 +36,7 @@ const EMPTY_FORM = {
   precio_compra: "",
   superficie_m2: "",
   anio_construccion: "",
-  estado: "sin_estado",
+  estado: "borrador",
   ocupado: "false",
   numero_catastro: "",
   fecha_ingreso: "",
