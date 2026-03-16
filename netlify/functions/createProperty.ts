@@ -217,18 +217,10 @@ export const handler: Handler = async (event) => {
 	const ingreso_banco = toMoneyOrNull(body?.ingreso_banco);
 	const fecha_ingreso = toDateISO(body?.fecha_ingreso);
 
-	const ingresoTouched = body?.ingreso_banco !== undefined;
-	const fechaTouched = body?.fecha_ingreso !== undefined;
-
-	if ((ingresoTouched && !fechaTouched) || (!ingresoTouched && fechaTouched)) {
-	  return json({ error: 'ingreso_banco y fecha_ingreso deben informarse juntos' }, 400);
-	}
-	if (ingresoTouched && fechaTouched) {
-	  const bothNull = ingreso_banco == null && fecha_ingreso == null;
-	  const bothFilled = ingreso_banco != null && fecha_ingreso != null;
-	  if (!bothNull && !bothFilled) {
-		return json({ error: 'ingreso_banco y fecha_ingreso deben ir ambos o vacíos ambos' }, 400);
-	  }
+	const hasIngreso = ingreso_banco != null;
+	const hasFecha = fecha_ingreso != null;
+	if (hasIngreso !== hasFecha) {
+	  return json({ error: 'ingreso_banco y fecha_ingreso deben ir ambos o vacíos ambos' }, 400);
 	}
 
 	const liquidacionParsed = (body?.liquidacion === undefined) ? null : toBoolOrNull(body?.liquidacion);
@@ -287,7 +279,7 @@ export const handler: Handler = async (event) => {
 
 	payload.numero_operacion = numero_operacion;
 
-	if (ingresoTouched && fechaTouched) {
+	if (hasIngreso) {
 	  payload.ingreso_banco = ingreso_banco;
 	  payload.fecha_ingreso = fecha_ingreso;
 	}
