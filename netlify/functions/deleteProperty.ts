@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Mantén el mismo patrón de variables que en tus otras Functions
 const SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE =
   process.env.SUPABASE_SERVICE_ROLE ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||

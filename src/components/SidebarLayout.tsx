@@ -30,6 +30,9 @@ export function SidebarLayout({ currentPath, children }: SidebarLayoutProps) {
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 !h-4" />
+          <span className="text-[10px] text-muted-foreground/50 font-mono select-all" title="Versión">
+            v{__APP_VERSION__}
+          </span>
           <span className="font-semibold text-lg tracking-tight md:hidden">Bondia</span>
           <div className="ml-auto">
             <Button
