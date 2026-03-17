@@ -62,6 +62,7 @@ interface PropertyOption {
 interface LiquidacionesTableProps {
   initialData: SettlementRow[];
   properties: PropertyOption[];
+  years: number[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -89,22 +90,23 @@ function calcBeneficio(retribucion: number, aportacion: number, duracion: { days
 export default function LiquidacionesTable({
   initialData,
   properties,
+  years,
 }: LiquidacionesTableProps) {
   const [rows, setRows] = useState<SettlementRow[]>(initialData);
   const [search, setSearch] = useState("");
   const [ejercicioFilter, setEjercicioFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // Ejercicio year options from actual data
+  // Continuous year range from oldest year in data to current year
   const ejercicioOptions = useMemo(() => {
-    const years = new Set<number>();
-    for (const r of rows) {
-      if (r.ejercicio != null) years.add(r.ejercicio);
+    const currentYear = new Date().getFullYear();
+    const minYear = years.length > 0 ? Math.min(...years) : currentYear;
+    const opts: { value: string; label: string }[] = [];
+    for (let y = currentYear; y >= minYear; y--) {
+      opts.push({ value: String(y), label: String(y) });
     }
-    return Array.from(years)
-      .sort((a, b) => b - a)
-      .map((y) => ({ value: String(y), label: String(y) }));
-  }, [rows]);
+    return opts;
+  }, [years]);
 
   // ── Filtering ──
   const filteredRows = useMemo(() => {

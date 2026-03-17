@@ -1,4 +1,4 @@
-import { Building2, Receipt } from "lucide-react"
+import { Building2, Home, Receipt } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +15,7 @@ import {
 const navItems = [
   { title: "Inversiones", href: "/inversiones", icon: Building2 },
   { title: "Liquidaciones", href: "/liquidaciones", icon: Receipt },
+  { title: "Propiedades", href: "/propiedades", icon: Home },
 ]
 
 interface AppSidebarProps {

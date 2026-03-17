@@ -33,6 +33,26 @@ const properties = (propiedades ?? []).map((p: any) => ({
   id: p.id,
   titulo: p.titulo || "Sin título",
 }));
+
+// Compute year range from settlements + properties
+const yearSet = new Set<number>();
+for (const s of settlements) {
+  if (s.ejercicio != null) yearSet.add(s.ejercicio);
+}
+// Also fetch dates from properties to get the full year range
+const { data: propDates } = await supabase
+  .from("propiedades")
+  .select("ejercicio, fecha_ingreso, created_at")
+  .eq("tipo", "inversion");
+for (const p of propDates ?? []) {
+  if (p.ejercicio != null) yearSet.add(p.ejercicio);
+  const dateStr = p.fecha_ingreso || p.created_at;
+  if (dateStr) {
+    const d = new Date(dateStr);
+    if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  }
+}
+const years = Array.from(yearSet).sort((a, b) => b - a);
 ---
 
 <Layout>
@@ -51,6 +71,7 @@ const properties = (propiedades ?? []).map((p: any) => ({
         client:load
         initialData={settlements}
         properties={properties}
+        years={years}
       />
     )}
   </div>

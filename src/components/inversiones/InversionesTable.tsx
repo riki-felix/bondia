@@ -63,6 +63,17 @@ export default function InversionesTable({
     initialYear != null ? String(initialYear) : "all"
   );
 
+  // Continuous year range from oldest year in data to current year
+  const ejercicioOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const minYear = years.length > 0 ? Math.min(...years) : currentYear;
+    const opts: { value: string; label: string }[] = [];
+    for (let y = currentYear; y >= minYear; y--) {
+      opts.push({ value: String(y), label: String(y) });
+    }
+    return opts;
+  }, [years]);
+
   // ── Filtering ──
   const isDraft = (r: Property) => r.estado === "borrador";
 
@@ -148,16 +159,20 @@ export default function InversionesTable({
 
           // Recalculate dependent fields when inputs change
           if (
+            field === "aportacion" ||
             field === "retribucion" ||
             field === "ingreso_banco"
           ) {
+            const aportacion = toNum(
+              field === "aportacion" ? value : r.aportacion
+            );
             const retribucion = toNum(
               field === "retribucion" ? value : r.retribucion
             );
             const ingreso_banco = toNum(
               field === "ingreso_banco" ? value : r.ingreso_banco
             );
-            const calc = recalcProperty({ retribucion, ingreso_banco });
+            const calc = recalcProperty({ aportacion, retribucion, ingreso_banco });
             Object.assign(updated, calc);
           }
 
@@ -175,14 +190,17 @@ export default function InversionesTable({
 
       // If it's a trigger for calculated fields, include those too
       const row = rows.find((r) => r.id === id);
-      if (row && (field === "retribucion" || field === "ingreso_banco")) {
+      if (row && (field === "aportacion" || field === "retribucion" || field === "ingreso_banco")) {
+        const aportacion = toNum(
+          field === "aportacion" ? value : row.aportacion
+        );
         const retribucion = toNum(
           field === "retribucion" ? value : row.retribucion
         );
         const ingreso_banco = toNum(
           field === "ingreso_banco" ? value : row.ingreso_banco
         );
-        const calc = recalcProperty({ retribucion, ingreso_banco });
+        const calc = recalcProperty({ aportacion, retribucion, ingreso_banco });
         Object.assign(payload, calc);
       }
 
@@ -402,15 +420,9 @@ export default function InversionesTable({
                   <TableCell className="text-sm tabular-nums">
                     <EditableCell
                       value={row.liq?.ejercicio ?? row.ejercicio}
-                      type="text"
-                      onSave={(v) => {
-                        const parsed = v == null || String(v).trim() === "" ? null : parseInt(String(v), 10);
-                        if (v != null && String(v).trim() !== "" && (!Number.isFinite(parsed!) || parsed! < 1000 || parsed! > 2100)) {
-                          toast.error("El año debe ser un número válido (ej: 2026)");
-                          return;
-                        }
-                        saveField(row.id, "ejercicio", parsed);
-                      }}
+                      type="select"
+                      options={ejercicioOptions}
+                      onSave={(v) => saveField(row.id, "ejercicio", v ? Number(v) : null)}
                     />
                   </TableCell>
 

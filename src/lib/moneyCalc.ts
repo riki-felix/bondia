@@ -23,9 +23,9 @@ export function calcEfectivo(
   return round2(retribucion - retencion - ingresoBanco);
 }
 
-/** JASP 20% = ingreso_banco × 20% */
-export function calcJasp(ingresoBanco: number): number {
-  return round2(ingresoBanco * 0.20);
+/** JASP 20% = (aportación × 2) × 20% */
+export function calcJasp(aportacion: number): number {
+  return round2(aportacion * 2 * 0.20);
 }
 
 /** Neto = retribución − retención */
@@ -42,10 +42,11 @@ export function calcEfectivoFromTransfer(neto: number, transferencia: number): n
 export function recalcProperty(row: {
   retribucion: number;
   ingreso_banco: number;
+  aportacion: number;
 }) {
   const retencion = calcRetencion(row.retribucion);
   const efectivo = calcEfectivo(row.retribucion, retencion, row.ingreso_banco);
-  const jasp_10_percent = calcJasp(row.ingreso_banco);
+  const jasp_10_percent = calcJasp(row.aportacion);
   return { retencion, efectivo, jasp_10_percent };
 }
 

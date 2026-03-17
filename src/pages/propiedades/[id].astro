@@ -1,0 +1,54 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import PropertyDetail from "../../components/propiedades/PropertyDetail";
+import { supabaseClient } from "../../lib/supabaseClient";
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/propiedades");
+
+const supabase = supabaseClient();
+
+// Fetch the property
+const { data: property, error } = await supabase
+  .from("propiedades")
+  .select(
+    "id, titulo, direccion, estado, ejercicio, created_at, liquidacion, ocupado, foto_destacada_path, precio_compra, precio_venta, superficie_m2, anio_construccion, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, numero_operacion, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, notas, slug"
+  )
+  .eq("id", id)
+  .single();
+
+if (error || !property) return Astro.redirect("/propiedades");
+
+// Fetch associated settlements
+const { data: settlements } = await supabase
+  .from("liquidaciones")
+  .select(
+    "id, numero_liquidacion, fecha_liquidacion, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, liquidado, ejercicio"
+  )
+  .eq("propiedad_id", id)
+  .order("numero_liquidacion", { ascending: true });
+
+// Build image URL
+let imageUrl: string | null = null;
+if (property.foto_destacada_path) {
+  const { data: urlData } = supabase.storage
+    .from("propiedades-images")
+    .getPublicUrl(property.foto_destacada_path);
+  imageUrl = urlData?.publicUrl ?? null;
+}
+---
+
+<Layout>
+  <div class="space-y-6">
+    <PropertyDetail
+      client:load
+      property={property}
+      settlements={settlements ?? []}
+      imageUrl={imageUrl}
+    />
+  </div>
+  <Toaster client:load />
+</Layout>

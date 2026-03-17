@@ -1,0 +1,82 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import PropiedadesGrid from "../../components/propiedades/PropiedadesGrid";
+import { supabaseClient } from "../../lib/supabaseClient";
+import type { PropertyCard } from "../../components/propiedades/PropiedadesGrid";
+
+const supabase = supabaseClient();
+
+// Fetch investment properties (same set as Inversiones)
+const { data: allProperties, error } = await supabase
+  .from("propiedades")
+  .select("id, titulo, estado, created_at, ejercicio, liquidacion, foto_destacada_path, transfe, slug")
+  .eq("tipo", "inversion")
+  .order("created_at", { ascending: false });
+
+// Fetch liquidaciones to get fecha_transferencia per property
+const { data: allLiq } = await supabase
+  .from("liquidaciones")
+  .select("propiedad_id, fecha_transferencia")
+  .eq("liquidado", true);
+
+// Map last fecha_transferencia per property
+const liqDateByProp = new Map<string, string>();
+for (const l of allLiq ?? []) {
+  if (l.fecha_transferencia) {
+    const existing = liqDateByProp.get(l.propiedad_id);
+    if (!existing || l.fecha_transferencia > existing) {
+      liqDateByProp.set(l.propiedad_id, l.fecha_transferencia);
+    }
+  }
+}
+
+// Build card data
+const properties: PropertyCard[] = (allProperties ?? []).map((p: any) => ({
+  id: p.id,
+  titulo: p.titulo,
+  estado: p.estado,
+  created_at: p.created_at,
+  ejercicio: p.ejercicio,
+  liquidacion: !!p.liquidacion,
+  foto_destacada_path: p.foto_destacada_path,
+  fecha_transferencia_liq: liqDateByProp.get(p.id) ?? null,
+}));
+
+// Compute years for filter
+const yearSet = new Set<number>();
+for (const p of properties) {
+  if (p.ejercicio != null) yearSet.add(p.ejercicio);
+  if (p.created_at) {
+    const d = new Date(p.created_at);
+    if (!isNaN(d.getTime())) yearSet.add(d.getFullYear());
+  }
+}
+const years = Array.from(yearSet).sort((a, b) => b - a);
+
+const propertyCount = properties.filter((p) => p.estado !== "borrador").length;
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">{propertyCount} Propiedades</h1>
+      <p class="text-sm text-muted-foreground">
+        Vista general de propiedades de inversión
+      </p>
+    </div>
+
+    {error ? (
+      <p class="text-destructive">Error: {error.message}</p>
+    ) : (
+      <PropiedadesGrid
+        client:load
+        initialData={properties}
+        years={years}
+      />
+    )}
+  </div>
+  <Toaster client:load />
+</Layout>
