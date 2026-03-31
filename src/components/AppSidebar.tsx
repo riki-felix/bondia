@@ -1,4 +1,4 @@
-import { Building2, Home, Receipt } from "lucide-react"
+import { Building2, Home, LayoutDashboard, Package, Receipt, Tag, TrendingDown, TrendingUp } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +16,14 @@ const navItems = [
   { title: "Inversiones", href: "/inversiones", icon: Building2 },
   { title: "Liquidaciones", href: "/liquidaciones", icon: Receipt },
   { title: "Propiedades", href: "/propiedades", icon: Home },
+]
+
+const casaItems = [
+  { title: "Control", href: "/casa/control", icon: LayoutDashboard },
+  { title: "Gastos", href: "/casa/gastos", icon: TrendingDown },
+  { title: "Ingresos", href: "/casa/ingresos", icon: TrendingUp },
+  { title: "Activos", href: "/casa/activos", icon: Package },
+  { title: "Categorías", href: "/casa/categorias", icon: Tag },
 ]
 
 interface AppSidebarProps {
@@ -36,6 +44,27 @@ export function AppSidebar({ currentPath }: AppSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={currentPath.startsWith(item.href)}
+                    tooltip={item.title}
+                  >
+                    <a href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Casa</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {casaItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

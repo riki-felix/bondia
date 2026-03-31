@@ -1,0 +1,32 @@
+-- Seed: Casa gastos categorías (deduplicated & normalized)
+
+INSERT INTO public.casa_gastos_categorias (nombre, slug) VALUES
+    ('Alquiler',       'alquiler'),
+    ('Familia',        'familia'),
+    ('Educación',      'educacion'),
+    ('Gym',            'gym'),
+    ('Seguro',         'seguro'),
+    ('Renting',        'renting'),
+    ('Inversión',      'inversion'),
+    ('TV',             'tv'),
+    ('Tech',           'tech'),
+    ('IBI',            'ibi'),
+    ('Comunidad',      'comunidad'),
+    ('Supermercado',   'supermercado'),
+    ('Mercado',        'mercado'),
+    ('Restaurante',    'restaurante'),
+    ('Café',           'cafe'),
+    ('Ropa',           'ropa'),
+    ('Online',         'online'),
+    ('Salud',          'salud'),
+    ('Transporte',     'transporte'),
+    ('Hogar',          'hogar'),
+    ('Ocio',           'ocio'),
+    ('Bizum',          'bizum'),
+    ('PayPal',         'paypal'),
+    ('Evento',         'evento'),
+    ('Alarma',         'alarma'),
+    ('Izan',           'izan'),
+    ('Mantenimiento',  'mantenimiento'),
+    ('Viaje',          'viaje')
+ON CONFLICT (nombre) DO NOTHING;

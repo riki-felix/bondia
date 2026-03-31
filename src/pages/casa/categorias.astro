@@ -1,0 +1,67 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import CasaCategoriasManager from "../../components/casa/CasaCategoriasManager";
+import CasaAreasManager from "../../components/casa/CasaAreasManager";
+import { supabaseClient } from "../../lib/supabaseClient";
+
+const supabase = supabaseClient();
+
+// Fetch all three category types + areas in parallel
+const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes] = await Promise.all([
+  supabase.from("casa_gastos_categorias").select("id, nombre, slug").order("nombre"),
+  supabase.from("casa_ingresos_categorias").select("id, nombre, slug").order("nombre"),
+  supabase.from("casa_activos_categorias").select("id, nombre, slug").order("nombre"),
+  supabase.from("casa_areas").select("*").order("nombre"),
+  supabase.from("casa_areas_categorias").select("*"),
+]);
+
+const gastoCategorias = gastoRes.data ?? [];
+const ingresoCategorias = ingresoRes.data ?? [];
+const activoCategorias = activoRes.data ?? [];
+const areas = areasRes.data ?? [];
+const areasAssignments = areasCategoriasRes.data ?? [];
+---
+
+<Layout>
+  <div class="space-y-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Categorías y Áreas</h1>
+      <p class="text-sm text-muted-foreground">
+        Gestión de categorías para gastos, ingresos y activos. Las áreas agrupan categorías para filtrar las tablas.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Categorías (izquierda) -->
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight mb-3">Categorías</h2>
+        <CasaCategoriasManager
+          client:load
+          gastoCategorias={gastoCategorias}
+          ingresoCategorias={ingresoCategorias}
+          activoCategorias={activoCategorias}
+        />
+      </div>
+
+      <!-- Áreas (derecha) -->
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight mb-1">Áreas</h2>
+        <p class="text-sm text-muted-foreground mb-3">
+          Agrupa categorías para filtrar gastos e ingresos.
+        </p>
+        <CasaAreasManager
+          client:load
+          initialAreas={areas}
+          initialAssignments={areasAssignments}
+          gastoCategorias={gastoCategorias}
+          ingresoCategorias={ingresoCategorias}
+          activoCategorias={activoCategorias}
+        />
+      </div>
+    </div>
+  </div>
+  <Toaster client:load />
+</Layout>

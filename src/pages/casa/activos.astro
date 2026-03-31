@@ -1,0 +1,51 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import CasaActivosTable from "../../components/casa/CasaActivosTable";
+import { supabaseClient } from "../../lib/supabaseClient";
+
+const supabase = supabaseClient();
+
+// Fetch all activos
+const { data: allActivos, error } = await supabase
+  .from("casa_activos_v2")
+  .select("*, casa_activos_categorias(nombre)")
+  .order("created_at", { ascending: true });
+
+const activos = (allActivos ?? []).map((r: any) => ({
+  ...r,
+  categoria_nombre: r.casa_activos_categorias?.nombre ?? "",
+}));
+
+// Fetch categories
+const { data: allCategorias } = await supabase
+  .from("casa_activos_categorias")
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+const categorias = allCategorias ?? [];
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Activos</h1>
+      <p class="text-sm text-muted-foreground">
+        Listado de activos y patrimonio
+      </p>
+    </div>
+
+    {error ? (
+      <p class="text-destructive">Error: {error.message}</p>
+    ) : (
+      <CasaActivosTable
+        client:load
+        initialData={activos}
+        categorias={categorias}
+      />
+    )}
+  </div>
+  <Toaster client:load />
+</Layout>

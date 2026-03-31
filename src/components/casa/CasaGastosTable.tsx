@@ -1,0 +1,508 @@
+// src/components/casa/CasaGastosTable.tsx
+import { useState, useCallback, useMemo } from "react";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { EditableCell } from "../inversiones/EditableCell";
+import { toast } from "@/components/ui/sonner";
+import { getSupabase } from "@/lib/supabaseReact";
+import { formatEuro, toNum } from "@/lib/moneyCalc";
+import {
+  type CasaGasto,
+  type CasaCategoria,
+  type CasaOverride,
+  type CasaArea,
+  type CasaAreaCategoria,
+  FRECUENCIA_OPTIONS,
+  MESES_LABELS,
+  calcularImporteMes,
+  buildOverridesMap,
+} from "@/lib/casaTypes";
+import { Plus, Trash2 } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { DateRangePopover } from "./DateRangePopover";
+
+// ─── Props ───────────────────────────────────────────────────
+
+interface CasaGastosTableProps {
+  initialData: CasaGasto[];
+  initialOverrides: CasaOverride[];
+  categorias: CasaCategoria[];
+  initialYear: number;
+  areas?: CasaArea[];
+  areaAssignments?: CasaAreaCategoria[];
+}
+
+// ─── Component ───────────────────────────────────────────────
+
+export default function CasaGastosTable({
+  initialData,
+  initialOverrides,
+  categorias,
+  initialYear,
+  areas = [],
+  areaAssignments = [],
+}: CasaGastosTableProps) {
+  const [rows, setRows] = useState<CasaGasto[]>(initialData);
+  const [overrides, setOverrides] = useState<CasaOverride[]>(initialOverrides);
+  const [ejercicio, setEjercicio] = useState<number>(initialYear);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [activeArea, setActiveArea] = useState<string | null>(null);
+
+  // Build set of categoria_ids for active area filter (gastos only)
+  const areaCatIds = useMemo(() => {
+    if (!activeArea) return null;
+    return new Set(
+      areaAssignments
+        .filter((a) => a.area_id === activeArea && a.tipo === "gasto")
+        .map((a) => a.categoria_id)
+    );
+  }, [activeArea, areaAssignments]);
+
+  // Filtered rows
+  const filteredRows = useMemo(() => {
+    if (!areaCatIds) return rows;
+    return rows.filter((r) => r.categoria_id && areaCatIds.has(r.categoria_id));
+  }, [rows, areaCatIds]);
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = useMemo(() => {
+    const opts: number[] = [];
+    for (let y = currentYear + 1; y >= currentYear - 5; y--) opts.push(y);
+    return opts;
+  }, [currentYear]);
+
+  const overridesMap = useMemo(
+    () => buildOverridesMap(overrides, "gasto_id"),
+    [overrides]
+  );
+
+  const categoriaOptions = useMemo(
+    () => [
+      { value: "__none__", label: "Sin categoría" },
+      ...categorias.map((c) => ({ value: c.id, label: c.nombre })),
+    ],
+    [categorias]
+  );
+
+  // ── Year change → reload ──
+  const changeYear = useCallback(async (year: string) => {
+    const y = Number(year);
+    setEjercicio(y);
+    try {
+      const supabase = getSupabase();
+      const [gastos, ovr] = await Promise.all([
+        supabase
+          .from("casa_gastos")
+          .select("*, casa_gastos_categorias(nombre)")
+          .eq("ejercicio", y)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("casa_gastos_overrides")
+          .select("*")
+          .eq("ejercicio", y),
+      ]);
+
+      setRows(
+        (gastos.data ?? []).map((r: any) => ({
+          ...r,
+          categoria_nombre: r.casa_gastos_categorias?.nombre ?? "",
+        }))
+      );
+      setOverrides(ovr.data ?? []);
+    } catch (e) {
+      toast.error("Error cargando datos");
+    }
+  }, []);
+
+  // ── Add row ──
+  const addRow = useCallback(async () => {
+    try {
+      const res = await fetch("/.netlify/functions/createCasaGasto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          concepto: "",
+          frecuencia: "mensual",
+          importe: 0,
+          ejercicio,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setRows((prev) => [data, ...prev]);
+      toast.success("Fila añadida");
+    } catch (e: any) {
+      toast.error(e.message || "Error al crear");
+    }
+  }, [ejercicio]);
+
+  // ── Update field ──
+  const updateField = useCallback(
+    async (id: string, field: string, value: unknown) => {
+      // Optimistic update
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+      );
+
+      try {
+        const res = await fetch("/.netlify/functions/updateCasaGasto", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, [field]: value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        // Merge server response
+        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+      } catch (e: any) {
+        toast.error(e.message || "Error al guardar");
+        // Revert will happen on next reload
+        changeYear(String(ejercicio));
+      }
+    },
+    [ejercicio, changeYear]
+  );
+
+  // ── Update monthly cell ──
+  // If base importe is 0 and frequency is not variable, set the base importe
+  // so the value replicates across all applicable months.
+  // Otherwise create/update an override for that specific month.
+  const updateOverride = useCallback(
+    async (itemId: string, mes: number, value: unknown) => {
+      const importe = toNum(value);
+      const row = rows.find((r) => r.id === itemId);
+
+      // Set base importe when it's a new row (importe === 0) with a recurring frequency
+      if (
+        row &&
+        row.importe === 0 &&
+        row.frecuencia !== "variable"
+      ) {
+        // Clear any stale overrides for this item so the base takes effect everywhere
+        setOverrides((prev) =>
+          prev.filter((o) => !(o.gasto_id === itemId && o.ejercicio === ejercicio))
+        );
+        return updateField(itemId, "importe", importe);
+      }
+
+      // Optimistic
+      const key = `${itemId}-${mes}`;
+      setOverrides((prev) => {
+        const existing = prev.find(
+          (o) => o.gasto_id === itemId && o.mes === mes && o.ejercicio === ejercicio
+        );
+        if (existing) {
+          return prev.map((o) =>
+            o.id === existing.id ? { ...o, importe } : o
+          );
+        }
+        return [
+          ...prev,
+          { id: `temp-${key}`, gasto_id: itemId, ejercicio, mes, importe },
+        ];
+      });
+
+      try {
+        const res = await fetch("/.netlify/functions/upsertCasaOverride", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: "gasto",
+            item_id: itemId,
+            ejercicio,
+            mes,
+            importe,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        // Replace temp with real
+        setOverrides((prev) =>
+          prev.map((o) =>
+            (o.gasto_id === itemId && o.mes === mes && o.ejercicio === ejercicio)
+              ? { ...data, gasto_id: data.gasto_id }
+              : o
+          )
+        );
+      } catch (e: any) {
+        toast.error(e.message || "Error al guardar celda");
+        changeYear(String(ejercicio));
+      }
+    },
+    [ejercicio, changeYear, rows, updateField]
+  );
+
+  // ── Delete row ──
+  const deleteRow = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch("/.netlify/functions/deleteCasaGasto", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error);
+        }
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        setOverrides((prev) => prev.filter((o) => o.gasto_id !== id));
+        toast.success("Eliminado");
+      } catch (e: any) {
+        toast.error(e.message || "Error al eliminar");
+      }
+    },
+    []
+  );
+
+  // ── Compute totals ──
+  const monthTotals = useMemo(() => {
+    const totals = Array(12).fill(0);
+    for (const row of filteredRows) {
+      for (let m = 1; m <= 12; m++) {
+        const val = calcularImporteMes(row, m, ejercicio, overridesMap);
+        totals[m - 1] += val ?? 0;
+      }
+    }
+    return totals;
+  }, [filteredRows, ejercicio, overridesMap]);
+
+  const grandTotal = useMemo(
+    () => monthTotals.reduce((a, b) => a + b, 0),
+    [monthTotals]
+  );
+
+  // ── Row total ──
+  function rowTotal(row: CasaGasto): number {
+    let sum = 0;
+    for (let m = 1; m <= 12; m++) {
+      sum += calcularImporteMes(row, m, ejercicio, overridesMap) ?? 0;
+    }
+    return sum;
+  }
+
+  // Visible rows for rendering
+  const visibleRows = filteredRows;
+
+  return (
+    <div className="space-y-4">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center gap-3">
+        <Select value={String(ejercicio)} onValueChange={changeYear}>
+          <SelectTrigger className="w-[120px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" onClick={addRow}>
+          <Plus className="h-4 w-4 mr-1" /> Añadir gasto
+        </Button>
+
+        {/* Area filters – only areas with gasto assignments */}
+        {areas.filter((a) => areaAssignments.some((aa) => aa.area_id === a.id && aa.tipo === "gasto")).length > 0 && (
+          <div className="flex items-center gap-1 ml-2 border-l pl-3">
+            <span className="text-xs text-muted-foreground mr-1">Área:</span>
+            {areas.filter((a) => areaAssignments.some((aa) => aa.area_id === a.id && aa.tipo === "gasto")).map((area) => (
+              <Button
+                key={area.id}
+                size="sm"
+                variant={activeArea === area.id ? "default" : "outline"}
+                className="h-7 text-xs px-2"
+                onClick={() =>
+                  setActiveArea(activeArea === area.id ? null : area.id)
+                }
+              >
+                {area.nombre}
+              </Button>
+            ))}
+            {activeArea && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs px-2"
+                onClick={() => setActiveArea(null)}
+              >
+                ✕
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Table ── */}
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[140px]">Categoría</TableHead>
+              <TableHead className="w-[200px]">Concepto</TableHead>
+              <TableHead className="w-[120px]">Frecuencia</TableHead>
+              {MESES_LABELS.map((m) => (
+                <TableHead key={m} className="text-right w-[90px]">
+                  {m}
+                </TableHead>
+              ))}
+              <TableHead className="text-right w-[100px] font-bold">
+                TOTAL
+              </TableHead>
+              <TableHead className="w-[40px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleRows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={16}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  {activeArea
+                    ? `Sin gastos en esta área para ${ejercicio}.`
+                    : `Sin gastos para ${ejercicio}. Pulsa «Añadir gasto» para empezar.`}
+                </TableCell>
+              </TableRow>
+            ) : (
+              visibleRows.map((row) => (
+                <TableRow key={row.id}>
+                  {/* Categoría */}
+                  <TableCell className="p-1">
+                    <EditableCell
+                      value={row.categoria_id ?? "__none__"}
+                      type="select"
+                      options={categoriaOptions}
+                      onSave={(v) =>
+                        updateField(
+                          row.id,
+                          "categoria_id",
+                          v === "__none__" ? null : v
+                        )
+                      }
+                    />
+                  </TableCell>
+
+                  {/* Concepto + Duración */}
+                  <TableCell className="p-1">
+                    <div className="flex items-center gap-1">
+                      <DateRangePopover
+                        fechaInicio={row.fecha_inicio}
+                        fechaFin={row.fecha_fin}
+                        onSave={(inicio, fin) => {
+                          updateField(row.id, "fecha_inicio", inicio);
+                          updateField(row.id, "fecha_fin", fin);
+                        }}
+                      />
+                      <EditableCell
+                        value={row.concepto}
+                        type="text"
+                        onSave={(v) => updateField(row.id, "concepto", v)}
+                      />
+                    </div>
+                  </TableCell>
+
+                  {/* Frecuencia */}
+                  <TableCell className="p-1">
+                    <EditableCell
+                      value={row.frecuencia}
+                      type="select"
+                      options={FRECUENCIA_OPTIONS}
+                      onSave={(v) => updateField(row.id, "frecuencia", v)}
+                    />
+                  </TableCell>
+
+                  {/* Month cells */}
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => {
+                    const val = calcularImporteMes(
+                      row,
+                      mes,
+                      ejercicio,
+                      overridesMap
+                    );
+                    return (
+                      <TableCell key={mes} className="p-1">
+                        <EditableCell
+                          value={val}
+                          type="money"
+                          onSave={(v) => updateOverride(row.id, mes, v)}
+                        />
+                      </TableCell>
+                    );
+                  })}
+
+                  {/* Row total */}
+                  <TableCell className="p-1">
+                    <EditableCell
+                      value={rowTotal(row)}
+                      type="readonly-money"
+                      onSave={() => {}}
+                      className="font-semibold"
+                    />
+                  </TableCell>
+
+                  {/* Delete */}
+                  <TableCell className="p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        setDeleteTarget({
+                          id: row.id,
+                          name: row.concepto || "este gasto",
+                        })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+
+            {/* ── Totals row ── */}
+            {visibleRows.length > 0 && (
+              <TableRow className="bg-muted/50 font-semibold">
+                <TableCell colSpan={3} className="p-1 text-right">
+                  TOTAL
+                </TableCell>
+                {monthTotals.map((t, i) => (
+                  <TableCell
+                    key={i}
+                    className="p-1 text-right tabular-nums text-sm"
+                  >
+                    {formatEuro(t)}
+                  </TableCell>
+                ))}
+                <TableCell className="p-1 text-right tabular-nums text-sm font-bold">
+                  {formatEuro(grandTotal)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* ── Delete dialog ── */}
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Eliminar gasto"
+        description={`¿Eliminar "${deleteTarget?.name}"? Esta acción no se puede deshacer.`}
+        confirmWord={deleteTarget?.name || ""}
+        onConfirm={async () => {
+          if (deleteTarget) await deleteRow(deleteTarget.id);
+        }}
+      />
+    </div>
+  );
+}
