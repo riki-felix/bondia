@@ -22,7 +22,7 @@ import {
   calcularImporteMes,
   buildOverridesMap,
 } from "@/lib/casaTypes";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Layers, List } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { DateRangePopover } from "./DateRangePopover";
 
@@ -52,6 +52,7 @@ export default function CasaIngresosTable({
   const [ejercicio, setEjercicio] = useState<number>(initialYear);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [activeArea, setActiveArea] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
 
   // Build set of categoria_ids for active area filter (ingresos only)
   const areaCatIds = useMemo(() => {
@@ -277,6 +278,31 @@ export default function CasaIngresosTable({
     return sum;
   }
 
+  // ── Category-grouped rows ──
+  type CategoryRow = { catId: string; catName: string; months: number[]; total: number };
+  const categoryRows = useMemo<CategoryRow[]>(() => {
+    const map = new Map<string, { catName: string; months: number[] }>();
+    for (const row of filteredRows) {
+      const catId = row.categoria_id ?? "__none__";
+      const catName = row.categoria_nombre || "Sin categoría";
+      if (!map.has(catId)) {
+        map.set(catId, { catName, months: Array(12).fill(0) });
+      }
+      const entry = map.get(catId)!;
+      for (let m = 1; m <= 12; m++) {
+        entry.months[m - 1] += calcularImporteMes(row, m, ejercicio, overridesMap) ?? 0;
+      }
+    }
+    return Array.from(map.entries())
+      .map(([catId, { catName, months }]) => ({
+        catId,
+        catName,
+        months,
+        total: months.reduce((a, b) => a + b, 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredRows, ejercicio, overridesMap]);
+
   const visibleRows = filteredRows;
 
   return (
@@ -298,6 +324,30 @@ export default function CasaIngresosTable({
         <Button size="sm" variant="outline" onClick={addRow}>
           <Plus className="h-4 w-4 mr-1" /> Añadir ingreso
         </Button>
+
+        {/* View mode toggle */}
+        <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+          <button
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              viewMode === "detalle"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setViewMode("detalle")}
+          >
+            <List className="h-3.5 w-3.5" /> Detalle
+          </button>
+          <button
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              viewMode === "categorias"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setViewMode("categorias")}
+          >
+            <Layers className="h-3.5 w-3.5" /> Categorías
+          </button>
+        </div>
 
         {/* Area filters – only areas with ingreso assignments */}
         {areas.filter((a) => areaAssignments.some((aa) => aa.area_id === a.id && aa.tipo === "ingreso")).length > 0 && (
@@ -336,8 +386,12 @@ export default function CasaIngresosTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[140px]">Categoría</TableHead>
-              <TableHead className="w-[200px]">Concepto</TableHead>
-              <TableHead className="w-[120px]">Frecuencia</TableHead>
+              {viewMode === "detalle" && (
+                <>
+                  <TableHead className="w-[200px]">Concepto</TableHead>
+                  <TableHead className="w-[120px]">Frecuencia</TableHead>
+                </>
+              )}
               {MESES_LABELS.map((m) => (
                 <TableHead key={m} className="text-right w-[90px]">
                   {m}
@@ -346,10 +400,60 @@ export default function CasaIngresosTable({
               <TableHead className="text-right w-[100px] font-bold">
                 TOTAL
               </TableHead>
-              <TableHead className="w-[40px]" />
+              {viewMode === "detalle" && <TableHead className="w-[40px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
+            {viewMode === "categorias" ? (
+              /* ── Category view ── */
+              categoryRows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={14}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    Sin ingresos para {ejercicio}.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <>
+                  {categoryRows.map((cat) => (
+                    <TableRow key={cat.catId}>
+                      <TableCell className="p-1 text-sm font-medium">
+                        {cat.catName}
+                      </TableCell>
+                      {cat.months.map((v, i) => (
+                        <TableCell
+                          key={i}
+                          className="p-1 text-right tabular-nums text-sm"
+                        >
+                          {v ? formatEuro(v) : ""}
+                        </TableCell>
+                      ))}
+                      <TableCell className="p-1 text-right tabular-nums text-sm font-semibold">
+                        {formatEuro(cat.total)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell className="p-1 text-right">TOTAL</TableCell>
+                    {monthTotals.map((t, i) => (
+                      <TableCell
+                        key={i}
+                        className="p-1 text-right tabular-nums text-sm"
+                      >
+                        {formatEuro(t)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="p-1 text-right tabular-nums text-sm font-bold">
+                      {formatEuro(grandTotal)}
+                    </TableCell>
+                  </TableRow>
+                </>
+              )
+            ) : (
+              /* ── Detail view ── */
+              <>
             {visibleRows.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -460,6 +564,8 @@ export default function CasaIngresosTable({
                 </TableCell>
                 <TableCell />
               </TableRow>
+            )}
+              </>
             )}
           </TableBody>
         </Table>
