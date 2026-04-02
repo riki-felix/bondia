@@ -23,7 +23,7 @@ const { data: activo, error } = await supabase
 if (error || !activo) return Astro.redirect(cfg.routes.activos);
 
 const activoMapped = {
-  ...activo,
+  ...(activo as Record<string, unknown>),
   categoria_nombre: (activo as any)[cfg.tables.activosCateg]?.nombre ?? "",
 };
 
