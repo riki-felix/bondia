@@ -6,6 +6,7 @@ import { Toaster } from "../../../components/ui/sonner";
 import BloqueActivoDetail from "../../../components/bloque/BloqueActivoDetail";
 import { supabaseClient } from "../../../lib/supabaseClient";
 import { CASA_CONFIG } from "../../../lib/bloqueConfig";
+import type { BloqueActivo } from "../../../lib/bloqueTypes";
 
 const cfg = CASA_CONFIG;
 const { id } = Astro.params;
@@ -22,9 +23,10 @@ const { data: activo, error } = await supabase
 
 if (error || !activo) return Astro.redirect(cfg.routes.activos);
 
-const activoMapped = {
-  ...(activo as Record<string, unknown>),
-  categoria_nombre: (activo as any)[cfg.tables.activosCateg]?.nombre ?? "",
+const row = activo as any;
+const activoMapped: BloqueActivo = {
+  ...row,
+  categoria_nombre: row[cfg.tables.activosCateg]?.nombre ?? "",
 };
 
 // Fetch categories for the select
