@@ -1,4 +1,77 @@
 ---
 export const prerender = false;
-return Astro.redirect("/inversiones");
+
+import Layout from "../components/Layout.astro";
+import { Toaster } from "../components/ui/sonner";
+import HomeDashboard from "../components/home/HomeDashboard";
+import { supabaseClient } from "../lib/supabaseClient";
+import { CASA_CONFIG, SANYUS_CONFIG } from "../lib/bloqueConfig";
+import { calcularImporteMes, buildOverridesMap } from "../lib/bloqueTypes";
+
+const supabase = supabaseClient();
+const ejercicio = new Date().getFullYear();
+
+// Fetch gastos + ingresos + overrides for both blocks in parallel
+const [
+  casaGastosRes, casaGOvRes, casaIngresosRes, casaIOvRes,
+  sanyusGastosRes, sanyusGOvRes, sanyusIngresosRes, sanyusIOvRes,
+] = await Promise.all([
+  supabase.from(CASA_CONFIG.tables.gastos).select("*").eq("ejercicio", ejercicio),
+  supabase.from(CASA_CONFIG.tables.gastosOverrides).select("*").eq("ejercicio", ejercicio),
+  supabase.from(CASA_CONFIG.tables.ingresos).select(`*, ${CASA_CONFIG.joins.ingresosCateg}`).eq("ejercicio", ejercicio),
+  supabase.from(CASA_CONFIG.tables.ingresosOverrides).select("*").eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.gastos).select("*").eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.gastosOverrides).select("*").eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.ingresos).select(`*, ${SANYUS_CONFIG.joins.ingresosCateg}`).eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.ingresosOverrides).select("*").eq("ejercicio", ejercicio),
+]);
+
+// Helper: compute annual total for a set of items
+function annualTotal(items: any[], overrides: any[], idField: "gasto_id" | "ingreso_id") {
+  const ovrMap = buildOverridesMap(overrides, idField);
+  let total = 0;
+  for (const item of items) {
+    for (let m = 1; m <= 12; m++) {
+      const v = calcularImporteMes(item, m, ejercicio, ovrMap);
+      if (v != null) total += v;
+    }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+// Annual totals
+const gastosAnual = annualTotal(casaGastosRes.data ?? [], casaGOvRes.data ?? [], "gasto_id")
+  + annualTotal(sanyusGastosRes.data ?? [], sanyusGOvRes.data ?? [], "gasto_id");
+
+const allIngresos = [...(casaIngresosRes.data ?? []), ...(sanyusIngresosRes.data ?? [])];
+const allIngresosOverrides = [...(casaIOvRes.data ?? []), ...(sanyusIOvRes.data ?? [])];
+const alquilerIngresos = allIngresos.filter((i: any) => {
+  const catKey = Object.keys(i).find((k) => k.endsWith("_ingresos_categorias"));
+  const catName: string = catKey ? (i[catKey]?.nombre ?? "") : "";
+  return catName.toLowerCase() === "alquiler";
+});
+const alquilerAnual = annualTotal(alquilerIngresos, allIngresosOverrides, "ingreso_id");
+
+// Monthly averages
+const mediaGastosMensual = Math.round((gastosAnual / 12) * 100) / 100;
+const mediaAlquilerMensual = Math.round((alquilerAnual / 12) * 100) / 100;
 ---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <p class="text-sm text-muted-foreground">
+        Visión global — {ejercicio}
+      </p>
+    </div>
+
+    <HomeDashboard
+      client:load
+      ejercicio={ejercicio}
+      mediaGastosMensual={mediaGastosMensual}
+      mediaAlquilerMensual={mediaAlquilerMensual}
+    />
+  </div>
+  <Toaster client:load />
+</Layout>

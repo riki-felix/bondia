@@ -499,6 +499,69 @@ export async function handleDeleteMetodoPago(body: any) {
   return ok();
 }
 
+// ─── Cartera ─────────────────────────────────────────────────
+
+const CARTERAS = new Set(['inversiones', 'familiar', 'sanyus', 'ahorro']);
+
+export async function handleCreateMovimientoCartera(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const origen = pickFrom(body.origen, CARTERAS);
+  const destino = pickFrom(body.destino, CARTERAS);
+  if (!origen || !destino) return json({ error: 'origen y destino requeridos' }, 400);
+  if (origen === destino) return json({ error: 'origen y destino deben ser diferentes' }, 400);
+
+  const concepto = emptyOrNull(body.concepto) ?? '';
+  if (!concepto) return json({ error: 'concepto requerido' }, 400);
+
+  const importe = toMoneyOrNull(body.importe);
+  if (importe == null || importe <= 0) return json({ error: 'importe debe ser > 0' }, 400);
+
+  const fecha = toDateOrNull(body.fecha) ?? new Date().toISOString().slice(0, 10);
+  const ejercicio = Number(body.ejercicio);
+  if (!Number.isFinite(ejercicio)) return json({ error: 'ejercicio requerido' }, 400);
+
+  const { data, error } = await supabase
+    .from('cartera_movimientos')
+    .insert({ origen, destino, concepto, importe, fecha, ejercicio })
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data, 201);
+}
+
+export async function handleDeleteMovimientoCartera(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const { error } = await supabase.from('cartera_movimientos').delete().eq('id', id);
+  if (error) return json({ error: error.message }, 500);
+  return ok();
+}
+
+export async function handleUpdateAhorroCartera(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const importe = toMoneyOrNull(body.importe);
+  if (importe == null) return json({ error: 'importe requerido' }, 400);
+
+  const { data, error } = await supabase
+    .from('cartera_ajustes')
+    .update({ importe, updated_at: new Date().toISOString() })
+    .eq('cartera', 'ahorro')
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
 // ─── CORS preflight helper ───────────────────────────────────
 
 export function corsPreflightResponse() {

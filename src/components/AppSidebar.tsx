@@ -1,4 +1,4 @@
-import { Building2, Home, LayoutDashboard, Package, Receipt, Tag, TrendingDown, TrendingUp } from "lucide-react"
+import { Building2, Home, LayoutDashboard, Package, Receipt, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Cartera", href: "/cartera", icon: Wallet },
   { title: "Inversiones", href: "/inversiones", icon: Building2 },
   { title: "Liquidaciones", href: "/liquidaciones", icon: Receipt },
   { title: "Propiedades", href: "/propiedades", icon: Home },
@@ -48,14 +50,14 @@ export function AppSidebar({ currentPath }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menú</SidebarGroupLabel>
+          <SidebarGroupLabel>Engine</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={currentPath.startsWith(item.href)}
+                    isActive={item.href === "/" ? currentPath === "/" : currentPath.startsWith(item.href)}
                     tooltip={item.title}
                   >
                     <a href={item.href}>

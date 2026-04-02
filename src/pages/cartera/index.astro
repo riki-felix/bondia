@@ -1,0 +1,98 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import CarteraManager from "../../components/cartera/CarteraManager";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { CASA_CONFIG, SANYUS_CONFIG } from "../../lib/bloqueConfig";
+import { calcularImporteMes, buildOverridesMap } from "../../lib/bloqueTypes";
+
+const supabase = supabaseClient();
+const ejercicio = new Date().getFullYear();
+
+// Parallel data fetching
+const [
+  movimientosRes, ajustesRes, propiedadesRes,
+  casaIngRes, casaIOvRes, sanyusIngRes, sanyusIOvRes,
+] = await Promise.all([
+  supabase.from("cartera_movimientos").select("*").eq("ejercicio", ejercicio).order("fecha", { ascending: false }),
+  supabase.from("cartera_ajustes").select("*").eq("cartera", "ahorro").single(),
+  supabase.from("propiedades").select("ingreso_banco, transfe").eq("tipo", "inversion").eq("ejercicio", ejercicio),
+  supabase.from(CASA_CONFIG.tables.ingresos).select("*").eq("ejercicio", ejercicio),
+  supabase.from(CASA_CONFIG.tables.ingresosOverrides).select("*").eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.ingresos).select("*").eq("ejercicio", ejercicio),
+  supabase.from(SANYUS_CONFIG.tables.ingresosOverrides).select("*").eq("ejercicio", ejercicio),
+]);
+
+// Build override maps
+const casaOvrMap = buildOverridesMap(casaIOvRes.data ?? [], "ingreso_id");
+const sanyusOvrMap = buildOverridesMap(sanyusIOvRes.data ?? [], "ingreso_id");
+
+// Computed annual ingresos per wallet
+const ahorroBase = Number(ajustesRes.data?.importe) || 0;
+const r = (v: number) => Math.round(v * 100) / 100;
+
+// Inversiones: sum ingreso_banco by month using transfe (fecha transferencia)
+const invMonthly = new Array(12).fill(0);
+for (const p of (propiedadesRes.data ?? [])) {
+  const amount = Number(p.ingreso_banco) || 0;
+  if (!amount || !p.transfe) continue;
+  const month = new Date(p.transfe).getMonth(); // 0-based
+  invMonthly[month] += amount;
+}
+for (let i = 0; i < 12; i++) invMonthly[i] = r(invMonthly[i]);
+
+// Monthly ingresos per wallet (array of 12 values, index 0 = Ene)
+const walletMonthly: Record<string, number[]> = {
+  inversiones: [],
+  familiar: [],
+  sanyus: [],
+  ahorro: [],
+};
+for (let m = 1; m <= 12; m++) {
+  walletMonthly.inversiones.push(invMonthly[m - 1]);
+  let fam = 0;
+  for (const item of (casaIngRes.data ?? [])) {
+    const v = calcularImporteMes(item, m, ejercicio, casaOvrMap);
+    if (v != null) fam += v;
+  }
+  walletMonthly.familiar.push(r(fam));
+  let san = 0;
+  for (const item of (sanyusIngRes.data ?? [])) {
+    const v = calcularImporteMes(item, m, ejercicio, sanyusOvrMap);
+    if (v != null) san += v;
+  }
+  walletMonthly.sanyus.push(r(san));
+  walletMonthly.ahorro.push(0);
+}
+
+// Annual totals
+const walletIngresos = {
+  inversiones: walletMonthly.inversiones.reduce((a, b) => a + b, 0),
+  familiar: walletMonthly.familiar.reduce((a, b) => a + b, 0),
+  sanyus: walletMonthly.sanyus.reduce((a, b) => a + b, 0),
+  ahorro: ahorroBase,
+};
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Cartera</h1>
+      <p class="text-sm text-muted-foreground">
+        Herramienta de previsión — {ejercicio}
+      </p>
+    </div>
+
+    <CarteraManager
+      client:load
+      ejercicio={ejercicio}
+      initialMovimientos={movimientosRes.data ?? []}
+      walletIngresos={walletIngresos}
+      walletMonthly={walletMonthly as any}
+      ahorroBase={ahorroBase}
+    />
+  </div>
+  <Toaster client:load />
+</Layout>

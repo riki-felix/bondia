@@ -277,3 +277,32 @@ export function buildOverridesMap(
   }
   return map;
 }
+
+// ─── Cartera ─────────────────────────────────────────────────
+
+export type CarteraId = "inversiones" | "familiar" | "sanyus" | "ahorro";
+
+export const CARTERA_OPTIONS: { value: CarteraId; label: string }[] = [
+  { value: "inversiones", label: "Inversiones" },
+  { value: "familiar", label: "Familiar" },
+  { value: "sanyus", label: "Sanyus" },
+  { value: "ahorro", label: "Ahorro" },
+];
+
+export interface MovimientoCartera {
+  id: string;
+  origen: CarteraId;
+  destino: CarteraId;
+  concepto: string;
+  importe: number;
+  fecha: string;
+  ejercicio: number;
+  created_at: string;
+}
+
+export interface CarteraAjuste {
+  id: string;
+  cartera: string;
+  importe: number;
+  updated_at: string;
+}
