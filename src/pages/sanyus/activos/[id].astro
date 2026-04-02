@@ -1,0 +1,47 @@
+---
+export const prerender = false;
+
+import Layout from "../../../components/Layout.astro";
+import { Toaster } from "../../../components/ui/sonner";
+import BloqueActivoDetail from "../../../components/bloque/BloqueActivoDetail";
+import { supabaseClient } from "../../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../../lib/bloqueConfig";
+
+const cfg = SANYUS_CONFIG;
+const { id } = Astro.params;
+if (!id) return Astro.redirect(cfg.routes.activos);
+
+const supabase = supabaseClient();
+
+// Fetch the activo
+const { data: activo, error } = await supabase
+  .from(cfg.tables.activos)
+  .select(`*, ${cfg.joins.activosCateg}`)
+  .eq("id", id)
+  .single();
+
+if (error || !activo) return Astro.redirect(cfg.routes.activos);
+
+const activoMapped = {
+  ...activo,
+  categoria_nombre: (activo as any)[cfg.tables.activosCateg]?.nombre ?? "",
+};
+
+// Fetch categories for the select
+const { data: allCategorias } = await supabase
+  .from(cfg.tables.activosCateg)
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+const categorias = allCategorias ?? [];
+---
+
+<Layout>
+  <BloqueActivoDetail
+    client:load
+    config={cfg}
+    activo={activoMapped}
+    categorias={categorias}
+  />
+  <Toaster client:load />
+</Layout>

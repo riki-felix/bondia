@@ -80,7 +80,8 @@ VALUES
 
     ('Renting tecnológico CaixaBank',
         (SELECT id FROM public.casa_gastos_categorias WHERE slug = 'tech'),
-        'mensual', NULL, NULL, 38.00, 2026, 'renting-tecnologico-caixabank-2026');
+        'mensual', NULL, NULL, 38.00, 2026, 'renting-tecnologico-caixabank-2026')
+ON CONFLICT (slug) DO NOTHING;
 
 -- ─── Overrides (meses con importe distinto a la base) ────────
 
@@ -96,7 +97,8 @@ VALUES
     ((SELECT id FROM public.casa_gastos WHERE slug = 'movistar-tv-2026'), 2026, 1, 40.00),
 
     -- Movistar TV: Mar = 25 (base 35)
-    ((SELECT id FROM public.casa_gastos WHERE slug = 'movistar-tv-2026'), 2026, 3, 25.00);
+    ((SELECT id FROM public.casa_gastos WHERE slug = 'movistar-tv-2026'), 2026, 3, 25.00)
+ON CONFLICT (gasto_id, ejercicio, mes) DO NOTHING;
 
 -- ─── Gastos (2ª tanda: seguros, IBI, comunidad, gym) ────────
 
@@ -160,7 +162,8 @@ VALUES
 
     ('Gym Izan',
         (SELECT id FROM public.casa_gastos_categorias WHERE slug = 'gym'),
-        'anual', '2026-06-01', NULL, 624.00, 2026, 'gym-izan-2026');
+        'anual', '2026-06-01', NULL, 624.00, 2026, 'gym-izan-2026')
+ON CONFLICT (slug) DO NOTHING;
 
 -- ─── Overrides (2ª tanda) ────────────────────────────────────
 
@@ -173,7 +176,8 @@ VALUES
     ((SELECT id FROM public.casa_gastos WHERE slug = 'ibi-arc-sant-pau-2026'), 2026, 2, 120.00),
 
     -- IBI Parkings x2: Feb = 21 (base 25, ajuste 1r trimestre)
-    ((SELECT id FROM public.casa_gastos WHERE slug = 'ibi-parkings-x2-2026'), 2026, 2, 21.00);
+    ((SELECT id FROM public.casa_gastos WHERE slug = 'ibi-parkings-x2-2026'), 2026, 2, 21.00)
+ON CONFLICT (gasto_id, ejercicio, mes) DO NOTHING;
 
 -- ─── Gastos (3ª tanda: variables) ────────────────────────────
 
@@ -221,7 +225,8 @@ VALUES
 
     ('Bizums enviados',
         (SELECT id FROM public.casa_gastos_categorias WHERE slug = 'bizum'),
-        'variable', 0, 2026, 'bizums-enviados-2026');
+        'variable', 0, 2026, 'bizums-enviados-2026')
+ON CONFLICT (slug) DO NOTHING;
 
 -- ─── Overrides (3ª tanda: Ene-Mar variables) ────────────────
 
@@ -270,7 +275,8 @@ VALUES
     -- Bizums enviados
     ((SELECT id FROM public.casa_gastos WHERE slug = 'bizums-enviados-2026'), 2026, 1, 137.00),
     ((SELECT id FROM public.casa_gastos WHERE slug = 'bizums-enviados-2026'), 2026, 2, 123.00),
-    ((SELECT id FROM public.casa_gastos WHERE slug = 'bizums-enviados-2026'), 2026, 3, 152.00);
+    ((SELECT id FROM public.casa_gastos WHERE slug = 'bizums-enviados-2026'), 2026, 3, 152.00)
+ON CONFLICT (gasto_id, ejercicio, mes) DO NOTHING;
 
 -- ─── Gastos (4ª tanda: PayPal + Eventos) ─────────────────────
 
@@ -329,7 +335,8 @@ VALUES
 
     ('Navidades',
         (SELECT id FROM public.casa_gastos_categorias WHERE slug = 'evento'),
-        'anual', '2026-12-01', NULL, 1500.00, 2026, 'navidades-2026');
+        'anual', '2026-12-01', NULL, 1500.00, 2026, 'navidades-2026')
+ON CONFLICT (slug) DO NOTHING;
 
 -- ─── Overrides (4ª tanda) ────────────────────────────────────
 
@@ -343,4 +350,5 @@ VALUES
     ((SELECT id FROM public.casa_gastos WHERE slug = 'shein-infinite-styles-2026'), 2026, 1, 10.00),
     ((SELECT id FROM public.casa_gastos WHERE slug = 'shein-infinite-styles-2026'), 2026, 2, 21.00),
     -- Kervlan Lab farmacia: Ene = 54
-    ((SELECT id FROM public.casa_gastos WHERE slug = 'kervlan-lab-farmacia-2026'), 2026, 1, 54.00);
+    ((SELECT id FROM public.casa_gastos WHERE slug = 'kervlan-lab-farmacia-2026'), 2026, 1, 54.00)
+ON CONFLICT (gasto_id, ejercicio, mes) DO NOTHING;

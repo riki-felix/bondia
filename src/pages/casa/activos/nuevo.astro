@@ -1,0 +1,29 @@
+---
+export const prerender = false;
+
+import Layout from "../../../components/Layout.astro";
+import { Toaster } from "../../../components/ui/sonner";
+import BloqueActivoDetail from "../../../components/bloque/BloqueActivoDetail";
+import { supabaseClient } from "../../../lib/supabaseClient";
+import { CASA_CONFIG } from "../../../lib/bloqueConfig";
+
+const cfg = CASA_CONFIG;
+const supabase = supabaseClient();
+
+// Fetch categories for the select
+const { data: allCategorias } = await supabase
+  .from(cfg.tables.activosCateg)
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+const categorias = allCategorias ?? [];
+---
+
+<Layout>
+  <BloqueActivoDetail
+    client:load
+    config={cfg}
+    categorias={categorias}
+  />
+  <Toaster client:load />
+</Layout>

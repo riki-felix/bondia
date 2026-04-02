@@ -26,6 +26,14 @@ const casaItems = [
   { title: "Categorías", href: "/casa/categorias", icon: Tag },
 ]
 
+const sanyusItems = [
+  { title: "Control", href: "/sanyus/control", icon: LayoutDashboard },
+  { title: "Gastos", href: "/sanyus/gastos", icon: TrendingDown },
+  { title: "Ingresos", href: "/sanyus/ingresos", icon: TrendingUp },
+  { title: "Activos", href: "/sanyus/activos", icon: Package },
+  { title: "Categorías", href: "/sanyus/categorias", icon: Tag },
+]
+
 interface AppSidebarProps {
   currentPath: string
 }
@@ -65,6 +73,27 @@ export function AppSidebar({ currentPath }: AppSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {casaItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={currentPath.startsWith(item.href)}
+                    tooltip={item.title}
+                  >
+                    <a href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Sanyus</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sanyusItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

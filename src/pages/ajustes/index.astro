@@ -1,0 +1,32 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import MetodosPagoManager from "../../components/ajustes/MetodosPagoManager";
+import { supabaseClient } from "../../lib/supabaseClient";
+
+const supabase = supabaseClient();
+
+const { data: metodosPago } = await supabase
+  .from("metodos_pago")
+  .select("*")
+  .order("created_at", { ascending: true });
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Ajustes</h1>
+      <p class="text-sm text-muted-foreground">
+        Configuración global de la plataforma
+      </p>
+    </div>
+
+    <MetodosPagoManager
+      client:load
+      initialData={metodosPago ?? []}
+    />
+  </div>
+  <Toaster client:load />
+</Layout>

@@ -1,0 +1,54 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import BloqueActivosTable from "../../components/bloque/BloqueActivosTable";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+
+const cfg = SANYUS_CONFIG;
+const supabase = supabaseClient();
+
+// Fetch all activos
+const { data: allActivos, error } = await supabase
+  .from(cfg.tables.activos)
+  .select(`*, ${cfg.joins.activosCateg}`)
+  .order("created_at", { ascending: true });
+
+const activos = (allActivos ?? []).map((r: any) => ({
+  ...r,
+  categoria_nombre: r[cfg.tables.activosCateg]?.nombre ?? "",
+}));
+
+// Fetch categories
+const { data: allCategorias } = await supabase
+  .from(cfg.tables.activosCateg)
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+const categorias = allCategorias ?? [];
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Activos</h1>
+      <p class="text-sm text-muted-foreground">
+        Listado de activos y patrimonio de Sanyus
+      </p>
+    </div>
+
+    {error ? (
+      <p class="text-destructive">Error: {error.message}</p>
+    ) : (
+      <BloqueActivosTable
+        client:load
+        config={cfg}
+        initialData={activos}
+        categorias={categorias}
+      />
+    )}
+  </div>
+  <Toaster client:load />
+</Layout>

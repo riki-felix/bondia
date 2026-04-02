@@ -1,0 +1,71 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import BloqueCategoriasManager from "../../components/bloque/BloqueCategoriasManager";
+import BloqueAreasManager from "../../components/bloque/BloqueAreasManager";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+
+const cfg = SANYUS_CONFIG;
+const supabase = supabaseClient();
+
+// Fetch all three category types + areas in parallel
+const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes] = await Promise.all([
+  supabase.from(cfg.tables.gastosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.ingresosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.activosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.areas).select("*").order("nombre"),
+  supabase.from(cfg.tables.areasCategorias).select("*"),
+]);
+
+const gastoCategorias = gastoRes.data ?? [];
+const ingresoCategorias = ingresoRes.data ?? [];
+const activoCategorias = activoRes.data ?? [];
+const areas = areasRes.data ?? [];
+const areasAssignments = areasCategoriasRes.data ?? [];
+---
+
+<Layout>
+  <div class="space-y-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Categorías y Áreas</h1>
+      <p class="text-sm text-muted-foreground">
+        Gestión de categorías para gastos, ingresos y activos de Sanyus. Las áreas agrupan categorías para filtrar las tablas.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Categorías (izquierda) -->
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight mb-3">Categorías</h2>
+        <BloqueCategoriasManager
+          client:load
+          config={cfg}
+          gastoCategorias={gastoCategorias}
+          ingresoCategorias={ingresoCategorias}
+          activoCategorias={activoCategorias}
+        />
+      </div>
+
+      <!-- Áreas (derecha) -->
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight mb-1">Áreas</h2>
+        <p class="text-sm text-muted-foreground mb-3">
+          Agrupa categorías para filtrar gastos e ingresos.
+        </p>
+        <BloqueAreasManager
+          client:load
+          config={cfg}
+          initialAreas={areas}
+          initialAssignments={areasAssignments}
+          gastoCategorias={gastoCategorias}
+          ingresoCategorias={ingresoCategorias}
+          activoCategorias={activoCategorias}
+        />
+      </div>
+    </div>
+  </div>
+  <Toaster client:load />
+</Layout>

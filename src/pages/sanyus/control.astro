@@ -1,0 +1,80 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import BloqueControlDashboard from "../../components/bloque/BloqueControlDashboard";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+
+const cfg = SANYUS_CONFIG;
+const supabase = supabaseClient();
+const now = new Date();
+const ejercicio = now.getFullYear();
+const mesActual = now.getMonth() + 1; // 1-12
+
+// Fetch gastos + overrides
+const [gastosRes, gastosOvRes, ingresosRes, ingresosOvRes, areasRes, aaRes] =
+  await Promise.all([
+    supabase
+      .from(cfg.tables.gastos)
+      .select(`*, ${cfg.joins.gastosCateg}`)
+      .eq("ejercicio", ejercicio)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from(cfg.tables.gastosOverrides)
+      .select("*")
+      .eq("ejercicio", ejercicio),
+    supabase
+      .from(cfg.tables.ingresos)
+      .select(`*, ${cfg.joins.ingresosCateg}`)
+      .eq("ejercicio", ejercicio)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from(cfg.tables.ingresosOverrides)
+      .select("*")
+      .eq("ejercicio", ejercicio),
+    supabase.from(cfg.tables.areas).select("*").order("nombre"),
+    supabase.from(cfg.tables.areasCategorias).select("*"),
+  ]);
+
+const gastos = (gastosRes.data ?? []).map((r: any) => ({
+  ...r,
+  categoria_nombre: r[cfg.tables.gastosCateg]?.nombre ?? "",
+}));
+const gastosOverrides = gastosOvRes.data ?? [];
+
+const ingresos = (ingresosRes.data ?? []).map((r: any) => ({
+  ...r,
+  categoria_nombre: r[cfg.tables.ingresosCateg]?.nombre ?? "",
+}));
+const ingresosOverrides = ingresosOvRes.data ?? [];
+
+const areas = areasRes.data ?? [];
+const areaAssignments = aaRes.data ?? [];
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Control</h1>
+      <p class="text-sm text-muted-foreground">
+        Dashboard de Sanyus — {ejercicio}
+      </p>
+    </div>
+
+    <BloqueControlDashboard
+      client:load
+      blockId="sanyus"
+      gastos={gastos}
+      gastosOverrides={gastosOverrides}
+      ingresos={ingresos}
+      ingresosOverrides={ingresosOverrides}
+      ejercicio={ejercicio}
+      mesActual={mesActual}
+      areas={areas}
+      areaAssignments={areaAssignments}
+    />
+  </div>
+  <Toaster client:load />
+</Layout>

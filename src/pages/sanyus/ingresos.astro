@@ -1,0 +1,82 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import BloqueIngresosTable from "../../components/bloque/BloqueIngresosTable";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+
+const cfg = SANYUS_CONFIG;
+const supabase = supabaseClient();
+const currentYear = new Date().getFullYear();
+
+// Year from query param, default to current
+const url = new URL(Astro.request.url);
+const yearParam = url.searchParams.get("year");
+const ejercicio = yearParam ? Number(yearParam) : currentYear;
+
+// Fetch ingresos for selected year
+const { data: allIngresos, error } = await supabase
+  .from(cfg.tables.ingresos)
+  .select(`*, ${cfg.joins.ingresosCateg}`)
+  .eq("ejercicio", ejercicio)
+  .order("created_at", { ascending: true });
+
+const ingresos = (allIngresos ?? []).map((r: any) => ({
+  ...r,
+  categoria_nombre: r[cfg.tables.ingresosCateg]?.nombre ?? "",
+}));
+
+// Fetch overrides for selected year
+const { data: allOverrides } = await supabase
+  .from(cfg.tables.ingresosOverrides)
+  .select("*")
+  .eq("ejercicio", ejercicio);
+
+const overrides = allOverrides ?? [];
+
+// Fetch categories
+const { data: allCategorias } = await supabase
+  .from(cfg.tables.ingresosCateg)
+  .select("id, nombre, slug")
+  .order("nombre", { ascending: true });
+
+const categorias = allCategorias ?? [];
+
+// Fetch areas + assignments
+const [areasRes, areasAssignRes] = await Promise.all([
+  supabase.from(cfg.tables.areas).select("*").order("nombre"),
+  supabase.from(cfg.tables.areasCategorias).select("*"),
+]);
+
+const areas = areasRes.data ?? [];
+const areaAssignments = areasAssignRes.data ?? [];
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Ingresos</h1>
+      <p class="text-sm text-muted-foreground">
+        Ingresos mensuales de Sanyus
+      </p>
+    </div>
+
+    {error ? (
+      <p class="text-destructive">Error: {error.message}</p>
+    ) : (
+      <BloqueIngresosTable
+        client:load
+        config={cfg}
+        initialData={ingresos}
+        initialOverrides={overrides}
+        categorias={categorias}
+        initialYear={ejercicio}
+        areas={areas}
+        areaAssignments={areaAssignments}
+      />
+    )}
+  </div>
+  <Toaster client:load />
+</Layout>

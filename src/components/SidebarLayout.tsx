@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { EyeOff, Eye } from "lucide-react"
+import { EyeOff, Eye, Settings } from "lucide-react"
 import { AppSidebar } from "./AppSidebar"
 
 interface SidebarLayoutProps {
@@ -34,7 +34,16 @@ export function SidebarLayout({ currentPath, children }: SidebarLayoutProps) {
             v{__APP_VERSION__}
           </span>
           <span className="font-semibold text-lg tracking-tight md:hidden">Bondia</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <a href="/ajustes" title="Ajustes">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </a>
             <Button
               variant={incognito ? "default" : "ghost"}
               size="icon"

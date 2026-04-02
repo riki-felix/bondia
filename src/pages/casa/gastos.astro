@@ -3,9 +3,11 @@ export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
-import CasaGastosTable from "../../components/casa/CasaGastosTable";
+import BloqueGastosTable from "../../components/bloque/BloqueGastosTable";
 import { supabaseClient } from "../../lib/supabaseClient";
+import { CASA_CONFIG } from "../../lib/bloqueConfig";
 
+const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
 const currentYear = new Date().getFullYear();
 
@@ -16,19 +18,19 @@ const ejercicio = yearParam ? Number(yearParam) : currentYear;
 
 // Fetch gastos for selected year
 const { data: allGastos, error } = await supabase
-  .from("casa_gastos")
-  .select("*, casa_gastos_categorias(nombre)")
+  .from(cfg.tables.gastos)
+  .select(`*, ${cfg.joins.gastosCateg}`)
   .eq("ejercicio", ejercicio)
   .order("created_at", { ascending: true });
 
 const gastos = (allGastos ?? []).map((r: any) => ({
   ...r,
-  categoria_nombre: r.casa_gastos_categorias?.nombre ?? "",
+  categoria_nombre: r[cfg.tables.gastosCateg]?.nombre ?? "",
 }));
 
 // Fetch overrides for selected year
 const { data: allOverrides } = await supabase
-  .from("casa_gastos_overrides")
+  .from(cfg.tables.gastosOverrides)
   .select("*")
   .eq("ejercicio", ejercicio);
 
@@ -36,7 +38,7 @@ const overrides = allOverrides ?? [];
 
 // Fetch categories
 const { data: allCategorias } = await supabase
-  .from("casa_gastos_categorias")
+  .from(cfg.tables.gastosCateg)
   .select("id, nombre, slug")
   .order("nombre", { ascending: true });
 
@@ -44,18 +46,28 @@ const categorias = allCategorias ?? [];
 
 // Fetch areas + assignments
 const [areasRes, areasAssignRes] = await Promise.all([
-  supabase.from("casa_areas").select("*").order("nombre"),
-  supabase.from("casa_areas_categorias").select("*"),
+  supabase.from(cfg.tables.areas).select("*").order("nombre"),
+  supabase.from(cfg.tables.areasCategorias).select("*"),
 ]);
 
 const areas = areasRes.data ?? [];
 const areaAssignments = areasAssignRes.data ?? [];
+
+// Fetch payment methods for this block
+const { data: allMetodosPago } = await supabase
+  .from("metodos_pago")
+  .select("*")
+  .in("alcance", ["casa", "ambos"])
+  .eq("activo", true)
+  .order("nombre");
+
+const metodosPago = allMetodosPago ?? [];
 ---
 
 <Layout>
   <div class="space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Gastos</h1>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Gastos</h1>
       <p class="text-sm text-muted-foreground">
         Gastos fijos mensuales del hogar
       </p>
@@ -64,14 +76,16 @@ const areaAssignments = areasAssignRes.data ?? [];
     {error ? (
       <p class="text-destructive">Error: {error.message}</p>
     ) : (
-      <CasaGastosTable
+      <BloqueGastosTable
         client:load
+        config={cfg}
         initialData={gastos}
         initialOverrides={overrides}
         categorias={categorias}
         initialYear={ejercicio}
         areas={areas}
         areaAssignments={areaAssignments}
+        metodosPago={metodosPago}
       />
     )}
   </div>

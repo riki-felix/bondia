@@ -3,19 +3,21 @@ export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
-import CasaCategoriasManager from "../../components/casa/CasaCategoriasManager";
-import CasaAreasManager from "../../components/casa/CasaAreasManager";
+import BloqueCategoriasManager from "../../components/bloque/BloqueCategoriasManager";
+import BloqueAreasManager from "../../components/bloque/BloqueAreasManager";
 import { supabaseClient } from "../../lib/supabaseClient";
+import { CASA_CONFIG } from "../../lib/bloqueConfig";
 
+const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
 
 // Fetch all three category types + areas in parallel
 const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes] = await Promise.all([
-  supabase.from("casa_gastos_categorias").select("id, nombre, slug").order("nombre"),
-  supabase.from("casa_ingresos_categorias").select("id, nombre, slug").order("nombre"),
-  supabase.from("casa_activos_categorias").select("id, nombre, slug").order("nombre"),
-  supabase.from("casa_areas").select("*").order("nombre"),
-  supabase.from("casa_areas_categorias").select("*"),
+  supabase.from(cfg.tables.gastosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.ingresosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.activosCateg).select("id, nombre, slug").order("nombre"),
+  supabase.from(cfg.tables.areas).select("*").order("nombre"),
+  supabase.from(cfg.tables.areasCategorias).select("*"),
 ]);
 
 const gastoCategorias = gastoRes.data ?? [];
@@ -28,7 +30,7 @@ const areasAssignments = areasCategoriasRes.data ?? [];
 <Layout>
   <div class="space-y-4">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Categorías y Áreas</h1>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Categorías y Áreas</h1>
       <p class="text-sm text-muted-foreground">
         Gestión de categorías para gastos, ingresos y activos. Las áreas agrupan categorías para filtrar las tablas.
       </p>
@@ -38,8 +40,9 @@ const areasAssignments = areasCategoriasRes.data ?? [];
       <!-- Categorías (izquierda) -->
       <div>
         <h2 class="text-lg font-semibold tracking-tight mb-3">Categorías</h2>
-        <CasaCategoriasManager
+        <BloqueCategoriasManager
           client:load
+          config={cfg}
           gastoCategorias={gastoCategorias}
           ingresoCategorias={ingresoCategorias}
           activoCategorias={activoCategorias}
@@ -52,8 +55,9 @@ const areasAssignments = areasCategoriasRes.data ?? [];
         <p class="text-sm text-muted-foreground mb-3">
           Agrupa categorías para filtrar gastos e ingresos.
         </p>
-        <CasaAreasManager
+        <BloqueAreasManager
           client:load
+          config={cfg}
           initialAreas={areas}
           initialAssignments={areasAssignments}
           gastoCategorias={gastoCategorias}
