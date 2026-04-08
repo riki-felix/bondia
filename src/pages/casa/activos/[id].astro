@@ -32,18 +32,39 @@ const activoMapped: BloqueActivo = {
 // Fetch categories for the select
 const { data: allCategorias } = await supabase
   .from(cfg.tables.activosCateg)
-  .select("id, nombre, slug")
+  .select("id, nombre, slug, favorito")
   .order("nombre", { ascending: true });
 
 const categorias = allCategorias ?? [];
+
+// Fetch all available tags + this activo's assigned tag IDs
+const [tagsRes, assignedRes, caracRes, caracValRes] = await Promise.all([
+  supabase.from("activos_tags").select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTags).select("tag_id").eq("activo_id", id),
+  supabase.from("activos_caracteristicas").select("*").order("nombre"),
+  supabase.from(cfg.tables.activosCaracteristicaValores).select("caracteristica_id, valor").eq("activo_id", id),
+]);
+const allTags = tagsRes.data ?? [];
+const assignedTagIds = (assignedRes.data ?? []).map((r: any) => r.tag_id as string);
+const allCaracteristicas = caracRes.data ?? [];
+const caracteristicaValores = caracValRes.data ?? [];
+
+// Attach tags + valores to mapped activo
+const activoWithTags: BloqueActivo = {
+  ...activoMapped,
+  tags: allTags.filter((t: any) => assignedTagIds.includes(t.id)),
+  caracteristica_valores: caracteristicaValores,
+};
 ---
 
 <Layout>
   <BloqueActivoDetail
     client:load
     config={cfg}
-    activo={activoMapped}
+    activo={activoWithTags}
     categorias={categorias}
+    allTags={allTags}
+    allCaracteristicas={allCaracteristicas}
   />
   <Toaster client:load />
 </Layout>

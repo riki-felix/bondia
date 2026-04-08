@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
-import { type BloqueActivo, type BloqueCategoria } from "@/lib/bloqueTypes";
+import { type BloqueActivo, type BloqueCategoria, type ActivoTag } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -18,6 +18,9 @@ interface BloqueActivosTableProps {
   config: BloqueConfig;
   initialData: BloqueActivo[];
   categorias: BloqueCategoria[];
+  initialCatFilter?: string | null;
+  allTags?: ActivoTag[];
+  initialTagFilter?: string | string[] | null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -26,9 +29,28 @@ export default function BloqueActivosTable({
   config,
   initialData,
   categorias,
+  initialCatFilter = null,
+  allTags = [],
+  initialTagFilter = null,
 }: BloqueActivosTableProps) {
   const [rows, setRows] = useState<BloqueActivo[]>(initialData);
+  const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
+  const [activeTags, setActiveTags] = useState<string[]>(() => {
+    if (!initialTagFilter) return [];
+    return Array.isArray(initialTagFilter) ? initialTagFilter : [initialTagFilter];
+  });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const filteredRows = useMemo(() => {
+    let result = rows;
+    if (activeCat) result = result.filter((r) => r.categoria_id === activeCat);
+    if (activeTags.length > 0)
+      result = result.filter((r) => {
+        const rowTagIds = (r.tags ?? []).map((t) => t.id);
+        return activeTags.every((tid) => rowTagIds.includes(tid));
+      });
+    return result;
+  }, [rows, activeCat, activeTags]);
 
   const categoriaOptions = useMemo(
     () => [
@@ -81,23 +103,57 @@ export default function BloqueActivosTable({
   }, [config]);
 
   // ── Total patrimonio ──
-  const totalPatrimonio = useMemo(
+  const totalCompra = useMemo(
     () => rows.reduce((sum, r) => sum + (r.precio_compra ?? 0), 0),
+    [rows]
+  );
+
+  const totalEstimado = useMemo(
+    () => rows.reduce((sum, r) => sum + (r.valor_estimado ?? 0), 0),
     [rows]
   );
 
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Button size="sm" variant="outline" asChild>
           <a href={config.routes.activoNuevo}>
             <Plus className="h-4 w-4 mr-1" /> Añadir activo
           </a>
         </Button>
-        {rows.length > 0 && (
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-1">
+            {allTags.map((tag) => {
+              const selected = activeTags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-opacity border"
+                  style={{
+                    backgroundColor: selected ? tag.color + "20" : "transparent",
+                    borderColor: selected ? tag.color : "hsl(var(--border))",
+                    color: selected ? tag.color : "hsl(var(--muted-foreground))",
+                    opacity: activeTags.length > 0 && !selected ? 0.5 : 1,
+                  }}
+                  onClick={() =>
+                    setActiveTags((prev) =>
+                      selected
+                        ? prev.filter((id) => id !== tag.id)
+                        : [...prev, tag.id]
+                    )
+                  }
+                >
+                  {tag.nombre}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {filteredRows.length > 0 && (
           <span className="text-sm text-muted-foreground">
-            Total patrimonio: <strong>{formatEuro(totalPatrimonio)}</strong>
+            Coste: <strong>{formatEuro(totalCompra)}</strong>
+            {totalEstimado > 0 && <> · Estimado: <strong>{formatEuro(totalEstimado)}</strong></>}
           </span>
         )}
       </div>
@@ -109,23 +165,25 @@ export default function BloqueActivosTable({
             <TableRow>
               <TableHead className="w-[250px]">Nombre</TableHead>
               <TableHead className="w-[180px]">Categoría</TableHead>
+              {allTags.length > 0 && <TableHead className="w-[150px]">Tags</TableHead>}
               <TableHead className="w-[150px]">Fecha compra</TableHead>
               <TableHead className="text-right w-[150px]">Precio compra</TableHead>
+              <TableHead className="text-right w-[150px]">Valor estimado</TableHead>
               <TableHead className="w-[70px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={allTags.length > 0 ? 8 : 7}
                   className="text-center text-muted-foreground py-8"
                 >
                   Sin activos registrados. Pulsa «Añadir activo» para empezar.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              filteredRows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="p-1">
                     <EditableCell
@@ -148,6 +206,24 @@ export default function BloqueActivosTable({
                       }
                     />
                   </TableCell>
+                  {allTags.length > 0 && (
+                    <TableCell className="p-1">
+                      <div className="flex flex-wrap gap-1">
+                        {(row.tags ?? []).map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                            style={{
+                              backgroundColor: tag.color + "20",
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="p-1">
                     <EditableCell
                       value={row.fecha_compra}
@@ -160,6 +236,13 @@ export default function BloqueActivosTable({
                       value={row.precio_compra}
                       type="money"
                       onSave={(v) => updateField(row.id, "precio_compra", v)}
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <EditableCell
+                      value={row.valor_estimado}
+                      type="money"
+                      onSave={(v) => updateField(row.id, "valor_estimado", v)}
                     />
                   </TableCell>
                   <TableCell className="p-1">

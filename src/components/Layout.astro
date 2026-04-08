@@ -2,15 +2,39 @@
 import '../styles/globals.css';
 import Head from "./Head.astro";
 import { SidebarLayout } from "./SidebarLayout";
+import { supabaseClient } from "../lib/supabaseClient";
+import { CASA_CONFIG, SANYUS_CONFIG } from "../lib/bloqueConfig";
 
 const currentPath = Astro.url.pathname;
+const supabase = supabaseClient();
+
+// Fetch favorite categories for sidebar
+const favQuery = "id, nombre, slug, favorito";
+const [cgr, cir, car, sgr, sir, sar] = await Promise.all([
+  supabase.from(CASA_CONFIG.tables.gastosCateg).select(favQuery).eq("favorito", true),
+  supabase.from(CASA_CONFIG.tables.ingresosCateg).select(favQuery).eq("favorito", true),
+  supabase.from(CASA_CONFIG.tables.activosCateg).select(favQuery).eq("favorito", true),
+  supabase.from(SANYUS_CONFIG.tables.gastosCateg).select(favQuery).eq("favorito", true),
+  supabase.from(SANYUS_CONFIG.tables.ingresosCateg).select(favQuery).eq("favorito", true),
+  supabase.from(SANYUS_CONFIG.tables.activosCateg).select(favQuery).eq("favorito", true),
+]);
+
+type FavItem = { nombre: string; href: string };
+const favoritos: FavItem[] = [
+  ...(cgr.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/casa/gastos?cat=${c.id}` })),
+  ...(cir.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/casa/ingresos?cat=${c.id}` })),
+  ...(car.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/casa/activos?cat=${c.id}` })),
+  ...(sgr.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/sanyus/gastos?cat=${c.id}` })),
+  ...(sir.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/sanyus/ingresos?cat=${c.id}` })),
+  ...(sar.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/sanyus/activos?cat=${c.id}` })),
+];
 ---
 
 <!doctype html>
 <html lang="es">
   <Head />
   <body class="min-h-screen bg-background font-sans antialiased">
-    <SidebarLayout client:load currentPath={currentPath}>
+    <SidebarLayout client:load currentPath={currentPath} favoritos={favoritos}>
       <slot />
     </SidebarLayout>
   </body>

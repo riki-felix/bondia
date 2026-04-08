@@ -5,6 +5,8 @@ import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
 import BloqueCategoriasManager from "../../components/bloque/BloqueCategoriasManager";
 import BloqueAreasManager from "../../components/bloque/BloqueAreasManager";
+import BloqueActivoTagsManager from "../../components/bloque/BloqueActivoTagsManager";
+import BloqueActivoCaracteristicasManager from "../../components/bloque/BloqueActivoCaracteristicasManager";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
 
@@ -12,12 +14,14 @@ const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
 
 // Fetch all three category types + areas in parallel
-const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes] = await Promise.all([
-  supabase.from(cfg.tables.gastosCateg).select("id, nombre, slug").order("nombre"),
-  supabase.from(cfg.tables.ingresosCateg).select("id, nombre, slug").order("nombre"),
-  supabase.from(cfg.tables.activosCateg).select("id, nombre, slug").order("nombre"),
+const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes, tagsRes, caracRes] = await Promise.all([
+  supabase.from(cfg.tables.gastosCateg).select("id, nombre, slug, favorito").order("nombre"),
+  supabase.from(cfg.tables.ingresosCateg).select("id, nombre, slug, favorito").order("nombre"),
+  supabase.from(cfg.tables.activosCateg).select("id, nombre, slug, favorito").order("nombre"),
   supabase.from(cfg.tables.areas).select("*").order("nombre"),
   supabase.from(cfg.tables.areasCategorias).select("*"),
+  supabase.from("activos_tags").select("*").order("nombre"),
+  supabase.from("activos_caracteristicas").select("*").order("nombre"),
 ]);
 
 const gastoCategorias = gastoRes.data ?? [];
@@ -25,6 +29,8 @@ const ingresoCategorias = ingresoRes.data ?? [];
 const activoCategorias = activoRes.data ?? [];
 const areas = areasRes.data ?? [];
 const areasAssignments = areasCategoriasRes.data ?? [];
+const activoTags = tagsRes.data ?? [];
+const activoCaracteristicas = caracRes.data ?? [];
 ---
 
 <Layout>
@@ -65,6 +71,33 @@ const areasAssignments = areasCategoriasRes.data ?? [];
           activoCategorias={activoCategorias}
         />
       </div>
+    </div>
+
+    <!-- Tags de activos -->
+    <div>
+      <h2 class="text-lg font-semibold tracking-tight mb-1">Tags de activos</h2>
+      <p class="text-sm text-muted-foreground mb-3">
+        Etiquetas para organizar activos (ej: colecciones, series). Compartidos entre Casa y Sanyus.
+      </p>
+      <BloqueActivoTagsManager
+        client:load
+        config={cfg}
+        initialTags={activoTags}
+      />
+    </div>
+
+    <!-- Características de activos -->
+    <div>
+      <h2 class="text-lg font-semibold tracking-tight mb-1">Características de activos</h2>
+      <p class="text-sm text-muted-foreground mb-3">
+        Campos personalizados para activos (ej: tamaño, unidades). Se pueden asociar a una categoría concreta. Compartidos entre Casa y Sanyus.
+      </p>
+      <BloqueActivoCaracteristicasManager
+        client:load
+        config={cfg}
+        initialCaracteristicas={activoCaracteristicas}
+        activoCategorias={activoCategorias}
+      />
     </div>
   </div>
   <Toaster client:load />

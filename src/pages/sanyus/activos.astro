@@ -9,6 +9,7 @@ import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
 
 const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
+const catFilter = Astro.url.searchParams.get("cat");
 
 // Fetch all activos
 const { data: allActivos, error } = await supabase
@@ -24,10 +25,33 @@ const activos = (allActivos ?? []).map((r: any) => ({
 // Fetch categories
 const { data: allCategorias } = await supabase
   .from(cfg.tables.activosCateg)
-  .select("id, nombre, slug")
+  .select("id, nombre, slug, favorito")
   .order("nombre", { ascending: true });
 
 const categorias = allCategorias ?? [];
+
+// Fetch tags + assignments
+const [tagsRes, tagsRelRes] = await Promise.all([
+  supabase.from("activos_tags").select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTags).select("*"),
+]);
+const allTags = tagsRes.data ?? [];
+const tagsRel = tagsRelRes.data ?? [];
+
+// Map tag assignments onto activos
+const tagsByActivo = new Map<string, any[]>();
+for (const rel of tagsRel) {
+  const tag = allTags.find((t: any) => t.id === rel.tag_id);
+  if (!tag) continue;
+  if (!tagsByActivo.has(rel.activo_id)) tagsByActivo.set(rel.activo_id, []);
+  tagsByActivo.get(rel.activo_id)!.push(tag);
+}
+const activosWithTags = activos.map((a: any) => ({
+  ...a,
+  tags: tagsByActivo.get(a.id) ?? [],
+}));
+
+const tagFilter = Astro.url.searchParams.get("tag");
 ---
 
 <Layout>
@@ -45,8 +69,11 @@ const categorias = allCategorias ?? [];
       <BloqueActivosTable
         client:load
         config={cfg}
-        initialData={activos}
+        initialData={activosWithTags}
         categorias={categorias}
+        initialCatFilter={catFilter}
+        allTags={allTags}
+        initialTagFilter={tagFilter}
       />
     )}
   </div>

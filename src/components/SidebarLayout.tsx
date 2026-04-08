@@ -3,14 +3,15 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { EyeOff, Eye, Settings } from "lucide-react"
-import { AppSidebar } from "./AppSidebar"
+import { AppSidebar, type FavoritoItem } from "./AppSidebar"
 
 interface SidebarLayoutProps {
   currentPath: string
+  favoritos?: FavoritoItem[]
   children: ReactNode
 }
 
-export function SidebarLayout({ currentPath, children }: SidebarLayoutProps) {
+export function SidebarLayout({ currentPath, favoritos = [], children }: SidebarLayoutProps) {
   const [incognito, setIncognito] = useState(() =>
     typeof window !== "undefined" && sessionStorage.getItem("incognito") === "1"
   )
@@ -25,7 +26,7 @@ export function SidebarLayout({ currentPath, children }: SidebarLayoutProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar currentPath={currentPath} />
+      <AppSidebar currentPath={currentPath} favoritos={favoritos} />
       <SidebarInset data-incognito={incognito || undefined}>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

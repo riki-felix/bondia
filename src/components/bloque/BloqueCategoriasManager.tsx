@@ -11,7 +11,7 @@ import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { type BloqueCategoria } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Star, Trash2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -106,6 +106,30 @@ function CategoriaTable({
     [tipo, config]
   );
 
+  const toggleFavorito = useCallback(
+    async (id: string, current: boolean) => {
+      const next = !current;
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, favorito: next } : r))
+      );
+      try {
+        const res = await fetch(config.endpoints.updateCategoria, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tipo, id, favorito: next }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+      } catch (e: any) {
+        setRows((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, favorito: current } : r))
+        );
+        toast.error(e.message || "Error al actualizar favorito");
+      }
+    },
+    [tipo, config]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -123,13 +147,14 @@ function CategoriaTable({
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead className="w-[40px]" />
+              <TableHead className="w-[40px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={2}
+                  colSpan={3}
                   className="text-center text-muted-foreground py-8"
                 >
                   Sin categorías de {label.toLowerCase()}. Pulsa «Añadir
@@ -145,6 +170,16 @@ function CategoriaTable({
                       type="text"
                       onSave={(v) => updateName(row.id, v)}
                     />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 ${row.favorito ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500"}`}
+                      onClick={() => toggleFavorito(row.id, !!row.favorito)}
+                    >
+                      <Star className={`h-4 w-4 ${row.favorito ? "fill-current" : ""}`} />
+                    </Button>
                   </TableCell>
                   <TableCell className="p-1">
                     <Button

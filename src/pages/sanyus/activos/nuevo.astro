@@ -13,10 +13,22 @@ const supabase = supabaseClient();
 // Fetch categories for the select
 const { data: allCategorias } = await supabase
   .from(cfg.tables.activosCateg)
-  .select("id, nombre, slug")
+  .select("id, nombre, slug, favorito")
   .order("nombre", { ascending: true });
 
 const categorias = allCategorias ?? [];
+
+const { data: tagsData } = await supabase
+  .from("activos_tags")
+  .select("*")
+  .order("nombre");
+const allTags = tagsData ?? [];
+
+const { data: caracData } = await supabase
+  .from("activos_caracteristicas")
+  .select("*")
+  .order("nombre");
+const allCaracteristicas = caracData ?? [];
 ---
 
 <Layout>
@@ -24,6 +36,8 @@ const categorias = allCategorias ?? [];
     client:load
     config={cfg}
     categorias={categorias}
+    allTags={allTags}
+    allCaracteristicas={allCaracteristicas}
   />
   <Toaster client:load />
 </Layout>

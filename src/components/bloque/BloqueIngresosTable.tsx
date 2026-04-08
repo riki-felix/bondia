@@ -37,6 +37,7 @@ interface BloqueIngresosTableProps {
   initialYear: number;
   areas?: BloqueArea[];
   areaAssignments?: BloqueAreaCategoria[];
+  initialCatFilter?: string | null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -49,12 +50,14 @@ export default function BloqueIngresosTable({
   initialYear,
   areas = [],
   areaAssignments = [],
+  initialCatFilter = null,
 }: BloqueIngresosTableProps) {
   const [rows, setRows] = useState<BloqueIngreso[]>(initialData);
   const [overrides, setOverrides] = useState<BloqueOverride[]>(initialOverrides);
   const [ejercicio, setEjercicio] = useState<number>(initialYear);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [activeArea, setActiveArea] = useState<string | null>(null);
+  const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
   const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
 
   // Build set of categoria_ids for active area filter (ingresos only)
@@ -69,9 +72,15 @@ export default function BloqueIngresosTable({
 
   // Filtered rows
   const filteredRows = useMemo(() => {
-    if (!areaCatIds) return rows;
-    return rows.filter((r) => r.categoria_id && areaCatIds.has(r.categoria_id));
-  }, [rows, areaCatIds]);
+    let result = rows;
+    if (areaCatIds) {
+      result = result.filter((r) => r.categoria_id && areaCatIds.has(r.categoria_id));
+    }
+    if (activeCat) {
+      result = result.filter((r) => r.categoria_id === activeCat);
+    }
+    return result;
+  }, [rows, areaCatIds, activeCat]);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(() => {

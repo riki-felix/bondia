@@ -41,6 +41,7 @@ export interface BloqueCategoria {
   id: string;
   nombre: string;
   slug: string;
+  favorito?: boolean;
 }
 
 export interface BloqueGasto {
@@ -80,11 +81,35 @@ export interface BloqueActivo {
   categoria_id: string | null;
   fecha_compra: string | null;
   precio_compra: number | null;
+  valor_estimado: number | null;
+  fecha_estimacion: string | null;
+  foto_url: string | null;
   notas: string;
   slug: string | null;
   created_at: string;
   updated_at: string;
   categoria_nombre?: string;
+  tags?: ActivoTag[];
+  caracteristica_valores?: ActivoCaracteristicaValor[];
+}
+
+export interface ActivoTag {
+  id: string;
+  nombre: string;
+  slug: string;
+  color: string;
+}
+
+export interface ActivoCaracteristica {
+  id: string;
+  nombre: string;
+  slug: string;
+  categoria_id: string | null;
+}
+
+export interface ActivoCaracteristicaValor {
+  caracteristica_id: string;
+  valor: string;
 }
 
 export interface BloqueOverride {

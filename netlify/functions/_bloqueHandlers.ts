@@ -150,11 +150,16 @@ export async function handleCreateActivo(table: string, body: any) {
   const nombre = emptyOrNull(body.nombre) ?? '';
   const slug = nombre ? slugifyEs(nombre) + '-' + Date.now() : 'activo-' + Date.now();
 
-  const row = {
+  const valorEstimado = toMoneyOrNull(body.valor_estimado);
+
+  const row: Record<string, unknown> = {
     nombre,
     categoria_id: emptyOrNull(body.categoria_id),
     fecha_compra: toDateOrNull(body.fecha_compra),
     precio_compra: toMoneyOrNull(body.precio_compra),
+    valor_estimado: valorEstimado,
+    fecha_estimacion: valorEstimado != null ? new Date().toISOString().slice(0, 10) : null,
+    foto_url: emptyOrNull(body.foto_url),
     notas: body.notas ?? '',
     slug,
   };
@@ -182,6 +187,11 @@ export async function handleUpdateActivo(table: string, body: any) {
   if (body.categoria_id !== undefined) updates.categoria_id = emptyOrNull(body.categoria_id);
   if (body.fecha_compra !== undefined) updates.fecha_compra = toDateOrNull(body.fecha_compra);
   if (body.precio_compra !== undefined) updates.precio_compra = toMoneyOrNull(body.precio_compra);
+  if (body.valor_estimado !== undefined) {
+    updates.valor_estimado = toMoneyOrNull(body.valor_estimado);
+    updates.fecha_estimacion = new Date().toISOString().slice(0, 10);
+  }
+  if (body.foto_url !== undefined) updates.foto_url = emptyOrNull(body.foto_url);
   if (body.notas !== undefined) updates.notas = body.notas ?? '';
 
   if (Object.keys(updates).length === 0) return json({ ok: true, id });
@@ -199,6 +209,283 @@ export async function handleUpdateActivo(table: string, body: any) {
 
 export async function handleDeleteActivo(table: string, body: any) {
   return handleDeleteGasto(table, body);
+}
+
+// ─── Activo Foto ─────────────────────────────────────────────
+
+export async function handleUploadActivoFoto(table: string, body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const base64 = body.base64;
+  const mimeType = body.mimeType || 'image/jpeg';
+  if (!base64) return json({ error: 'base64 requerido' }, 400);
+
+  // Decode base64 to buffer
+  const buffer = Buffer.from(base64, 'base64');
+  const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+  const filePath = `${table}/${id}/foto.${ext}`;
+
+  // Delete existing photo if any
+  await supabase.storage.from('activos-fotos').remove([filePath]);
+
+  // Upload new photo
+  const { error: uploadError } = await supabase.storage
+    .from('activos-fotos')
+    .upload(filePath, buffer, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (uploadError) return json({ error: uploadError.message }, 500);
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('activos-fotos')
+    .getPublicUrl(filePath);
+
+  const foto_url = urlData.publicUrl;
+
+  // Update the activo with the photo URL
+  const { data, error } = await supabase
+    .from(table)
+    .update({ foto_url })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
+export async function handleDeleteActivoFoto(table: string, body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  // Get the current foto_url to extract the path
+  const { data: activo } = await supabase
+    .from(table)
+    .select('foto_url')
+    .eq('id', id)
+    .single();
+
+  if (activo?.foto_url) {
+    // Extract storage path from URL
+    const match = activo.foto_url.match(/activos-fotos\/(.+)$/);
+    if (match) {
+      await supabase.storage.from('activos-fotos').remove([match[1]]);
+    }
+  }
+
+  // Clear foto_url on the activo
+  const { data, error } = await supabase
+    .from(table)
+    .update({ foto_url: null })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
+// ─── Activo Tags ─────────────────────────────────────────────
+
+export async function handleCreateActivoTag(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const nombre = emptyOrNull(body.nombre) ?? '';
+  if (!nombre) return json({ error: 'nombre requerido' }, 400);
+
+  const slug = slugifyEs(nombre);
+  const color = emptyOrNull(body.color) ?? '#6b7280';
+
+  const { data, error } = await supabase
+    .from('activos_tags')
+    .insert({ nombre, slug, color })
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data, 201);
+}
+
+export async function handleUpdateActivoTag(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const updates: Record<string, unknown> = {};
+  if (body.nombre !== undefined) {
+    updates.nombre = emptyOrNull(body.nombre) ?? '';
+    updates.slug = slugifyEs(updates.nombre as string);
+  }
+  if (body.color !== undefined) updates.color = emptyOrNull(body.color) ?? '#6b7280';
+
+  if (Object.keys(updates).length === 0) return json({ ok: true, id });
+
+  const { data, error } = await supabase
+    .from('activos_tags')
+    .update(updates)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
+export async function handleDeleteActivoTag(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const { error } = await supabase
+    .from('activos_tags')
+    .delete()
+    .eq('id', id);
+
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true });
+}
+
+export async function handleSyncActivoTags(joinTable: string, body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const activo_id = emptyOrNull(body.activo_id);
+  if (!activo_id) return json({ error: 'activo_id requerido' }, 400);
+
+  const tag_ids: string[] = Array.isArray(body.tag_ids) ? body.tag_ids : [];
+
+  // Delete existing assignments
+  const { error: delError } = await supabase
+    .from(joinTable)
+    .delete()
+    .eq('activo_id', activo_id);
+
+  if (delError) return json({ error: delError.message }, 500);
+
+  // Insert new assignments
+  if (tag_ids.length > 0) {
+    const rows = tag_ids.map((tag_id) => ({ activo_id, tag_id }));
+    const { error: insertError } = await supabase
+      .from(joinTable)
+      .insert(rows);
+
+    if (insertError) return json({ error: insertError.message }, 500);
+  }
+
+  return json({ ok: true, activo_id, tag_ids });
+}
+
+// ─── Activo Características ──────────────────────────────────
+
+export async function handleCreateCaracteristica(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const nombre = emptyOrNull(body.nombre) ?? '';
+  if (!nombre) return json({ error: 'nombre requerido' }, 400);
+
+  const slug = slugifyEs(nombre);
+  const categoria_id = emptyOrNull(body.categoria_id);
+
+  const { data, error } = await supabase
+    .from('activos_caracteristicas')
+    .insert({ nombre, slug, categoria_id })
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data, 201);
+}
+
+export async function handleUpdateCaracteristica(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const updates: Record<string, unknown> = {};
+  if (body.nombre !== undefined) {
+    updates.nombre = emptyOrNull(body.nombre) ?? '';
+    updates.slug = slugifyEs(updates.nombre as string);
+  }
+  if (body.categoria_id !== undefined) updates.categoria_id = emptyOrNull(body.categoria_id);
+
+  if (Object.keys(updates).length === 0) return json({ ok: true, id });
+
+  const { data, error } = await supabase
+    .from('activos_caracteristicas')
+    .update(updates)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
+export async function handleDeleteCaracteristica(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const { error } = await supabase
+    .from('activos_caracteristicas')
+    .delete()
+    .eq('id', id);
+
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true });
+}
+
+export async function handleSyncCaracteristicaValores(valoresTable: string, body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const activo_id = emptyOrNull(body.activo_id);
+  if (!activo_id) return json({ error: 'activo_id requerido' }, 400);
+
+  const valores: Array<{ caracteristica_id: string; valor: string }> = Array.isArray(body.valores) ? body.valores : [];
+
+  // Delete existing values for this activo
+  const { error: delError } = await supabase
+    .from(valoresTable)
+    .delete()
+    .eq('activo_id', activo_id);
+
+  if (delError) return json({ error: delError.message }, 500);
+
+  // Insert new values (skip empty)
+  const rows = valores
+    .filter((v) => v.valor && v.valor.trim())
+    .map((v) => ({ activo_id, caracteristica_id: v.caracteristica_id, valor: v.valor.trim() }));
+
+  if (rows.length > 0) {
+    const { error: insertError } = await supabase
+      .from(valoresTable)
+      .insert(rows);
+
+    if (insertError) return json({ error: insertError.message }, 500);
+  }
+
+  return json({ ok: true, activo_id, count: rows.length });
 }
 
 // ─── Categoria ───────────────────────────────────────────────
@@ -243,14 +530,27 @@ export async function handleUpdateCategoria(
   const id = emptyOrNull(body.id);
   if (!id) return json({ error: 'id requerido' }, 400);
 
-  const nombre = emptyOrNull(body.nombre);
-  if (!nombre) return json({ error: 'nombre requerido' }, 400);
+  // Build update payload — nombre or favorito (or both)
+  const updates: Record<string, unknown> = {};
 
-  const slug = slugifyEs(nombre);
+  if (body.nombre !== undefined) {
+    const nombre = emptyOrNull(body.nombre);
+    if (!nombre) return json({ error: 'nombre requerido' }, 400);
+    updates.nombre = nombre;
+    updates.slug = slugifyEs(nombre);
+  }
+
+  if (body.favorito !== undefined) {
+    updates.favorito = !!body.favorito;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return json({ error: 'nada que actualizar' }, 400);
+  }
 
   const { data, error } = await supabase
     .from(table)
-    .update({ nombre, slug })
+    .update(updates)
     .eq('id', id)
     .select('*')
     .single();

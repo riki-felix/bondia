@@ -10,6 +10,7 @@ import { CASA_CONFIG } from "../../lib/bloqueConfig";
 const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
 const currentYear = new Date().getFullYear();
+const catFilter = Astro.url.searchParams.get("cat");
 
 // Year from query param, default to current
 const url = new URL(Astro.request.url);
@@ -39,7 +40,7 @@ const overrides = allOverrides ?? [];
 // Fetch categories
 const { data: allCategorias } = await supabase
   .from(cfg.tables.ingresosCateg)
-  .select("id, nombre, slug")
+  .select("id, nombre, slug, favorito")
   .order("nombre", { ascending: true });
 
 const categorias = allCategorias ?? [];
@@ -75,6 +76,7 @@ const areaAssignments = areasAssignRes.data ?? [];
         initialYear={ejercicio}
         areas={areas}
         areaAssignments={areaAssignments}
+        initialCatFilter={catFilter}
       />
     )}
   </div>

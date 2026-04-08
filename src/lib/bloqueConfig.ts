@@ -15,6 +15,8 @@ export interface BloqueConfig {
     ingresosOverrides: string;
     areas: string;
     areasCategorias: string;
+    activosTags: string;
+    activosCaracteristicaValores: string;
   };
   /** Supabase join expression:  `*, table_name(nombre)` */
   joins: {
@@ -32,6 +34,8 @@ export interface BloqueConfig {
     createActivo: string;
     updateActivo: string;
     deleteActivo: string;
+    uploadActivoFoto: string;
+    deleteActivoFoto: string;
     createCategoria: string;
     updateCategoria: string;
     deleteCategoria: string;
@@ -40,6 +44,14 @@ export interface BloqueConfig {
     deleteArea: string;
     syncAreaCategorias: string;
     upsertOverride: string;
+    createActivoTag: string;
+    updateActivoTag: string;
+    deleteActivoTag: string;
+    syncActivoTags: string;
+    createCaracteristica: string;
+    updateCaracteristica: string;
+    deleteCaracteristica: string;
+    syncCaracteristicaValores: string;
   };
   routes: {
     control: string;
@@ -66,6 +78,8 @@ export const CASA_CONFIG: BloqueConfig = {
     ingresosOverrides: "casa_ingresos_overrides",
     areas: "casa_areas",
     areasCategorias: "casa_areas_categorias",
+    activosTags: "casa_activos_tags",
+    activosCaracteristicaValores: "casa_activos_caracteristica_valores",
   },
   joins: {
     gastosCateg: "casa_gastos_categorias(nombre)",
@@ -82,6 +96,8 @@ export const CASA_CONFIG: BloqueConfig = {
     createActivo: "/.netlify/functions/createCasaActivo",
     updateActivo: "/.netlify/functions/updateCasaActivo",
     deleteActivo: "/.netlify/functions/deleteCasaActivo",
+    uploadActivoFoto: "/.netlify/functions/uploadCasaActivoFoto",
+    deleteActivoFoto: "/.netlify/functions/deleteCasaActivoFoto",
     createCategoria: "/.netlify/functions/createCasaCategoria",
     updateCategoria: "/.netlify/functions/updateCasaCategoria",
     deleteCategoria: "/.netlify/functions/deleteCasaCategoria",
@@ -90,6 +106,14 @@ export const CASA_CONFIG: BloqueConfig = {
     deleteArea: "/.netlify/functions/deleteCasaArea",
     syncAreaCategorias: "/.netlify/functions/syncCasaAreaCategorias",
     upsertOverride: "/.netlify/functions/upsertCasaOverride",
+    createActivoTag: "/.netlify/functions/createActivoTag",
+    updateActivoTag: "/.netlify/functions/updateActivoTag",
+    deleteActivoTag: "/.netlify/functions/deleteActivoTag",
+    syncActivoTags: "/.netlify/functions/syncCasaActivoTags",
+    createCaracteristica: "/.netlify/functions/createCaracteristica",
+    updateCaracteristica: "/.netlify/functions/updateCaracteristica",
+    deleteCaracteristica: "/.netlify/functions/deleteCaracteristica",
+    syncCaracteristicaValores: "/.netlify/functions/syncCasaCaracteristicaValores",
   },
   routes: {
     control: "/casa/control",
@@ -116,6 +140,8 @@ export const SANYUS_CONFIG: BloqueConfig = {
     ingresosOverrides: "sanyus_ingresos_overrides",
     areas: "sanyus_areas",
     areasCategorias: "sanyus_areas_categorias",
+    activosTags: "sanyus_activos_tags",
+    activosCaracteristicaValores: "sanyus_activos_caracteristica_valores",
   },
   joins: {
     gastosCateg: "sanyus_gastos_categorias(nombre)",
@@ -132,6 +158,8 @@ export const SANYUS_CONFIG: BloqueConfig = {
     createActivo: "/.netlify/functions/createSanyusActivo",
     updateActivo: "/.netlify/functions/updateSanyusActivo",
     deleteActivo: "/.netlify/functions/deleteSanyusActivo",
+    uploadActivoFoto: "/.netlify/functions/uploadSanyusActivoFoto",
+    deleteActivoFoto: "/.netlify/functions/deleteSanyusActivoFoto",
     createCategoria: "/.netlify/functions/createSanyusCategoria",
     updateCategoria: "/.netlify/functions/updateSanyusCategoria",
     deleteCategoria: "/.netlify/functions/deleteSanyusCategoria",
@@ -140,6 +168,14 @@ export const SANYUS_CONFIG: BloqueConfig = {
     deleteArea: "/.netlify/functions/deleteSanyusArea",
     syncAreaCategorias: "/.netlify/functions/syncSanyusAreaCategorias",
     upsertOverride: "/.netlify/functions/upsertSanyusOverride",
+    createActivoTag: "/.netlify/functions/createActivoTag",
+    updateActivoTag: "/.netlify/functions/updateActivoTag",
+    deleteActivoTag: "/.netlify/functions/deleteActivoTag",
+    syncActivoTags: "/.netlify/functions/syncSanyusActivoTags",
+    createCaracteristica: "/.netlify/functions/createCaracteristica",
+    updateCaracteristica: "/.netlify/functions/updateCaracteristica",
+    deleteCaracteristica: "/.netlify/functions/deleteCaracteristica",
+    syncCaracteristicaValores: "/.netlify/functions/syncSanyusCaracteristicaValores",
   },
   routes: {
     control: "/sanyus/control",

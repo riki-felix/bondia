@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS public.cartera_movimientos (
 );
 
 ALTER TABLE public.cartera_movimientos ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for cartera_movimientos"
-  ON public.cartera_movimientos FOR ALL USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'cartera_movimientos' AND policyname = 'Allow all for cartera_movimientos') THEN
+    CREATE POLICY "Allow all for cartera_movimientos"
+      ON public.cartera_movimientos FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- ─── Ajustes (saldo manual de Ahorro) ───────────────────────
 
@@ -28,8 +32,12 @@ CREATE TABLE IF NOT EXISTS public.cartera_ajustes (
 );
 
 ALTER TABLE public.cartera_ajustes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for cartera_ajustes"
-  ON public.cartera_ajustes FOR ALL USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'cartera_ajustes' AND policyname = 'Allow all for cartera_ajustes') THEN
+    CREATE POLICY "Allow all for cartera_ajustes"
+      ON public.cartera_ajustes FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Seed ahorro row
 INSERT INTO public.cartera_ajustes (cartera, importe)
