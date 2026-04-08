@@ -11,6 +11,7 @@ import { type BloqueActivo, type BloqueCategoria, type ActivoTag } from "@/lib/b
 import type { BloqueConfig } from "@/lib/bloqueConfig";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import BloqueCategoryDonut from "./BloqueCategoryDonut";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -113,6 +114,22 @@ export default function BloqueActivosTable({
     [rows]
   );
 
+  // ── Category aggregation for donut ──
+  const categoryDonutData = useMemo(() => {
+    const map = new Map<string, { name: string; value: number }>();
+    for (const row of rows) {
+      const catId = row.categoria_id ?? "__none__";
+      const catName = row.categoria_nombre || "Sin categoría";
+      const value = row.precio_compra ?? 0;
+      if (!map.has(catId)) map.set(catId, { name: catName, value: 0 });
+      map.get(catId)!.value += value;
+    }
+    return Array.from(map.entries())
+      .map(([id, { name, value }]) => ({ id, name, value }))
+      .filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [rows]);
+
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
@@ -157,6 +174,15 @@ export default function BloqueActivosTable({
           </span>
         )}
       </div>
+
+      {/* ── Donut ── */}
+      {categoryDonutData.length > 0 && (
+        <BloqueCategoryDonut
+          data={categoryDonutData}
+          label="Coste total"
+          showMensual={false}
+        />
+      )}
 
       {/* ── Table ── */}
       <div className="rounded-md border overflow-x-auto">

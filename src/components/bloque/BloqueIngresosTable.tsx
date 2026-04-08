@@ -25,8 +25,7 @@ import {
 import type { BloqueConfig } from "@/lib/bloqueConfig";
 import { Plus, Trash2, Layers, List } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { DateRangePopover } from "./DateRangePopover";
-
+import { DateRangePopover } from "./DateRangePopover";import BloqueCategoryDonut from "./BloqueCategoryDonut";
 // ─── Props ───────────────────────────────────────────────────
 
 interface BloqueIngresosTableProps {
@@ -388,6 +387,14 @@ export default function BloqueIngresosTable({
           </div>
         )}
       </div>
+
+      {/* ── Donut ── */}
+      {categoryRows.length > 0 && (
+        <BloqueCategoryDonut
+          data={categoryRows.map((c) => ({ id: c.catId, name: c.catName, value: c.total }))}
+          label="Total anual"
+        />
+      )}
 
       {/* ── Table ── */}
       <div className="rounded-md border overflow-x-auto">
