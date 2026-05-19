@@ -190,7 +190,8 @@ export function EditableCell({
     } else if (type === "date") {
       display = fmtDate(value as string | null);
     } else {
-      display = value != null ? String(value) : "—";
+      const text = value != null ? String(value).trim() : "";
+      display = text ? String(value) : "—";
     }
 
     return (

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Building2, ChevronDown, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import {
   Sidebar,
@@ -65,26 +65,36 @@ function getInitialOpen(currentPath: string): Record<string, boolean> {
   const active = getGroupForPath(currentPath)
   const defaults: Record<string, boolean> = {}
   if (active) defaults[active] = true
-
-  // Merge with sessionStorage (client-only) so manually-opened groups persist
-  if (typeof window !== "undefined") {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw) as Record<string, boolean>
-        for (const [k, v] of Object.entries(saved)) {
-          defaults[k] = v
-        }
-        // Ensure the active group is always open
-        if (active) defaults[active] = true
-      }
-    } catch {}
-  }
   return defaults
 }
 
 export function AppSidebar({ currentPath, favoritos = [] }: AppSidebarProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpen(currentPath))
+
+  useEffect(() => {
+    const active = getGroupForPath(currentPath)
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      if (active) next[active] = true
+      return next
+    })
+  }, [currentPath])
+
+  useEffect(() => {
+    const active = getGroupForPath(currentPath)
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Record<string, boolean>
+      setOpenGroups((prev) => {
+        const next = { ...prev, ...saved }
+        if (active) next[active] = true
+        return next
+      })
+    } catch {
+      // Ignore malformed persisted state.
+    }
+  }, [currentPath])
 
   const toggle = useCallback((group: string, open: boolean) => {
     setOpenGroups((prev) => {
@@ -117,7 +127,7 @@ export function AppSidebar({ currentPath, favoritos = [] }: AppSidebarProps) {
                       <SidebarMenuItem key={fav.href}>
                         <SidebarMenuButton
                           asChild
-                          isActive={currentPath + (typeof window !== "undefined" ? window.location.search : "") === fav.href}
+                          isActive={currentPath === fav.href}
                           tooltip={fav.nombre}
                         >
                           <a href={fav.href}>

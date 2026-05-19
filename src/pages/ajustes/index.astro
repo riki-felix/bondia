@@ -4,6 +4,7 @@ export const prerender = false;
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
 import MetodosPagoManager from "../../components/ajustes/MetodosPagoManager";
+import FeatureProgressPanel from "../../components/ajustes/FeatureProgressPanel";
 import { supabaseClient } from "../../lib/supabaseClient";
 
 const supabase = supabaseClient();
@@ -12,6 +13,11 @@ const { data: metodosPago } = await supabase
   .from("metodos_pago")
   .select("*")
   .order("created_at", { ascending: true });
+
+const { data: featureTasks } = await supabase
+  .from("feature_tasks")
+  .select("*")
+  .order("created_at", { ascending: false });
 ---
 
 <Layout>
@@ -23,10 +29,17 @@ const { data: metodosPago } = await supabase
       </p>
     </div>
 
-    <MetodosPagoManager
-      client:load
-      initialData={metodosPago ?? []}
-    />
+    <div class="grid gap-6 lg:grid-cols-12">
+      <div class="lg:col-span-7 xl:col-span-8">
+        <MetodosPagoManager
+          client:load
+          initialData={metodosPago ?? []}
+        />
+      </div>
+      <div class="lg:col-span-5 xl:col-span-4">
+        <FeatureProgressPanel client:load initialData={featureTasks ?? []} />
+      </div>
+    </div>
   </div>
   <Toaster client:load />
 </Layout>

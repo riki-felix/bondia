@@ -799,6 +799,84 @@ export async function handleDeleteMetodoPago(body: any) {
   return ok();
 }
 
+// ─── Feature Tasks (Ajustes) ────────────────────────────────
+
+function parseProgress(value: any): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return Math.round(n);
+}
+
+export async function handleCreateFeatureTask(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const titulo = emptyOrNull(body.titulo);
+  if (!titulo) return json({ error: 'titulo requerido' }, 400);
+
+  const descripcion = emptyOrNull(body.descripcion) ?? '';
+  const progreso = parseProgress(body.progreso);
+
+  const { data, error } = await supabase
+    .from('feature_tasks')
+    .insert({ titulo, descripcion, progreso })
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data, 201);
+}
+
+export async function handleUpdateFeatureTask(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const updates: Record<string, unknown> = {};
+
+  if (body.titulo !== undefined) {
+    const titulo = emptyOrNull(body.titulo);
+    if (!titulo) return json({ error: 'titulo no puede estar vacío' }, 400);
+    updates.titulo = titulo;
+  }
+
+  if (body.descripcion !== undefined) {
+    updates.descripcion = emptyOrNull(body.descripcion) ?? '';
+  }
+
+  if (body.progreso !== undefined) {
+    updates.progreso = parseProgress(body.progreso);
+  }
+
+  if (Object.keys(updates).length === 0) return json({ ok: true, id });
+
+  const { data, error } = await supabase
+    .from('feature_tasks')
+    .update(updates)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) return json({ error: error.message }, 500);
+  return json(data);
+}
+
+export async function handleDeleteFeatureTask(body: any) {
+  ensureConfig();
+  const supabase = serviceSupabase();
+
+  const id = emptyOrNull(body.id);
+  if (!id) return json({ error: 'id requerido' }, 400);
+
+  const { error } = await supabase.from('feature_tasks').delete().eq('id', id);
+  if (error) return json({ error: error.message }, 500);
+  return ok();
+}
+
 // ─── Cartera ─────────────────────────────────────────────────
 
 const CARTERAS = new Set(['inversiones', 'familiar', 'sanyus', 'ahorro']);

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -12,9 +12,15 @@ interface SidebarLayoutProps {
 }
 
 export function SidebarLayout({ currentPath, favoritos = [], children }: SidebarLayoutProps) {
-  const [incognito, setIncognito] = useState(() =>
-    typeof window !== "undefined" && sessionStorage.getItem("incognito") === "1"
-  )
+  const [incognito, setIncognito] = useState(false)
+
+  useEffect(() => {
+    try {
+      setIncognito(sessionStorage.getItem("incognito") === "1")
+    } catch {
+      // Ignore storage access issues.
+    }
+  }, [])
 
   const toggleIncognito = () => {
     setIncognito((v) => {

@@ -508,6 +508,7 @@ export default function CasaGastosTable({
                       <EditableCell
                         value={row.concepto}
                         type="text"
+                        className="flex-1 min-w-[140px]"
                         onSave={(v) => updateField(row.id, "concepto", v)}
                       />
                     </div>

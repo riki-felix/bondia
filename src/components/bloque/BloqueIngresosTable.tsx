@@ -1,5 +1,5 @@
 // src/components/bloque/BloqueIngresosTable.tsx
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -23,7 +23,7 @@ import {
   buildOverridesMap,
 } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2, Layers, List } from "lucide-react";
+import { Plus, Trash2, Layers, List, ArrowUp, ArrowDown } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { DateRangePopover } from "./DateRangePopover";import BloqueCategoryDonut from "./BloqueCategoryDonut";
 // ─── Props ───────────────────────────────────────────────────
@@ -58,6 +58,11 @@ export default function BloqueIngresosTable({
   const [activeArea, setActiveArea] = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
   const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
+  const [conceptSort, setConceptSort] = useState<"asc" | "desc" | null>(() => {
+    if (typeof window === "undefined") return null;
+    const sort = new URLSearchParams(window.location.search).get("sortConcepto");
+    return sort === "asc" || sort === "desc" ? sort : null;
+  });
 
   // Build set of categoria_ids for active area filter (ingresos only)
   const areaCatIds = useMemo(() => {
@@ -152,6 +157,27 @@ export default function BloqueIngresosTable({
       toast.error(e.message || "Error al crear");
     }
   }, [ejercicio, config]);
+
+  const toggleConceptSort = useCallback(() => {
+    setConceptSort((prev) => {
+      if (prev === null) return "asc";
+      if (prev === "asc") return "desc";
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    if (conceptSort) {
+      url.searchParams.set("sortConcepto", conceptSort);
+    } else {
+      url.searchParams.delete("sortConcepto");
+    }
+
+    window.history.replaceState({}, "", url.toString());
+  }, [conceptSort]);
 
   // ── Update field ──
   const updateField = useCallback(
@@ -311,7 +337,25 @@ export default function BloqueIngresosTable({
       .sort((a, b) => b.total - a.total);
   }, [filteredRows, ejercicio, overridesMap]);
 
-  const visibleRows = filteredRows;
+  const visibleRows = useMemo(() => {
+    if (conceptSort === null) return filteredRows;
+
+    return [...filteredRows].sort((a, b) => {
+      const left = String(a.concepto ?? "").trim();
+      const right = String(b.concepto ?? "").trim();
+      const leftEmpty = left.length === 0;
+      const rightEmpty = right.length === 0;
+
+      // Keep empty concepts pinned at the top so newly created rows stay visible.
+      if (leftEmpty !== rightEmpty) return leftEmpty ? -1 : 1;
+      if (leftEmpty && rightEmpty) return 0;
+
+      const cmp = left.localeCompare(right, "es", { sensitivity: "base" });
+
+      if (cmp !== 0) return conceptSort === "asc" ? cmp : -cmp;
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }, [filteredRows, conceptSort]);
 
   return (
     <div className="space-y-4">
@@ -404,7 +448,28 @@ export default function BloqueIngresosTable({
               <TableHead className="w-[140px]">Categoría</TableHead>
               {viewMode === "detalle" && (
                 <>
-                  <TableHead className="w-[200px]">Concepto</TableHead>
+                  <TableHead className="w-[200px]">
+                    <button
+                      type="button"
+                      onClick={toggleConceptSort}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      title="Ordenar por concepto"
+                    >
+                      <span>Concepto</span>
+                      <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+                        <ArrowUp
+                          className={`h-3 w-3 ${
+                            conceptSort === "asc" ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        />
+                        <ArrowDown
+                          className={`h-3 w-3 ${
+                            conceptSort === "desc" ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[120px]">Frecuencia</TableHead>
                 </>
               )}
