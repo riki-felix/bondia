@@ -11,5 +11,8 @@
   port = 8888
   autoLaunch = false
 
+[dev.environment]
+  NODE_ENV = "development"
+
 [template]
   required-extensions = ["supabase"]

@@ -78,7 +78,7 @@ export default function InversionesTable({
   const isDraft = (r: Property) => r.estado === "borrador";
 
   const liquidadasCount = useMemo(
-    () => rows.filter((r) => !!r.liq).length,
+    () => rows.filter((r) => r.liquidacion === true).length,
     [rows]
   );
 
@@ -92,7 +92,7 @@ export default function InversionesTable({
 
     // Liquidadas filter
     if (showLiquidadas) {
-      result = result.filter((r) => !!r.liq);
+      result = result.filter((r) => r.liquidacion === true);
     }
 
     // Year filter
@@ -188,21 +188,8 @@ export default function InversionesTable({
         payload.numero_operacion = null;
       }
 
-      // If it's a trigger for calculated fields, include those too
-      const row = rows.find((r) => r.id === id);
-      if (row && (field === "aportacion" || field === "retribucion" || field === "ingreso_banco")) {
-        const aportacion = toNum(
-          field === "aportacion" ? value : row.aportacion
-        );
-        const retribucion = toNum(
-          field === "retribucion" ? value : row.retribucion
-        );
-        const ingreso_banco = toNum(
-          field === "ingreso_banco" ? value : row.ingreso_banco
-        );
-        const calc = recalcProperty({ aportacion, retribucion, ingreso_banco });
-        Object.assign(payload, calc);
-      }
+      // Do not send generated columns (retencion/efectivo/jasp_10_percent) to DB.
+      // They are recalculated optimistically in UI and persisted by DB generation rules.
 
       try {
         const supabase = getSupabase();
@@ -383,21 +370,21 @@ export default function InversionesTable({
               </TableRow>
             ) : (
               filteredRows.map((row, idx) => {
-                const isLiq = !!row.liq;
-                // Use liquidación values when available
-                const displayAportacion = isLiq ? row.liq!.aportacion : row.aportacion;
-                const displayRetribucion = isLiq ? row.liq!.retribucion : row.retribucion;
-                const displayRetencion = isLiq ? row.liq!.retencion : row.retencion;
-                const displayIngresoBanco = isLiq ? row.liq!.transferencia : row.ingreso_banco;
-                const displayEfectivo = isLiq ? row.liq!.efectivo : row.efectivo;
+                const isLiquidada = row.liquidacion === true;
+                // Use liquidación values only when the property is actually marked as liquidated.
+                const displayAportacion = isLiquidada && row.liq ? row.liq.aportacion : row.aportacion;
+                const displayRetribucion = isLiquidada && row.liq ? row.liq.retribucion : row.retribucion;
+                const displayRetencion = isLiquidada && row.liq ? row.liq.retencion : row.retencion;
+                const displayIngresoBanco = isLiquidada && row.liq ? row.liq.transferencia : row.ingreso_banco;
+                const displayEfectivo = isLiquidada && row.liq ? row.liq.efectivo : row.efectivo;
 
                 // Per-year sequential ID when a year is selected; global numero_operacion otherwise
                 const isBorrador = row.estado === "borrador";
 
                 return (
-                <TableRow key={row.id} className={isLiq ? "bg-green-50/40" : isBorrador ? "opacity-60" : ""}>
+                <TableRow key={row.id} className={isLiquidada ? "bg-green-50/40" : isBorrador ? "opacity-60" : ""}>
                   {/* ID */}
-                  <TableCell className={`text-sm font-medium tabular-nums min-w-[50px] max-w-[50px] sticky left-0 z-10 ${isLiq ? "bg-green-50" : "bg-background"}`}>
+                  <TableCell className={`text-sm font-medium tabular-nums min-w-[50px] max-w-[50px] sticky left-0 z-10 ${isLiquidada ? "bg-green-50" : "bg-background"}`}>
                     {isBorrador ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
@@ -427,7 +414,7 @@ export default function InversionesTable({
                   </TableCell>
 
                   {/* NOMBRE */}
-                  <TableCell className={`sticky left-[50px] z-10 shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)] ${isLiq ? "bg-green-50" : "bg-background"}`}>
+                  <TableCell className={`sticky left-[50px] z-10 shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)] ${isLiquidada ? "bg-green-50" : "bg-background"}`}>
                     <EditableCell
                       value={row.titulo}
                       type="text"
@@ -482,7 +469,7 @@ export default function InversionesTable({
 
                   {/* APORTACIÓN */}
                   <TableCell>
-                    {isLiq ? (
+                    {isLiquidada ? (
                       <EditableCell value={displayAportacion} type="readonly-money" onSave={() => {}} />
                     ) : (
                       <EditableCell
@@ -495,7 +482,7 @@ export default function InversionesTable({
 
                   {/* RETRIBUCIÓN */}
                   <TableCell>
-                    {isLiq ? (
+                    {isLiquidada ? (
                       <EditableCell value={displayRetribucion} type="readonly-money" onSave={() => {}} />
                     ) : (
                       <EditableCell
@@ -517,7 +504,7 @@ export default function InversionesTable({
 
                   {/* INGRESO BANCO / TRANSFERENCIA (highlighted) */}
                   <TableCell className="bg-yellow-50">
-                    {isLiq ? (
+                    {isLiquidada ? (
                       <EditableCell value={displayIngresoBanco} type="readonly-money" onSave={() => {}} />
                     ) : (
                       <EditableCell
@@ -549,9 +536,9 @@ export default function InversionesTable({
 
                   {/* TRANSFE (date — from liquidación if available) */}
                   <TableCell>
-                    {isLiq && row.liq!.fecha_transferencia ? (
+                    {isLiquidada && row.liq?.fecha_transferencia ? (
                       <span className="text-sm tabular-nums">
-                        {new Date(row.liq!.fecha_transferencia).toLocaleDateString("es-ES")}
+                        {new Date(row.liq.fecha_transferencia).toLocaleDateString("es-ES")}
                       </span>
                     ) : (
                       <EditableCell
@@ -622,7 +609,7 @@ export default function InversionesTable({
 
                   {/* LIQUIDADA */}
                   <TableCell className="text-center">
-                    {isLiq ? (
+                    {isLiquidada ? (
                       <Badge variant="success" className="text-xs">Sí</Badge>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
