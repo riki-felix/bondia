@@ -1,11 +1,15 @@
 // src/components/home/HomeDashboard.tsx
 import { Card, CardContent } from "@/components/ui/card";
 import { formatEuro } from "@/lib/money";
+import { IngresosBancoWidget } from "@/components/home/IngresosBancoWidget";
+import type { IngresoBancoLiquidacionRow } from "@/lib/ingresosBancoAggregate";
 
 interface Props {
   ejercicio: number;
   mediaGastosMensual: number;
   mediaAlquilerMensual: number;
+  ingresosBancoLiquidaciones: IngresoBancoLiquidacionRow[];
+  ingresosBancoYears: number[];
 }
 
 const ALQUILER_MEDIO_POR_PISO = 800;
@@ -14,6 +18,8 @@ export default function HomeDashboard({
   ejercicio,
   mediaGastosMensual,
   mediaAlquilerMensual,
+  ingresosBancoLiquidaciones,
+  ingresosBancoYears,
 }: Props) {
   const pct =
     mediaGastosMensual > 0
@@ -29,8 +35,16 @@ export default function HomeDashboard({
   const pisosNecesarios =
     deficitMensual > 0 ? Math.ceil(deficitMensual / ALQUILER_MEDIO_POR_PISO) : 0;
 
+  const currentYear = new Date().getFullYear();
+
   return (
     <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <IngresosBancoWidget
+          liquidaciones={ingresosBancoLiquidaciones}
+          years={ingresosBancoYears}
+          defaultYear={currentYear}
+        />
       <Card>
         <CardContent className="pt-6">
           <h3 className="text-base font-semibold mb-4">
@@ -64,6 +78,7 @@ export default function HomeDashboard({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

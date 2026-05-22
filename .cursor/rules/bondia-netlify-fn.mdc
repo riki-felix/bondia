@@ -1,0 +1,14 @@
+---
+description: Convenciones para Netlify Functions de Bondia (service role, handlers compartidos)
+globs: netlify/functions/**/*.ts
+alwaysApply: false
+---
+
+# Netlify Functions en Bondia
+
+- Exportar `export const handler: Handler` desde cada archivo en `netlify/functions/`.
+- Usar `ensureConfig()` y `serviceSupabase()` de `_shared.ts`; no instanciar Supabase con anon key en functions.
+- CRUD de bloques Casa/Sanyus: delegar en `_bloqueHandlers.ts` con `wrapHandler` y nombre de tabla explícito.
+- Respuestas con `json()` u `ok()` de `_shared` para CORS y formato consistente.
+- Convención de nombres: `createCasaGasto` / `createSanyusGasto` (espejo). Tags y características compartidas sin prefijo de bloque en el nombre del archivo cuando aplique.
+- Tras añadir function, registrar URL en `src/lib/bloqueConfig.ts` y probar con `netlify dev`.

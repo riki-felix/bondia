@@ -1,6 +1,12 @@
 # Bondia
 
-A property management and investment tracking application built with Astro and Supabase.
+Aplicación de gestión patrimonial e inversiones inmobiliarias (Astro, Supabase, Netlify).
+
+## Arquitectura y agentes
+
+- **[AGENTS.md](AGENTS.md)** — guía para asistentes de código (stack, reglas, skills).
+- Skills del repo en `.cursor/skills/` (`bondia-architecture`, `bondia-bloques`, `bondia-netlify-functions`, `bondia-supabase`, `bondia-deploy`).
+- Desarrollo con mutaciones: `netlify dev --target-port 4321` (no solo `npm run dev`).
 
 ## Deploying to Netlify
 

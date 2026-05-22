@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
-import { Building2, ChevronDown, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { Building2, ChevronDown, FileStack, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,10 @@ const navItems = [
   { title: "Inversiones", href: "/inversiones", icon: Building2 },
   { title: "Liquidaciones", href: "/liquidaciones", icon: Receipt },
   { title: "Propiedades", href: "/propiedades", icon: Home },
+]
+
+const documentosItems = [
+  { title: "Explorador", href: "/documentos", icon: FileStack },
 ]
 
 const casaItems = [
@@ -55,6 +59,7 @@ interface AppSidebarProps {
 const STORAGE_KEY = "sidebar-open-groups"
 
 function getGroupForPath(path: string): string | null {
+  if (path.startsWith("/documentos")) return "documentos"
   if (path.startsWith("/casa")) return "casa"
   if (path.startsWith("/sanyus")) return "sanyus"
   return "engine"
@@ -215,6 +220,36 @@ export function AppSidebar({ currentPath, favoritos = [] }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {sanyusItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={currentPath.startsWith(item.href)}
+                        tooltip={item.title}
+                      >
+                        <a href={item.href}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+        <Collapsible open={!!openGroups.documentos} onOpenChange={(o) => toggle("documentos", o)} className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger>
+                Documentos
+                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {documentosItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild

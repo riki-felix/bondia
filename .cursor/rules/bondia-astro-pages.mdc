@@ -1,0 +1,14 @@
+---
+description: Convenciones para páginas Astro SSR de Bondia (lecturas Supabase, sin mutaciones directas)
+globs: src/pages/**/*.astro
+alwaysApply: false
+---
+
+# Páginas Astro en Bondia
+
+- Incluir `export const prerender = false` en páginas de aplicación.
+- Lecturas en el frontmatter con `supabaseClient()` y tablas de `bloqueConfig` (`CASA_CONFIG` / `SANYUS_CONFIG`) cuando sea bloque Casa/Sanyus.
+- No usar `.insert()`, `.update()` ni `.delete()` desde la página; las mutaciones van a `/.netlify/functions/` vía componentes React.
+- Pasar datos a islas React con props serializables; usar `client:load` en componentes interactivos.
+- Reutilizar `Layout` desde `src/components/Layout.astro`.
+- Al añadir ruta nueva, actualizar `AppSidebar.tsx` si debe aparecer en navegación.

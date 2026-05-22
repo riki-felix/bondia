@@ -29,6 +29,9 @@ pnpm-debug.log*
 # Supabase
 supabase/.temp
 
+# Cursor MCP (tokens; usar mcp.json.example como plantilla)
+.cursor/mcp.json
+
 # Python
 __pycache__/
 *.pyc

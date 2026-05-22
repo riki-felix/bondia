@@ -18,11 +18,16 @@ const { data: allProperties, error } = await supabase
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
 
-// Fetch liquidaciones aggregated by propiedad_id (only liquidadas)
+// Liquidaciones liquidadas (overlay por propiedad)
 const { data: allLiq } = await supabase
   .from("liquidaciones")
   .select("propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio")
   .eq("liquidado", true);
+
+// Todas las filas de liquidaciones (totales globales = /liquidaciones)
+const { data: allLiqRows } = await supabase
+  .from("liquidaciones")
+  .select("transferencia, ejercicio");
 
 // Aggregate liquidaciones per property
 const liqByProp = new Map<string, { aportacion: number; retribucion: number; retencion: number; transferencia: number; efectivo: number; fecha_transferencia: string | null; ejercicio: number | null }>();
@@ -89,6 +94,10 @@ const initialYear =
         initialData={properties}
         years={years}
         initialYear={initialYear}
+        liquidacionesTransferencias={(allLiqRows ?? []).map((l) => ({
+          transferencia: l.transferencia,
+          ejercicio: l.ejercicio,
+        }))}
       />
     )}
   </div>

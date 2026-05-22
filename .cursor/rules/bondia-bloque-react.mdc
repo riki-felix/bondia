@@ -1,0 +1,13 @@
+---
+description: Componentes React genéricos de bloques Casa/Sanyus en Bondia
+globs: src/components/bloque/**/*.tsx
+alwaysApply: false
+---
+
+# Componentes bloque en Bondia
+
+- Recibir `config: BloqueConfig` (desde `bloqueConfig.ts`); no hardcodear tablas `casa_*` ni rutas `/casa/` dentro del componente genérico.
+- Mutaciones vía `fetch(config.endpoints.*, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(...) })`.
+- Lecturas en cliente solo si la página no precargó datos; preferir datos pasados desde `.astro` cuando sea posible.
+- Tipos desde `src/lib/bloqueTypes.ts`.
+- Cambios que afecten formularios o columnas: revisar checklist espejo Casa/Sanyus (skill `bondia-bloques`).

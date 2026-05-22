@@ -17,6 +17,7 @@ import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag, type ActivoCaracteristica, type ActivoCaracteristicaValor } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
 import { ArrowLeft, Save, Loader2, Upload, Trash2, ImageIcon, X, Tag } from "lucide-react";
+import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -476,6 +477,14 @@ export default function BloqueActivoDetail({
               />
             </CardContent>
           </Card>
+
+          {!isNew && activo && (
+            <EntityDocumentsPanel
+              bloque={config.id}
+              entityType="activo"
+              entityId={activo.id}
+            />
+          )}
 
           {/* Características */}
           {filteredCaracteristicas.length > 0 && (

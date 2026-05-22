@@ -18,6 +18,7 @@ import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro } from "@/lib/moneyCalc";
 import { ArrowLeft, Building2, Calendar, Clock, ImagePlus, Loader2, Save } from "lucide-react";
+import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -430,6 +431,14 @@ export default function PropertyDetail({
           />
         </CardContent>
       </Card>
+
+      {!isCreate && property && (
+        <EntityDocumentsPanel
+          bloque="engine"
+          entityType="propiedad"
+          entityId={property.id}
+        />
+      )}
 
       {/* ── Save button ── */}
       <div className="flex justify-end">

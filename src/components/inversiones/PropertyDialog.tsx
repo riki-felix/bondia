@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
+import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 
 interface PropertyDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ interface PropertyDialogProps {
 
 const EMPTY_FORM = {
   titulo: "",
+  origen: "",
   direccion: "",
   precio_venta: "",
   precio_compra: "",
@@ -74,7 +76,7 @@ export function PropertyDialog({
       const { data, error } = await supabase
         .from("propiedades")
         .select(
-          "titulo, direccion, precio_compra, precio_venta, superficie_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path"
+          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path"
         )
         .eq("id", editId)
         .single();
@@ -89,6 +91,7 @@ export function PropertyDialog({
 
       setForm({
         titulo: data.titulo || "",
+        origen: data.origen || "",
         direccion: data.direccion || "",
         precio_compra: data.precio_compra != null ? String(data.precio_compra) : "",
         precio_venta: data.precio_venta != null ? String(data.precio_venta) : "",
@@ -165,6 +168,7 @@ export function PropertyDialog({
           titulo: form.titulo.trim(),
           estado: form.estado,
           ocupado: form.ocupado === "true",
+          origen: form.origen.trim() || null,
           direccion: form.direccion.trim() || null,
           precio_venta: form.precio_venta || null,
           precio_compra: form.precio_compra || null,
@@ -282,6 +286,15 @@ export function PropertyDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="origen">Origen</Label>
+                  <Input
+                    id="origen"
+                    value={form.origen}
+                    onChange={set("origen")}
+                    placeholder="Fuente u origen de la inversión"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="direccion">Dirección</Label>
                   <Input
                     id="direccion"
@@ -456,6 +469,19 @@ export function PropertyDialog({
                 </div>
               </div>
             </div>
+
+            {isEdit && editId && (
+              <>
+                <Separator />
+                <EntityDocumentsPanel
+                  bloque="engine"
+                  entityType="propiedad"
+                  entityId={editId}
+                  compact
+                  disabledMessage="Guarda la propiedad para adjuntar documentos."
+                />
+              </>
+            )}
 
             {/* ── Actions ── */}
             <DialogFooter>

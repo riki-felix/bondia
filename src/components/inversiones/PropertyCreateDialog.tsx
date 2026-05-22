@@ -31,6 +31,7 @@ interface PropertyCreateDialogProps {
 
 const EMPTY_FORM = {
   titulo: "",
+  origen: "",
   direccion: "",
   precio_venta: "",
   precio_compra: "",
@@ -112,6 +113,7 @@ export function PropertyCreateDialog({
           ocupado: form.ocupado === "true",
         };
 
+        if (form.origen.trim()) payload.origen = form.origen.trim();
         if (form.direccion.trim()) payload.direccion = form.direccion.trim();
         if (form.precio_venta) payload.precio_venta = form.precio_venta;
         if (form.precio_compra) payload.precio_compra = form.precio_compra;
@@ -208,6 +210,15 @@ export function PropertyCreateDialog({
                 />
               </div>
               <div className="space-y-1.5">
+                <Label htmlFor="origen">Origen</Label>
+                <Input
+                  id="origen"
+                  value={form.origen}
+                  onChange={set("origen")}
+                  placeholder="Fuente u origen de la inversión"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="direccion">Dirección</Label>
                 <Input
                   id="direccion"

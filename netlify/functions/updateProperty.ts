@@ -206,6 +206,7 @@ export const handler: Handler = async (event) => {
 	// básicos
 	if (body.titulo !== undefined) updates.titulo = emptyOrNull(body.titulo);
 	if (body.direccion !== undefined) updates.direccion = emptyOrNull(body.direccion);
+	if (body.origen !== undefined) updates.origen = emptyOrNull(body.origen);
 	if (body.superficie_m2 !== undefined) updates.superficie_m2 = toIntOrNull(body.superficie_m2);
 	if (body.anio_construccion !== undefined) updates.anio_construccion = toYearOrNull(body.anio_construccion);
 	if (body.numero_catastro !== undefined) updates.numero_catastro = emptyOrNull(body.numero_catastro);

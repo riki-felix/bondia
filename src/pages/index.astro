@@ -7,6 +7,10 @@ import HomeDashboard from "../components/home/HomeDashboard";
 import { supabaseClient } from "../lib/supabaseClient";
 import { CASA_CONFIG, SANYUS_CONFIG } from "../lib/bloqueConfig";
 import { calcularImporteMes, buildOverridesMap } from "../lib/bloqueTypes";
+import {
+  loadIngresosBancoPropiedades,
+  collectIngresosBancoYears,
+} from "../lib/ingresosBancoAggregate";
 
 const supabase = supabaseClient();
 const ejercicio = new Date().getFullYear();
@@ -55,6 +59,22 @@ const alquilerAnual = annualTotal(alquilerIngresos, allIngresosOverrides, "ingre
 // Monthly averages
 const mediaGastosMensual = Math.round((gastosAnual / 12) * 100) / 100;
 const mediaAlquilerMensual = Math.round((alquilerAnual / 12) * 100) / 100;
+
+const { data: liqIngresosBanco } = await supabase
+  .from("liquidaciones")
+  .select("transferencia, ejercicio");
+
+const ingresosBancoLiquidaciones = (liqIngresosBanco ?? []).map((l) => ({
+  transferencia: l.transferencia,
+  ejercicio: l.ejercicio,
+}));
+
+const ingresosBancoPropiedades = await loadIngresosBancoPropiedades(supabase);
+const ingresosBancoYears = collectIngresosBancoYears(
+  ingresosBancoLiquidaciones,
+  ingresosBancoPropiedades,
+  ejercicio
+);
 ---
 
 <Layout>
@@ -71,6 +91,8 @@ const mediaAlquilerMensual = Math.round((alquilerAnual / 12) * 100) / 100;
       ejercicio={ejercicio}
       mediaGastosMensual={mediaGastosMensual}
       mediaAlquilerMensual={mediaAlquilerMensual}
+      ingresosBancoLiquidaciones={ingresosBancoLiquidaciones}
+      ingresosBancoYears={ingresosBancoYears}
     />
   </div>
   <Toaster client:load />

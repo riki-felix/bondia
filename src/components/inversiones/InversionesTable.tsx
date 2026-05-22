@@ -36,6 +36,11 @@ import { Plus, Archive, Trash2, Pencil, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import {
+  effectiveIngresoBancoPropiedad,
+  sumTransferenciasLiquidaciones,
+  type IngresoBancoLiquidacionRow,
+} from "@/lib/ingresosBancoAggregate";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -43,6 +48,8 @@ interface InversionesTableProps {
   initialData: Property[];
   years: number[];
   initialYear: number | null;
+  /** Todas las liquidaciones (para total global = /liquidaciones) */
+  liquidacionesTransferencias: IngresoBancoLiquidacionRow[];
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -51,6 +58,7 @@ export default function InversionesTable({
   initialData,
   years,
   initialYear,
+  liquidacionesTransferencias,
 }: InversionesTableProps) {
   const [rows, setRows] = useState<Property[]>(initialData);
   const [search, setSearch] = useState("");
@@ -132,7 +140,6 @@ export default function InversionesTable({
       "aportacion",
       "retribucion",
       "retencion",
-      "ingreso_banco",
       "efectivo",
       "jasp_10_percent",
     ] as const;
@@ -140,8 +147,13 @@ export default function InversionesTable({
     for (const f of moneyFields) {
       result[f] = sumColumn(nonDraftRows as unknown as Record<string, unknown>[], f);
     }
+    const { total: transferenciaTotal } = sumTransferenciasLiquidaciones(
+      liquidacionesTransferencias,
+      yearFilter
+    );
+    result.ingreso_banco = transferenciaTotal;
     return result;
-  }, [filteredRows]);
+  }, [filteredRows, liquidacionesTransferencias, yearFilter]);
 
   // ── Save single field ──
   const saveField = useCallback(
@@ -375,7 +387,10 @@ export default function InversionesTable({
                 const displayAportacion = isLiquidada && row.liq ? row.liq.aportacion : row.aportacion;
                 const displayRetribucion = isLiquidada && row.liq ? row.liq.retribucion : row.retribucion;
                 const displayRetencion = isLiquidada && row.liq ? row.liq.retencion : row.retencion;
-                const displayIngresoBanco = isLiquidada && row.liq ? row.liq.transferencia : row.ingreso_banco;
+                const displayIngresoBanco = effectiveIngresoBancoPropiedad({
+                  ingreso_banco: row.ingreso_banco,
+                  liqTransferencia: row.liq?.transferencia ?? null,
+                });
                 const displayEfectivo = isLiquidada && row.liq ? row.liq.efectivo : row.efectivo;
 
                 // Per-year sequential ID when a year is selected; global numero_operacion otherwise

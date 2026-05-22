@@ -32,6 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2 } from "lucide-react";
 import { LiquidacionesSummary } from "./LiquidacionesSummary";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { sumTransferenciasLiquidaciones } from "@/lib/ingresosBancoAggregate";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -136,14 +137,21 @@ export default function LiquidacionesTable({
       "retencion",
       "neto",
       "efectivo",
-      "transferencia",
     ] as const;
     const result: Record<string, number> = {};
     for (const f of fields) {
       result[f] = sumColumn(filteredRows as unknown as Record<string, unknown>[], f);
     }
+    const { total: transferencia } = sumTransferenciasLiquidaciones(
+      filteredRows.map((r) => ({
+        transferencia: r.transferencia,
+        ejercicio: r.ejercicio,
+      })),
+      ejercicioFilter
+    );
+    result.transferencia = transferencia;
     return result;
-  }, [filteredRows]);
+  }, [filteredRows, ejercicioFilter]);
 
   // ── Save field ──
   const saveField = useCallback(

@@ -25,8 +25,10 @@ import {
   buildOverridesMap,
 } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2, Layers, List, CreditCard, Banknote, ArrowLeftRight, Wallet, CircleDashed, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Layers, List, CreditCard, Banknote, ArrowLeftRight, Wallet, CircleDashed, ArrowUp, ArrowDown, Paperclip } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { EntityDocumentsDialog } from "@/components/documents/EntityDocumentsDialog";
+import type { DocumentBloque } from "@/lib/documentTypes";
 import { DateRangePopover } from "./DateRangePopover";
 import BloqueCategoryDonut from "./BloqueCategoryDonut";
 
@@ -70,6 +72,8 @@ export default function BloqueGastosTable({
   const [overrides, setOverrides] = useState<BloqueOverride[]>(initialOverrides);
   const [ejercicio, setEjercicio] = useState<number>(initialYear);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [docsTarget, setDocsTarget] = useState<{ id: string; name: string } | null>(null);
+  const bloque = config.id as DocumentBloque;
   const [activeArea, setActiveArea] = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
   const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
@@ -700,21 +704,37 @@ export default function BloqueGastosTable({
                     />
                   </TableCell>
 
-                  {/* Delete */}
+                  {/* Actions */}
                   <TableCell className="p-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        setDeleteTarget({
-                          id: row.id,
-                          name: row.concepto || "este gasto",
-                        })
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
+                        title="Documentos"
+                        onClick={() =>
+                          setDocsTarget({
+                            id: row.id,
+                            name: row.concepto || "Gasto",
+                          })
+                        }
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: row.id,
+                            name: row.concepto || "este gasto",
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -745,6 +765,17 @@ export default function BloqueGastosTable({
           </TableBody>
         </Table>
       </div>
+
+      {docsTarget && (
+        <EntityDocumentsDialog
+          open={!!docsTarget}
+          onOpenChange={(open) => !open && setDocsTarget(null)}
+          bloque={bloque}
+          entityType="gasto"
+          entityId={docsTarget.id}
+          entityLabel={docsTarget.name}
+        />
+      )}
 
       {/* ── Delete dialog ── */}
       <ConfirmDeleteDialog

@@ -6,6 +6,17 @@ import {
   ensureConfig, serviceSupabase, json, ok, parseBody,
   toMoneyOrNull, toDateOrNull, emptyOrNull, slugifyEs, pickFrom,
 } from './_shared';
+import { deleteDocumentsForEntity } from './_documentHandlers';
+
+function cleanupEntityDocuments(table: string, id: string) {
+  const bloque = table.startsWith('sanyus_') ? 'sanyus' : 'casa';
+  let entityType: 'gasto' | 'ingreso' | 'activo' = 'gasto';
+  if (table.includes('ingresos')) entityType = 'ingreso';
+  else if (table.includes('activos')) entityType = 'activo';
+  return deleteDocumentsForEntity(entityType, id).catch((e) => {
+    console.warn(`[delete] documentos ${bloque}/${entityType}:`, e);
+  });
+}
 
 const FREQ = new Set([
   'semanal','quincenal','mensual','bimensual',
@@ -92,6 +103,8 @@ export async function handleDeleteGasto(table: string, body: any) {
 
   const id = emptyOrNull(body.id);
   if (!id) return json({ error: 'id requerido' }, 400);
+
+  await cleanupEntityDocuments(table, id);
 
   const { error } = await supabase.from(table).delete().eq('id', id);
   if (error) return json({ error: error.message }, 500);

@@ -1,6 +1,7 @@
 // netlify/functions/delete-property.ts
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { deleteDocumentsForEntity } from './_documentHandlers';
 
 // Mantén el mismo patrón de variables que en tus otras Functions
 const SUPABASE_URL =
@@ -57,7 +58,14 @@ export const handler: Handler = async (event) => {
 	  }
 	}
 
-	// 2) borrar la fila en DB
+	// 2) documentos privados
+	try {
+	  await deleteDocumentsForEntity('propiedad', id);
+	} catch (docErr) {
+	  console.warn('[delete-property] documentos cleanup:', docErr);
+	}
+
+	// 3) borrar la fila en DB
 	const { error } = await supabase
 	  .from('propiedades')
 	  .delete()

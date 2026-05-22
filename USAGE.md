@@ -1,5 +1,9 @@
 # Set up Supabase with Netlify Astro template
 
+> **Legacy:** esta guía describe el starter original (`frameworks`). Para Bondia actual, ver [README.md](README.md) y [AGENTS.md](AGENTS.md).
+
+# Set up Supabase with Netlify Astro template (starter)
+
 In this guide we’re going to install and configure the Supabase Netlify extension, create Supabase project and fill the database with data.
 
 ## Set up Supabase database

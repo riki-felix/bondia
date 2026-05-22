@@ -154,6 +154,7 @@ export const handler: Handler = async (event) => {
 	if (!tipo || !TIPO.has(tipo)) return json({ error: 'tipo requerido (inversion|activo)' }, 400);
 
 	const direccion = emptyToNull(body?.direccion);
+	const origen = emptyToNull(body?.origen);
 	const superficie_m2 = toIntOrNull(body?.superficie_m2);
 	const anio_construccion = toYearOrNull(body?.anio_construccion);
 	const numero_catastro = emptyToNull(body?.numero_catastro);
@@ -241,6 +242,7 @@ export const handler: Handler = async (event) => {
 	const payload: Record<string, any> = { titulo, tipo };
 
 	if (direccion != null) payload.direccion = direccion;
+	if (origen != null) payload.origen = origen;
 	if (superficie_m2 != null) payload.superficie_m2 = superficie_m2;
 	if (anio_construccion != null) payload.anio_construccion = anio_construccion;
 	if (numero_catastro != null) payload.numero_catastro = numero_catastro;
