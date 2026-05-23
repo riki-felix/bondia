@@ -5,6 +5,7 @@ import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
 import PropertyDetail from "../../components/propiedades/PropertyDetail";
 import { supabaseClient } from "../../lib/supabaseClient";
+import { PROPERTY_IMAGES_BUCKET } from "../../lib/propertyStorage";
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect("/propiedades");
@@ -35,7 +36,7 @@ const { data: settlements } = await supabase
 let imageUrl: string | null = null;
 if (property.foto_destacada_path) {
   const { data: urlData } = supabase.storage
-    .from("propiedades-images")
+    .from(PROPERTY_IMAGES_BUCKET)
     .getPublicUrl(property.foto_destacada_path);
   imageUrl = urlData?.publicUrl ?? null;
 }

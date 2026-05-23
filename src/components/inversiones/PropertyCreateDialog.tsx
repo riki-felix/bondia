@@ -20,6 +20,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/propertyStorage";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
 
@@ -94,7 +95,7 @@ export function PropertyCreateDialog({
           const ext = imageFile.name.split(".").pop() || "jpg";
           const filePath = `propiedades/${Date.now()}.${ext}`;
           const { error: uploadError } = await supabase.storage
-            .from("propiedades-images")
+            .from(PROPERTY_IMAGES_BUCKET)
             .upload(filePath, imageFile, { upsert: false });
 
           if (uploadError) {

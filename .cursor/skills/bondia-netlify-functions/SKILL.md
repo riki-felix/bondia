@@ -76,7 +76,7 @@ Archivo = nombre exportado en camelCase (p. ej. `createCasaGasto.ts`).
 
 ## Subidas de archivos
 
-`uploadCasaActivoFoto` / `uploadSanyusActivoFoto` — bucket `activos-fotos`. Propiedades: bucket `propiedades-images`.
+`uploadCasaActivoFoto` / `uploadSanyusActivoFoto` — bucket `activos-fotos`. Propiedades: bucket `property-images` (`uploadPropertyFoto`).
 
 ## Errores frecuentes
 

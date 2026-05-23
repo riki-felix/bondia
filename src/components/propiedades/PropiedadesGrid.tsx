@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateShort } from "@/lib/date";
 import { ESTADO_OPTIONS } from "@/lib/propertyTypes";
 import { getSupabase } from "@/lib/supabaseReact";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/propertyStorage";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function calcDaysActive(
 function imageUrl(path: string): string {
   const supabase = getSupabase();
   const { data } = supabase.storage
-    .from("propiedades-images")
+    .from(PROPERTY_IMAGES_BUCKET)
     .getPublicUrl(path);
   return data.publicUrl;
 }

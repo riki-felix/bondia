@@ -51,7 +51,7 @@ Políticas permisivas (`USING (true)`) en tablas de aplicación. La app confía 
 | Bucket | Uso |
 |--------|-----|
 | `activos-fotos` | Fotos activos Casa/Sanyus (público) |
-| `propiedades-images` | Imágenes propiedades (público) |
+| `property-images` | Imágenes propiedades (público) |
 | `bondia-documentos` | PDF/JPG privados; URLs firmadas vía Netlify Functions |
 
 Tabla `documentos`: metadatos, `sort_order`, `entity_type` + `entity_id`, `bloque` (`engine`|`casa`|`sanyus`). Migración `20260522140000_create_documentos.sql`.

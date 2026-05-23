@@ -23,6 +23,7 @@ import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/propertyStorage";
 import { PropertyParticipacionSection } from "./PropertyParticipacionSection";
 import {
   DEFAULT_PARTICIPACION_BIENES_SANYUS_CB,
@@ -132,7 +133,7 @@ export function PropertyDialog({
       // Show existing image preview if available
       if (data.foto_destacada_path) {
         const { data: urlData } = supabase.storage
-          .from("propiedades-images")
+          .from(PROPERTY_IMAGES_BUCKET)
           .getPublicUrl(data.foto_destacada_path);
         if (urlData?.publicUrl) setImagePreview(urlData.publicUrl);
       }
@@ -197,7 +198,7 @@ export function PropertyDialog({
           const ext = imageFile.name.split(".").pop() || "jpg";
           const filePath = `propiedades/${Date.now()}.${ext}`;
           const { error: uploadError } = await supabase.storage
-            .from("propiedades-images")
+            .from(PROPERTY_IMAGES_BUCKET)
             .upload(filePath, imageFile, { upsert: false });
 
           if (uploadError) {

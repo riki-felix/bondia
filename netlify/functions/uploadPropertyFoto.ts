@@ -2,6 +2,8 @@
 import type { Handler } from '@netlify/functions';
 import { ensureConfig, serviceSupabase, json, parseBody, emptyOrNull } from './_shared';
 
+const PROPERTY_IMAGES_BUCKET = 'property-images';
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -39,7 +41,7 @@ export const handler: Handler = async (event) => {
     const filePath = `propiedades/${id}/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('propiedades-images')
+      .from(PROPERTY_IMAGES_BUCKET)
       .upload(filePath, buffer, { contentType: mimeType, upsert: false });
 
     if (uploadError) {
@@ -55,12 +57,12 @@ export const handler: Handler = async (event) => {
       .single();
 
     if (error) {
-      await supabase.storage.from('propiedades-images').remove([filePath]);
+      await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([filePath]);
       return json({ error: error.message }, 500);
     }
 
     const { data: urlData } = supabase.storage
-      .from('propiedades-images')
+      .from(PROPERTY_IMAGES_BUCKET)
       .getPublicUrl(data.foto_destacada_path);
 
     return json({
