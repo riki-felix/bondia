@@ -11,7 +11,6 @@ const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
 const catFilter = Astro.url.searchParams.get("cat");
 
-// Fetch all activos
 const { data: allActivos, error } = await supabase
   .from(cfg.tables.activos)
   .select(`*, ${cfg.joins.activosCateg}`)
@@ -22,7 +21,6 @@ const activos = (allActivos ?? []).map((r: any) => ({
   categoria_nombre: r[cfg.tables.activosCateg]?.nombre ?? "",
 }));
 
-// Fetch categories
 const { data: allCategorias } = await supabase
   .from(cfg.tables.activosCateg)
   .select("id, nombre, slug, favorito")
@@ -30,15 +28,13 @@ const { data: allCategorias } = await supabase
 
 const categorias = allCategorias ?? [];
 
-// Fetch tags + assignments
 const [tagsRes, tagsRelRes] = await Promise.all([
-  supabase.from("activos_tags").select("*").order("nombre"),
-  supabase.from(cfg.tables.activosTags).select("*"),
+  supabase.from(cfg.tables.activosTagCatalog!).select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTagsJoin!).select("*"),
 ]);
 const allTags = tagsRes.data ?? [];
 const tagsRel = tagsRelRes.data ?? [];
 
-// Map tag assignments onto activos
 const tagsByActivo = new Map<string, any[]>();
 for (const rel of tagsRel) {
   const tag = allTags.find((t: any) => t.id === rel.tag_id);

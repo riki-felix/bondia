@@ -20,8 +20,8 @@ const [gastoRes, ingresoRes, activoRes, areasRes, areasCategoriasRes, tagsRes, c
   supabase.from(cfg.tables.activosCateg).select("id, nombre, slug, favorito").order("nombre"),
   supabase.from(cfg.tables.areas).select("*").order("nombre"),
   supabase.from(cfg.tables.areasCategorias).select("*"),
-  supabase.from("activos_tags").select("*").order("nombre"),
-  supabase.from("activos_caracteristicas").select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTagCatalog!).select("*").order("nombre"),
+  supabase.from(cfg.tables.activosCaracteristicas!).select("*").order("nombre"),
 ]);
 
 const gastoCategorias = gastoRes.data ?? [];
@@ -77,7 +77,7 @@ const activoCaracteristicas = caracRes.data ?? [];
     <div>
       <h2 class="text-lg font-semibold tracking-tight mb-1">Tags de activos</h2>
       <p class="text-sm text-muted-foreground mb-3">
-        Etiquetas para organizar activos (ej: colecciones, series). Compartidos entre Casa y Sanyus.
+        Etiquetas para organizar activos de Casa (ej: colecciones, series).
       </p>
       <BloqueActivoTagsManager
         client:load
@@ -90,7 +90,7 @@ const activoCaracteristicas = caracRes.data ?? [];
     <div>
       <h2 class="text-lg font-semibold tracking-tight mb-1">Características de activos</h2>
       <p class="text-sm text-muted-foreground mb-3">
-        Campos personalizados para activos (ej: tamaño, unidades). Se pueden asociar a una categoría concreta. Compartidos entre Casa y Sanyus.
+        Campos personalizados para activos de Casa (ej: tamaño, unidades). Se pueden asociar a una categoría concreta.
       </p>
       <BloqueActivoCaracteristicasManager
         client:load

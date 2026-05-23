@@ -1,9 +1,9 @@
 import type { Handler } from '@netlify/functions';
 import { handleDeleteCaracteristica, wrapHandler } from './_bloqueHandlers';
 
-const CATALOG = 'casa_activos_caracteristicas';
+const CATALOG = 'sanyus_activos_caracteristicas';
 
 export const handler: Handler = wrapHandler(
   (body) => handleDeleteCaracteristica(CATALOG, body),
-  'deleteCaracteristica'
+  'deleteSanyusCaracteristica'
 );

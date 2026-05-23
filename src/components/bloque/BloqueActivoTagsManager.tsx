@@ -23,12 +23,17 @@ interface Props {
 }
 
 export default function BloqueActivoTagsManager({ config, initialTags }: Props) {
+  const createActivoTag = config.endpoints.createActivoTag;
+  const updateActivoTag = config.endpoints.updateActivoTag;
+  const deleteActivoTag = config.endpoints.deleteActivoTag;
+  if (!createActivoTag || !updateActivoTag || !deleteActivoTag) return null;
+
   const [tags, setTags] = useState<ActivoTag[]>(initialTags);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const addTag = useCallback(async () => {
     try {
-      const res = await fetch(config.endpoints.createActivoTag, {
+      const res = await fetch(createActivoTag, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: "Nuevo tag" }),
@@ -49,7 +54,7 @@ export default function BloqueActivoTagsManager({ config, initialTags }: Props) 
     setTags((prev) => prev.map((t) => (t.id === id ? { ...t, nombre: newName } : t)));
 
     try {
-      const res = await fetch(config.endpoints.updateActivoTag, {
+      const res = await fetch(updateActivoTag, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, nombre: newName }),
@@ -66,7 +71,7 @@ export default function BloqueActivoTagsManager({ config, initialTags }: Props) 
     setTags((prev) => prev.map((t) => (t.id === id ? { ...t, color } : t)));
 
     try {
-      const res = await fetch(config.endpoints.updateActivoTag, {
+      const res = await fetch(updateActivoTag, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, color }),
@@ -82,7 +87,7 @@ export default function BloqueActivoTagsManager({ config, initialTags }: Props) 
 
   const deleteTag = useCallback(async (id: string) => {
     try {
-      const res = await fetch(config.endpoints.deleteActivoTag, {
+      const res = await fetch(deleteActivoTag, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),

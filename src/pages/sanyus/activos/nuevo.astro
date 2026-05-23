@@ -10,7 +10,6 @@ import { SANYUS_CONFIG } from "../../../lib/bloqueConfig";
 const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
 
-// Fetch categories for the select
 const { data: allCategorias } = await supabase
   .from(cfg.tables.activosCateg)
   .select("id, nombre, slug, favorito")
@@ -19,13 +18,13 @@ const { data: allCategorias } = await supabase
 const categorias = allCategorias ?? [];
 
 const { data: tagsData } = await supabase
-  .from("activos_tags")
+  .from(cfg.tables.activosTagCatalog!)
   .select("*")
   .order("nombre");
 const allTags = tagsData ?? [];
 
 const { data: caracData } = await supabase
-  .from("activos_caracteristicas")
+  .from(cfg.tables.activosCaracteristicas!)
   .select("*")
   .order("nombre");
 const allCaracteristicas = caracData ?? [];

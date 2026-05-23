@@ -32,8 +32,8 @@ const categorias = allCategorias ?? [];
 
 // Fetch tags + assignments
 const [tagsRes, tagsRelRes] = await Promise.all([
-  supabase.from("activos_tags").select("*").order("nombre"),
-  supabase.from(cfg.tables.activosTags).select("*"),
+  supabase.from(cfg.tables.activosTagCatalog!).select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTagsJoin!).select("*"),
 ]);
 const allTags = tagsRes.data ?? [];
 const tagsRel = tagsRelRes.data ?? [];

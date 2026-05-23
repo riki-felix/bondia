@@ -313,7 +313,7 @@ export async function handleDeleteActivoFoto(table: string, body: any) {
 
 // ─── Activo Tags ─────────────────────────────────────────────
 
-export async function handleCreateActivoTag(body: any) {
+export async function handleCreateActivoTag(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -324,7 +324,7 @@ export async function handleCreateActivoTag(body: any) {
   const color = emptyOrNull(body.color) ?? '#6b7280';
 
   const { data, error } = await supabase
-    .from('activos_tags')
+    .from(catalogTable)
     .insert({ nombre, slug, color })
     .select('*')
     .single();
@@ -333,7 +333,7 @@ export async function handleCreateActivoTag(body: any) {
   return json(data, 201);
 }
 
-export async function handleUpdateActivoTag(body: any) {
+export async function handleUpdateActivoTag(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -350,7 +350,7 @@ export async function handleUpdateActivoTag(body: any) {
   if (Object.keys(updates).length === 0) return json({ ok: true, id });
 
   const { data, error } = await supabase
-    .from('activos_tags')
+    .from(catalogTable)
     .update(updates)
     .eq('id', id)
     .select('*')
@@ -360,7 +360,7 @@ export async function handleUpdateActivoTag(body: any) {
   return json(data);
 }
 
-export async function handleDeleteActivoTag(body: any) {
+export async function handleDeleteActivoTag(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -368,7 +368,7 @@ export async function handleDeleteActivoTag(body: any) {
   if (!id) return json({ error: 'id requerido' }, 400);
 
   const { error } = await supabase
-    .from('activos_tags')
+    .from(catalogTable)
     .delete()
     .eq('id', id);
 
@@ -408,7 +408,7 @@ export async function handleSyncActivoTags(joinTable: string, body: any) {
 
 // ─── Activo Características ──────────────────────────────────
 
-export async function handleCreateCaracteristica(body: any) {
+export async function handleCreateCaracteristica(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -419,7 +419,7 @@ export async function handleCreateCaracteristica(body: any) {
   const categoria_id = emptyOrNull(body.categoria_id);
 
   const { data, error } = await supabase
-    .from('activos_caracteristicas')
+    .from(catalogTable)
     .insert({ nombre, slug, categoria_id })
     .select('*')
     .single();
@@ -428,7 +428,7 @@ export async function handleCreateCaracteristica(body: any) {
   return json(data, 201);
 }
 
-export async function handleUpdateCaracteristica(body: any) {
+export async function handleUpdateCaracteristica(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -445,7 +445,7 @@ export async function handleUpdateCaracteristica(body: any) {
   if (Object.keys(updates).length === 0) return json({ ok: true, id });
 
   const { data, error } = await supabase
-    .from('activos_caracteristicas')
+    .from(catalogTable)
     .update(updates)
     .eq('id', id)
     .select('*')
@@ -455,7 +455,7 @@ export async function handleUpdateCaracteristica(body: any) {
   return json(data);
 }
 
-export async function handleDeleteCaracteristica(body: any) {
+export async function handleDeleteCaracteristica(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
@@ -463,7 +463,7 @@ export async function handleDeleteCaracteristica(body: any) {
   if (!id) return json({ error: 'id requerido' }, 400);
 
   const { error } = await supabase
-    .from('activos_caracteristicas')
+    .from(catalogTable)
     .delete()
     .eq('id', id);
 

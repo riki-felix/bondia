@@ -40,10 +40,10 @@ const categorias = allCategorias ?? [];
 
 // Fetch all available tags + this activo's assigned tag IDs
 const [tagsRes, assignedRes, caracRes, caracValRes] = await Promise.all([
-  supabase.from("activos_tags").select("*").order("nombre"),
-  supabase.from(cfg.tables.activosTags).select("tag_id").eq("activo_id", id),
-  supabase.from("activos_caracteristicas").select("*").order("nombre"),
-  supabase.from(cfg.tables.activosCaracteristicaValores).select("caracteristica_id, valor").eq("activo_id", id),
+  supabase.from(cfg.tables.activosTagCatalog!).select("*").order("nombre"),
+  supabase.from(cfg.tables.activosTagsJoin!).select("tag_id").eq("activo_id", id),
+  supabase.from(cfg.tables.activosCaracteristicas!).select("*").order("nombre"),
+  supabase.from(cfg.tables.activosCaracteristicaValores!).select("caracteristica_id, valor").eq("activo_id", id),
 ]);
 const allTags = tagsRes.data ?? [];
 const assignedTagIds = (assignedRes.data ?? []).map((r: any) => r.tag_id as string);

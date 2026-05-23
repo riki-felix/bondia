@@ -25,12 +25,17 @@ export default function BloqueActivoCaracteristicasManager({
   initialCaracteristicas,
   activoCategorias,
 }: Props) {
+  const createCaracteristica = config.endpoints.createCaracteristica;
+  const updateCaracteristica = config.endpoints.updateCaracteristica;
+  const deleteCaracteristica = config.endpoints.deleteCaracteristica;
+  if (!createCaracteristica || !updateCaracteristica || !deleteCaracteristica) return null;
+
   const [items, setItems] = useState<ActivoCaracteristica[]>(initialCaracteristicas);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const add = useCallback(async () => {
     try {
-      const res = await fetch(config.endpoints.createCaracteristica, {
+      const res = await fetch(createCaracteristica, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: "Nueva característica" }),
@@ -51,7 +56,7 @@ export default function BloqueActivoCaracteristicasManager({
     setItems((prev) => prev.map((c) => (c.id === id ? { ...c, nombre: newName } : c)));
 
     try {
-      const res = await fetch(config.endpoints.updateCaracteristica, {
+      const res = await fetch(updateCaracteristica, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, nombre: newName }),
@@ -68,7 +73,7 @@ export default function BloqueActivoCaracteristicasManager({
     setItems((prev) => prev.map((c) => (c.id === id ? { ...c, categoria_id } : c)));
 
     try {
-      const res = await fetch(config.endpoints.updateCaracteristica, {
+      const res = await fetch(updateCaracteristica, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, categoria_id }),
@@ -84,7 +89,7 @@ export default function BloqueActivoCaracteristicasManager({
 
   const deleteItem = useCallback(async (id: string) => {
     try {
-      const res = await fetch(config.endpoints.deleteCaracteristica, {
+      const res = await fetch(deleteCaracteristica, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),

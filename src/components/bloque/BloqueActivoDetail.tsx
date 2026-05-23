@@ -16,6 +16,7 @@ import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag, type ActivoCaracteristica, type ActivoCaracteristicaValor } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
+import { bloqueHasActivoTags, bloqueHasActivoCaracteristicas } from "@/lib/bloqueConfig";
 import { ArrowLeft, Save, Loader2, Upload, Trash2, ImageIcon, X, Tag } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 import { BloqueActivoMovimientos } from "./BloqueActivoMovimientos";
@@ -43,6 +44,8 @@ export default function BloqueActivoDetail({
   movimientos = null,
 }: BloqueActivoDetailProps) {
   const isNew = !activo;
+  const hasTags = bloqueHasActivoTags(config);
+  const hasCaracteristicas = bloqueHasActivoCaracteristicas(config);
 
   const [form, setForm] = useState({
     nombre: activo?.nombre ?? "",
@@ -89,9 +92,13 @@ export default function BloqueActivoDetail({
     for (const v of activo?.caracteristica_valores ?? []) {
       origValores[v.caracteristica_id] = v.valor;
     }
-    const caracChanged = filteredCaracteristicas.some(
+    const caracChanged = hasCaracteristicas && filteredCaracteristicas.some(
       (c) => (caracValores[c.id] ?? "") !== (origValores[c.id] ?? "")
     );
+    const tagsChanged =
+      hasTags &&
+      JSON.stringify(selectedTagIds.slice().sort()) !==
+        JSON.stringify((activo?.tags ?? []).map((t) => t.id).sort());
     return (
       form.nombre !== (activo?.nombre ?? "") ||
       form.categoria_id !== (activo?.categoria_id ?? "") ||
@@ -99,10 +106,10 @@ export default function BloqueActivoDetail({
       form.precio_compra !== (activo?.precio_compra != null ? String(activo.precio_compra) : "") ||
       form.valor_estimado !== (activo?.valor_estimado != null ? String(activo.valor_estimado) : "") ||
       form.notas !== (activo?.notas ?? "") ||
-      JSON.stringify(selectedTagIds.slice().sort()) !== JSON.stringify((activo?.tags ?? []).map(t => t.id).sort()) ||
+      tagsChanged ||
       caracChanged
     );
-  }, [form, activo, isNew, selectedTagIds, caracValores, filteredCaracteristicas]);
+  }, [form, activo, isNew, selectedTagIds, caracValores, filteredCaracteristicas, hasTags, hasCaracteristicas]);
 
   const handleSave = useCallback(async () => {
     if (!form.nombre.trim()) {
@@ -139,33 +146,37 @@ export default function BloqueActivoDetail({
         setFechaEstimacion(data.fecha_estimacion);
       }
 
-      // Sync tags
+      // Sync tags (solo Casa)
       const activoId = isNew ? data.id : activo!.id;
-      if (selectedTagIds.length > 0 || !isNew) {
-        try {
-          await fetch(config.endpoints.syncActivoTags, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ activo_id: activoId, tag_ids: selectedTagIds }),
-          });
-        } catch {
-          // Non-blocking
+      if (hasTags && config.endpoints.syncActivoTags) {
+        if (selectedTagIds.length > 0 || !isNew) {
+          try {
+            await fetch(config.endpoints.syncActivoTags, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ activo_id: activoId, tag_ids: selectedTagIds }),
+            });
+          } catch {
+            // Non-blocking
+          }
         }
       }
 
-      // Sync characteristic values
-      const valores = filteredCaracteristicas
-        .map((c) => ({ caracteristica_id: c.id, valor: caracValores[c.id] ?? "" }))
-        .filter((v) => v.valor.trim());
-      if (valores.length > 0 || !isNew) {
-        try {
-          await fetch(config.endpoints.syncCaracteristicaValores, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ activo_id: activoId, valores }),
-          });
-        } catch {
-          // Non-blocking
+      // Sync characteristic values (solo Casa)
+      if (hasCaracteristicas && config.endpoints.syncCaracteristicaValores) {
+        const valores = filteredCaracteristicas
+          .map((c) => ({ caracteristica_id: c.id, valor: caracValores[c.id] ?? "" }))
+          .filter((v) => v.valor.trim());
+        if (valores.length > 0 || !isNew) {
+          try {
+            await fetch(config.endpoints.syncCaracteristicaValores, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ activo_id: activoId, valores }),
+            });
+          } catch {
+            // Non-blocking
+          }
         }
       }
 
@@ -190,7 +201,7 @@ export default function BloqueActivoDetail({
     } finally {
       setSaving(false);
     }
-  }, [form, isNew, activo, config, selectedTagIds, pendingFoto, filteredCaracteristicas, caracValores]);
+  }, [form, isNew, activo, config, selectedTagIds, pendingFoto, filteredCaracteristicas, caracValores, hasTags, hasCaracteristicas]);
 
   const handleUploadFoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -331,7 +342,7 @@ export default function BloqueActivoDetail({
             </div>
 
             {/* Tags */}
-            {allTags.length > 0 && (
+            {hasTags && allTags.length > 0 && (
               <div className="space-y-2">
                 <Label>Tags</Label>
                 <div className="flex flex-wrap gap-1.5">
@@ -491,7 +502,7 @@ export default function BloqueActivoDetail({
           )}
 
           {/* Características */}
-          {filteredCaracteristicas.length > 0 && (
+          {hasCaracteristicas && filteredCaracteristicas.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Características</CardTitle>
