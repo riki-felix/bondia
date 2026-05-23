@@ -17,17 +17,21 @@ import {
   type BloqueOverride,
   type BloqueArea,
   type BloqueAreaCategoria,
+  type BloqueActivoOption,
   FRECUENCIA_OPTIONS,
   MESES_LABELS,
   calcularImporteMes,
   buildOverridesMap,
+  mapBloqueIngresoRow,
 } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2, Layers, List, ArrowUp, ArrowDown, Paperclip } from "lucide-react";
+import { Plus, Trash2, Layers, List, ArrowUp, ArrowDown, Paperclip, Link2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EntityDocumentsDialog } from "@/components/documents/EntityDocumentsDialog";
 import type { DocumentBloque } from "@/lib/documentTypes";
-import { DateRangePopover } from "./DateRangePopover";import BloqueCategoryDonut from "./BloqueCategoryDonut";
+import { DateRangePopover } from "./DateRangePopover";
+import BloqueCategoryDonut from "./BloqueCategoryDonut";
+import { BloqueActivoLinkDialog } from "./BloqueActivoLinkDialog";
 // ─── Props ───────────────────────────────────────────────────
 
 interface BloqueIngresosTableProps {
@@ -38,7 +42,34 @@ interface BloqueIngresosTableProps {
   initialYear: number;
   areas?: BloqueArea[];
   areaAssignments?: BloqueAreaCategoria[];
+  activos?: BloqueActivoOption[];
   initialCatFilter?: string | null;
+  initialActivoFilter?: string | null;
+  lockedActivoId?: string;
+  embedMode?: boolean;
+  onRowsCountChange?: (count: number) => void;
+}
+
+function enrichIngresoRow(
+  row: BloqueIngreso,
+  activos: BloqueActivoOption[],
+  categorias: BloqueCategoria[]
+): BloqueIngreso {
+  return {
+    ...row,
+    activo_nombre: row.activo_id
+      ? activos.find((a) => a.id === row.activo_id)?.nombre ?? row.activo_nombre ?? ""
+      : "",
+    categoria_nombre: row.categoria_id
+      ? categorias.find((c) => c.id === row.categoria_id)?.nombre ??
+        row.categoria_nombre ??
+        ""
+      : "",
+  };
+}
+
+function ingresosSelectQuery(config: BloqueConfig): string {
+  return `*, ${config.joins.ingresosCateg}, ${config.tables.activos}(nombre)`;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -51,16 +82,29 @@ export default function BloqueIngresosTable({
   initialYear,
   areas = [],
   areaAssignments = [],
+  activos = [],
   initialCatFilter = null,
+  initialActivoFilter = null,
+  lockedActivoId,
+  embedMode = false,
+  onRowsCountChange,
 }: BloqueIngresosTableProps) {
   const [rows, setRows] = useState<BloqueIngreso[]>(initialData);
   const [overrides, setOverrides] = useState<BloqueOverride[]>(initialOverrides);
   const [ejercicio, setEjercicio] = useState<number>(initialYear);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [docsTarget, setDocsTarget] = useState<{ id: string; name: string } | null>(null);
+  const [linkTarget, setLinkTarget] = useState<BloqueIngreso | null>(null);
   const bloque = config.id as DocumentBloque;
   const [activeArea, setActiveArea] = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
+  const [activeActivoState, setActiveActivoState] = useState<string | null>(() => {
+    if (lockedActivoId) return lockedActivoId;
+    if (initialActivoFilter === "__none__") return "__none__";
+    if (initialActivoFilter) return initialActivoFilter;
+    return null;
+  });
+  const activeActivo = lockedActivoId ?? activeActivoState;
   const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
   const [conceptSort, setConceptSort] = useState<"asc" | "desc" | null>(() => {
     if (typeof window === "undefined") return null;
@@ -87,8 +131,13 @@ export default function BloqueIngresosTable({
     if (activeCat) {
       result = result.filter((r) => r.categoria_id === activeCat);
     }
+    if (activeActivo === "__none__") {
+      result = result.filter((r) => !r.activo_id);
+    } else if (activeActivo) {
+      result = result.filter((r) => r.activo_id === activeActivo);
+    }
     return result;
-  }, [rows, areaCatIds, activeCat]);
+  }, [rows, areaCatIds, activeCat, activeActivo]);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(() => {
@@ -116,12 +165,13 @@ export default function BloqueIngresosTable({
     setEjercicio(y);
     try {
       const supabase = getSupabase();
+      let ingresosQuery = supabase
+        .from(config.tables.ingresos)
+        .select(ingresosSelectQuery(config))
+        .eq("ejercicio", y);
+      if (lockedActivoId) ingresosQuery = ingresosQuery.eq("activo_id", lockedActivoId);
       const [ingresos, ovr] = await Promise.all([
-        supabase
-          .from(config.tables.ingresos)
-          .select(`*, ${config.joins.ingresosCateg}`)
-          .eq("ejercicio", y)
-          .order("created_at", { ascending: true }),
+        ingresosQuery.order("created_at", { ascending: true }),
         supabase
           .from(config.tables.ingresosOverrides)
           .select("*")
@@ -129,16 +179,15 @@ export default function BloqueIngresosTable({
       ]);
 
       setRows(
-        (ingresos.data ?? []).map((r: any) => ({
-          ...r,
-          categoria_nombre: r[config.tables.ingresosCateg]?.nombre ?? "",
-        }))
+        ((ingresos.data ?? []) as any[]).map((r) =>
+          mapBloqueIngresoRow(r, config.tables.ingresosCateg, config.tables.activos)
+        )
       );
       setOverrides(ovr.data ?? []);
     } catch (e) {
       toast.error("Error cargando datos");
     }
-  }, [config]);
+  }, [config, lockedActivoId]);
 
   // ── Add row ──
   const addRow = useCallback(async () => {
@@ -151,16 +200,24 @@ export default function BloqueIngresosTable({
           frecuencia: "mensual",
           importe: 0,
           ejercicio,
+          ...(lockedActivoId ? { activo_id: lockedActivoId } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setRows((prev) => [data, ...prev]);
+      const row = lockedActivoId
+        ? enrichIngresoRow(
+            { ...data, activo_id: lockedActivoId } as BloqueIngreso,
+            activos,
+            categorias
+          )
+        : data;
+      setRows((prev) => [row, ...prev]);
       toast.success("Fila añadida");
     } catch (e: any) {
       toast.error(e.message || "Error al crear");
     }
-  }, [ejercicio, config]);
+  }, [ejercicio, config, lockedActivoId, activos, categorias]);
 
   const toggleConceptSort = useCallback(() => {
     setConceptSort((prev) => {
@@ -171,7 +228,7 @@ export default function BloqueIngresosTable({
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (embedMode || typeof window === "undefined") return;
 
     const url = new URL(window.location.href);
     if (conceptSort) {
@@ -180,8 +237,18 @@ export default function BloqueIngresosTable({
       url.searchParams.delete("sortConcepto");
     }
 
+    if (activeActivo && !lockedActivoId) {
+      url.searchParams.set("activo", activeActivo);
+    } else {
+      url.searchParams.delete("activo");
+    }
+
     window.history.replaceState({}, "", url.toString());
-  }, [conceptSort]);
+  }, [conceptSort, activeActivo, embedMode, lockedActivoId]);
+
+  useEffect(() => {
+    onRowsCountChange?.(rows.length);
+  }, [rows.length, onRowsCountChange]);
 
   // ── Update field ──
   const updateField = useCallback(
@@ -198,13 +265,19 @@ export default function BloqueIngresosTable({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? enrichIngresoRow({ ...r, ...data } as BloqueIngreso, activos, categorias)
+              : r
+          )
+        );
       } catch (e: any) {
         toast.error(e.message || "Error al guardar");
         changeYear(String(ejercicio));
       }
     },
-    [ejercicio, changeYear, config]
+    [ejercicio, changeYear, config, activos, categorias]
   );
 
   // ── Update monthly cell ──
@@ -405,6 +478,28 @@ export default function BloqueIngresosTable({
           </button>
         </div>
 
+        {activos.length > 0 && !lockedActivoId && (
+          <Select
+            value={activeActivo ?? "__all__"}
+            onValueChange={(v) =>
+              setActiveActivoState(v === "__all__" ? null : v)
+            }
+          >
+            <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectValue placeholder="Activo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos los activos</SelectItem>
+              <SelectItem value="__none__">Sin activo</SelectItem>
+              {activos.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Area filters – only areas with ingreso assignments */}
         {areas.filter((a) => areaAssignments.some((aa) => aa.area_id === a.id && aa.tipo === "ingreso")).length > 0 && (
           <div className="flex items-center gap-1 ml-2 border-l pl-3">
@@ -545,9 +640,11 @@ export default function BloqueIngresosTable({
                   colSpan={16}
                   className="text-center text-muted-foreground py-8"
                 >
-                  {activeArea
-                    ? `Sin ingresos en esta área para ${ejercicio}.`
-                    : `Sin ingresos para ${ejercicio}. Pulsa «Añadir ingreso» para empezar.`}
+                  {activeActivo
+                    ? `Sin ingresos para este activo en ${ejercicio}.`
+                    : activeArea
+                      ? `Sin ingresos en esta área para ${ejercicio}.`
+                      : `Sin ingresos para ${ejercicio}. Pulsa «Añadir ingreso» para empezar.`}
                 </TableCell>
               </TableRow>
             ) : (
@@ -614,6 +711,25 @@ export default function BloqueIngresosTable({
                   </TableCell>
                   <TableCell className="p-1">
                     <div className="flex items-center gap-0.5">
+                      {activos.length > 0 && !lockedActivoId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${
+                            row.activo_id
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                          }`}
+                          title={
+                            row.activo_id
+                              ? `Activo: ${row.activo_nombre || "vinculado"}`
+                              : "Relacionar con activo"
+                          }
+                          onClick={() => setLinkTarget(row)}
+                        >
+                          <Link2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -680,6 +796,22 @@ export default function BloqueIngresosTable({
           entityType="ingreso"
           entityId={docsTarget.id}
           entityLabel={docsTarget.name}
+        />
+      )}
+
+      {linkTarget && (
+        <BloqueActivoLinkDialog
+          open={!!linkTarget}
+          onOpenChange={(open) => !open && setLinkTarget(null)}
+          bloqueLabel={config.label}
+          itemKind="ingreso"
+          itemLabel={linkTarget.concepto}
+          activos={activos}
+          currentActivoId={linkTarget.activo_id}
+          currentActivoNombre={linkTarget.activo_nombre}
+          onSelect={(activoId) =>
+            updateField(linkTarget.id, "activo_id", activoId)
+          }
         />
       )}
 

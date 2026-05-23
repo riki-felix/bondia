@@ -6,11 +6,13 @@ import { Toaster } from "../../components/ui/sonner";
 import BloqueGastosTable from "../../components/bloque/BloqueGastosTable";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+import { mapBloqueGastoRow } from "../../lib/bloqueTypes";
 
 const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
 const currentYear = new Date().getFullYear();
 const catFilter = Astro.url.searchParams.get("cat");
+const activoFilter = Astro.url.searchParams.get("activo");
 
 // Year from query param, default to current
 const url = new URL(Astro.request.url);
@@ -20,14 +22,13 @@ const ejercicio = yearParam ? Number(yearParam) : currentYear;
 // Fetch gastos for selected year
 const { data: allGastos, error } = await supabase
   .from(cfg.tables.gastos)
-  .select(`*, ${cfg.joins.gastosCateg}`)
+  .select(`*, ${cfg.joins.gastosCateg}, ${cfg.tables.activos}(nombre)`)
   .eq("ejercicio", ejercicio)
   .order("created_at", { ascending: true });
 
-const gastos = (allGastos ?? []).map((r: any) => ({
-  ...r,
-  categoria_nombre: r[cfg.tables.gastosCateg]?.nombre ?? "",
-}));
+const gastos = ((allGastos ?? []) as any[]).map((r) =>
+  mapBloqueGastoRow(r, cfg.tables.gastosCateg, cfg.tables.activos)
+);
 
 // Fetch overrides for selected year
 const { data: allOverrides } = await supabase
@@ -63,6 +64,13 @@ const { data: allMetodosPago } = await supabase
   .order("nombre");
 
 const metodosPago = allMetodosPago ?? [];
+
+const { data: allActivos } = await supabase
+  .from(cfg.tables.activos)
+  .select("id, nombre")
+  .order("nombre", { ascending: true });
+
+const activos = allActivos ?? [];
 ---
 
 <Layout>
@@ -87,7 +95,9 @@ const metodosPago = allMetodosPago ?? [];
         areas={areas}
         areaAssignments={areaAssignments}
         metodosPago={metodosPago}
+        activos={activos}
         initialCatFilter={catFilter}
+        initialActivoFilter={activoFilter}
       />
     )}
   </div>

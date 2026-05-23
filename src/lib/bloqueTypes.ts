@@ -44,10 +44,16 @@ export interface BloqueCategoria {
   favorito?: boolean;
 }
 
+export interface BloqueActivoOption {
+  id: string;
+  nombre: string;
+}
+
 export interface BloqueGasto {
   id: string;
   concepto: string;
   categoria_id: string | null;
+  activo_id: string | null;
   frecuencia: Frecuencia;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -58,12 +64,14 @@ export interface BloqueGasto {
   created_at: string;
   updated_at: string;
   categoria_nombre?: string;
+  activo_nombre?: string;
 }
 
 export interface BloqueIngreso {
   id: string;
   concepto: string;
   categoria_id: string | null;
+  activo_id: string | null;
   frecuencia: Frecuencia;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -73,6 +81,36 @@ export interface BloqueIngreso {
   created_at: string;
   updated_at: string;
   categoria_nombre?: string;
+  activo_nombre?: string;
+}
+
+/** Mapea fila Supabase con joins de categoría y activo */
+export function mapBloqueGastoRow(
+  r: Record<string, unknown>,
+  gastosCategTable: string,
+  activosTable: string
+): BloqueGasto {
+  const categ = r[gastosCategTable] as { nombre?: string } | null;
+  const activo = r[activosTable] as { nombre?: string } | null;
+  return {
+    ...(r as unknown as BloqueGasto),
+    categoria_nombre: categ?.nombre ?? "",
+    activo_nombre: activo?.nombre ?? "",
+  };
+}
+
+export function mapBloqueIngresoRow(
+  r: Record<string, unknown>,
+  ingresosCategTable: string,
+  activosTable: string
+): BloqueIngreso {
+  const categ = r[ingresosCategTable] as { nombre?: string } | null;
+  const activo = r[activosTable] as { nombre?: string } | null;
+  return {
+    ...(r as unknown as BloqueIngreso),
+    categoria_nombre: categ?.nombre ?? "",
+    activo_nombre: activo?.nombre ?? "",
+  };
 }
 
 export interface BloqueActivo {

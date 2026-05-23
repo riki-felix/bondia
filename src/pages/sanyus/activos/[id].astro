@@ -7,6 +7,7 @@ import BloqueActivoDetail from "../../../components/bloque/BloqueActivoDetail";
 import { supabaseClient } from "../../../lib/supabaseClient";
 import { SANYUS_CONFIG } from "../../../lib/bloqueConfig";
 import type { BloqueActivo } from "../../../lib/bloqueTypes";
+import { fetchActivoMovimientos } from "../../../lib/fetchActivoMovimientos";
 
 const cfg = SANYUS_CONFIG;
 const { id } = Astro.params;
@@ -55,6 +56,13 @@ const activoWithTags: BloqueActivo = {
   tags: allTags.filter((t: any) => assignedTagIds.includes(t.id)),
   caracteristica_valores: caracteristicaValores,
 };
+
+const url = new URL(Astro.request.url);
+const yearParam = url.searchParams.get("year");
+const currentYear = new Date().getFullYear();
+const ejercicio = yearParam ? Number(yearParam) : currentYear;
+
+const movimientos = await fetchActivoMovimientos(supabase, cfg, id, ejercicio);
 ---
 
 <Layout>
@@ -65,6 +73,7 @@ const activoWithTags: BloqueActivo = {
     categorias={categorias}
     allTags={allTags}
     allCaracteristicas={allCaracteristicas}
+    movimientos={movimientos}
   />
   <Toaster client:load />
 </Layout>

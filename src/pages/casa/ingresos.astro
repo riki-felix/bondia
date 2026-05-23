@@ -6,11 +6,13 @@ import { Toaster } from "../../components/ui/sonner";
 import BloqueIngresosTable from "../../components/bloque/BloqueIngresosTable";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { CASA_CONFIG } from "../../lib/bloqueConfig";
+import { mapBloqueIngresoRow } from "../../lib/bloqueTypes";
 
 const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
 const currentYear = new Date().getFullYear();
 const catFilter = Astro.url.searchParams.get("cat");
+const activoFilter = Astro.url.searchParams.get("activo");
 
 // Year from query param, default to current
 const url = new URL(Astro.request.url);
@@ -20,14 +22,13 @@ const ejercicio = yearParam ? Number(yearParam) : currentYear;
 // Fetch ingresos for selected year
 const { data: allIngresos, error } = await supabase
   .from(cfg.tables.ingresos)
-  .select(`*, ${cfg.joins.ingresosCateg}`)
+  .select(`*, ${cfg.joins.ingresosCateg}, ${cfg.tables.activos}(nombre)`)
   .eq("ejercicio", ejercicio)
   .order("created_at", { ascending: true });
 
-const ingresos = (allIngresos ?? []).map((r: any) => ({
-  ...r,
-  categoria_nombre: r[cfg.tables.ingresosCateg]?.nombre ?? "",
-}));
+const ingresos = ((allIngresos ?? []) as any[]).map((r) =>
+  mapBloqueIngresoRow(r, cfg.tables.ingresosCateg, cfg.tables.activos)
+);
 
 // Fetch overrides for selected year
 const { data: allOverrides } = await supabase
@@ -53,6 +54,13 @@ const [areasRes, areasAssignRes] = await Promise.all([
 
 const areas = areasRes.data ?? [];
 const areaAssignments = areasAssignRes.data ?? [];
+
+const { data: allActivos } = await supabase
+  .from(cfg.tables.activos)
+  .select("id, nombre")
+  .order("nombre", { ascending: true });
+
+const activos = allActivos ?? [];
 ---
 
 <Layout>
@@ -76,7 +84,9 @@ const areaAssignments = areasAssignRes.data ?? [];
         initialYear={ejercicio}
         areas={areas}
         areaAssignments={areaAssignments}
+        activos={activos}
         initialCatFilter={catFilter}
+        initialActivoFilter={activoFilter}
       />
     )}
   </div>

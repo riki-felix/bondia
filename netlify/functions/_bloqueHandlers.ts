@@ -42,6 +42,7 @@ export async function handleCreateGasto(table: string, body: any) {
   const row = {
     concepto,
     categoria_id: emptyOrNull(body.categoria_id),
+    activo_id: emptyOrNull(body.activo_id),
     frecuencia,
     fecha_inicio: toDateOrNull(body.fecha_inicio),
     fecha_fin: toDateOrNull(body.fecha_fin),
@@ -71,6 +72,7 @@ export async function handleUpdateGasto(table: string, body: any) {
 
   if (body.concepto !== undefined) updates.concepto = emptyOrNull(body.concepto) ?? '';
   if (body.categoria_id !== undefined) updates.categoria_id = emptyOrNull(body.categoria_id);
+  if (body.activo_id !== undefined) updates.activo_id = emptyOrNull(body.activo_id);
   if (body.frecuencia !== undefined) {
     const f = pickFrom(body.frecuencia, FREQ);
     if (f) updates.frecuencia = f;
@@ -127,6 +129,7 @@ export async function handleCreateIngreso(table: string, body: any) {
   const row = {
     concepto,
     categoria_id: emptyOrNull(body.categoria_id),
+    activo_id: emptyOrNull(body.activo_id),
     frecuencia,
     fecha_inicio: toDateOrNull(body.fecha_inicio),
     fecha_fin: toDateOrNull(body.fecha_fin),

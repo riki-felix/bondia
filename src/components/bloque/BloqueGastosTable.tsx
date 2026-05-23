@@ -17,17 +17,20 @@ import {
   type BloqueOverride,
   type BloqueArea,
   type BloqueAreaCategoria,
+  type BloqueActivoOption,
   type MetodoPago,
   type MetodoPagoTipo,
   FRECUENCIA_OPTIONS,
   MESES_LABELS,
   calcularImporteMes,
   buildOverridesMap,
+  mapBloqueGastoRow,
 } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2, Layers, List, CreditCard, Banknote, ArrowLeftRight, Wallet, CircleDashed, ArrowUp, ArrowDown, Paperclip } from "lucide-react";
+import { Plus, Trash2, Layers, List, CreditCard, Banknote, ArrowLeftRight, Wallet, CircleDashed, ArrowUp, ArrowDown, Paperclip, Link2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EntityDocumentsDialog } from "@/components/documents/EntityDocumentsDialog";
+import { BloqueActivoLinkDialog } from "./BloqueActivoLinkDialog";
 import type { DocumentBloque } from "@/lib/documentTypes";
 import { DateRangePopover } from "./DateRangePopover";
 import BloqueCategoryDonut from "./BloqueCategoryDonut";
@@ -43,7 +46,35 @@ interface BloqueGastosTableProps {
   areas?: BloqueArea[];
   areaAssignments?: BloqueAreaCategoria[];
   metodosPago?: MetodoPago[];
+  activos?: BloqueActivoOption[];
   initialCatFilter?: string | null;
+  initialActivoFilter?: string | null;
+  /** Ficha de activo: solo filas de este activo, sin selector ni sync URL */
+  lockedActivoId?: string;
+  embedMode?: boolean;
+  onRowsCountChange?: (count: number) => void;
+}
+
+function enrichGastoRow(
+  row: BloqueGasto,
+  activos: BloqueActivoOption[],
+  categorias: BloqueCategoria[]
+): BloqueGasto {
+  return {
+    ...row,
+    activo_nombre: row.activo_id
+      ? activos.find((a) => a.id === row.activo_id)?.nombre ?? row.activo_nombre ?? ""
+      : "",
+    categoria_nombre: row.categoria_id
+      ? categorias.find((c) => c.id === row.categoria_id)?.nombre ??
+        row.categoria_nombre ??
+        ""
+      : "",
+  };
+}
+
+function gastosSelectQuery(config: BloqueConfig): string {
+  return `*, ${config.joins.gastosCateg}, ${config.tables.activos}(nombre)`;
 }
 
 // ─── Payment method icon map ─────────────────────────────────
@@ -66,16 +97,29 @@ export default function BloqueGastosTable({
   areas = [],
   areaAssignments = [],
   metodosPago = [],
+  activos = [],
   initialCatFilter = null,
+  initialActivoFilter = null,
+  lockedActivoId,
+  embedMode = false,
+  onRowsCountChange,
 }: BloqueGastosTableProps) {
   const [rows, setRows] = useState<BloqueGasto[]>(initialData);
   const [overrides, setOverrides] = useState<BloqueOverride[]>(initialOverrides);
   const [ejercicio, setEjercicio] = useState<number>(initialYear);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [docsTarget, setDocsTarget] = useState<{ id: string; name: string } | null>(null);
+  const [linkTarget, setLinkTarget] = useState<BloqueGasto | null>(null);
   const bloque = config.id as DocumentBloque;
   const [activeArea, setActiveArea] = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
+  const [activeActivoState, setActiveActivoState] = useState<string | null>(() => {
+    if (lockedActivoId) return lockedActivoId;
+    if (initialActivoFilter === "__none__") return "__none__";
+    if (initialActivoFilter) return initialActivoFilter;
+    return null;
+  });
+  const activeActivo = lockedActivoId ?? activeActivoState;
   const [viewMode, setViewMode] = useState<"detalle" | "categorias">("detalle");
   const [conceptSort, setConceptSort] = useState<"asc" | "desc" | null>(() => {
     if (typeof window === "undefined") return null;
@@ -102,8 +146,13 @@ export default function BloqueGastosTable({
     if (activeCat) {
       result = result.filter((r) => r.categoria_id === activeCat);
     }
+    if (activeActivo === "__none__") {
+      result = result.filter((r) => !r.activo_id);
+    } else if (activeActivo) {
+      result = result.filter((r) => r.activo_id === activeActivo);
+    }
     return result;
-  }, [rows, areaCatIds, activeCat]);
+  }, [rows, areaCatIds, activeCat, activeActivo]);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(() => {
@@ -131,12 +180,13 @@ export default function BloqueGastosTable({
     setEjercicio(y);
     try {
       const supabase = getSupabase();
+      let gastosQuery = supabase
+        .from(config.tables.gastos)
+        .select(gastosSelectQuery(config))
+        .eq("ejercicio", y);
+      if (lockedActivoId) gastosQuery = gastosQuery.eq("activo_id", lockedActivoId);
       const [gastos, ovr] = await Promise.all([
-        supabase
-          .from(config.tables.gastos)
-          .select(`*, ${config.joins.gastosCateg}`)
-          .eq("ejercicio", y)
-          .order("created_at", { ascending: true }),
+        gastosQuery.order("created_at", { ascending: true }),
         supabase
           .from(config.tables.gastosOverrides)
           .select("*")
@@ -144,16 +194,15 @@ export default function BloqueGastosTable({
       ]);
 
       setRows(
-        (gastos.data ?? []).map((r: any) => ({
-          ...r,
-          categoria_nombre: r[config.tables.gastosCateg]?.nombre ?? "",
-        }))
+        ((gastos.data ?? []) as any[]).map((r) =>
+          mapBloqueGastoRow(r, config.tables.gastosCateg, config.tables.activos)
+        )
       );
       setOverrides(ovr.data ?? []);
     } catch (e) {
       toast.error("Error cargando datos");
     }
-  }, [config]);
+  }, [config, lockedActivoId]);
 
   // ── Add row ──
   const addRow = useCallback(async () => {
@@ -166,16 +215,24 @@ export default function BloqueGastosTable({
           frecuencia: "mensual",
           importe: 0,
           ejercicio,
+          ...(lockedActivoId ? { activo_id: lockedActivoId } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setRows((prev) => [data, ...prev]);
+      const row = lockedActivoId
+        ? enrichGastoRow(
+            { ...data, activo_id: lockedActivoId } as BloqueGasto,
+            activos,
+            categorias
+          )
+        : data;
+      setRows((prev) => [row, ...prev]);
       toast.success("Fila añadida");
     } catch (e: any) {
       toast.error(e.message || "Error al crear");
     }
-  }, [ejercicio, config]);
+  }, [ejercicio, config, lockedActivoId, activos, categorias]);
 
   const toggleConceptSort = useCallback(() => {
     setConceptSort((prev) => {
@@ -186,7 +243,7 @@ export default function BloqueGastosTable({
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (embedMode || typeof window === "undefined") return;
 
     const url = new URL(window.location.href);
     if (conceptSort) {
@@ -194,9 +251,18 @@ export default function BloqueGastosTable({
     } else {
       url.searchParams.delete("sortConcepto");
     }
+    if (activeActivo && !lockedActivoId) {
+      url.searchParams.set("activo", activeActivo);
+    } else {
+      url.searchParams.delete("activo");
+    }
 
     window.history.replaceState({}, "", url.toString());
-  }, [conceptSort]);
+  }, [conceptSort, activeActivo, embedMode, lockedActivoId]);
+
+  useEffect(() => {
+    onRowsCountChange?.(rows.length);
+  }, [rows.length, onRowsCountChange]);
 
   // ── Update field ──
   const updateField = useCallback(
@@ -214,15 +280,20 @@ export default function BloqueGastosTable({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        // Merge server response
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? enrichGastoRow({ ...r, ...data } as BloqueGasto, activos, categorias)
+              : r
+          )
+        );
       } catch (e: any) {
         toast.error(e.message || "Error al guardar");
         // Revert will happen on next reload
         changeYear(String(ejercicio));
       }
     },
-    [ejercicio, changeYear, config]
+    [ejercicio, changeYear, config, activos, categorias]
   );
 
   // ── Update monthly cell ──
@@ -430,6 +501,28 @@ export default function BloqueGastosTable({
           </button>
         </div>
 
+        {activos.length > 0 && !lockedActivoId && (
+          <Select
+            value={activeActivo ?? "__all__"}
+            onValueChange={(v) =>
+              setActiveActivoState(v === "__all__" ? null : v)
+            }
+          >
+            <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectValue placeholder="Activo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos los activos</SelectItem>
+              <SelectItem value="__none__">Sin activo</SelectItem>
+              {activos.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Area filters – only areas with gasto assignments */}
         {areas.filter((a) => areaAssignments.some((aa) => aa.area_id === a.id && aa.tipo === "gasto")).length > 0 && (
           <div className="flex items-center gap-1 ml-2 border-l pl-3">
@@ -575,9 +668,11 @@ export default function BloqueGastosTable({
                   colSpan={metodosPago.length > 0 ? 17 : 16}
                   className="text-center text-muted-foreground py-8"
                 >
-                  {activeArea
-                    ? `Sin gastos en esta área para ${ejercicio}.`
-                    : `Sin gastos para ${ejercicio}. Pulsa «Añadir gasto» para empezar.`}
+                  {activeActivo
+                    ? `Sin gastos para este activo en ${ejercicio}.`
+                    : activeArea
+                      ? `Sin gastos en esta área para ${ejercicio}.`
+                      : `Sin gastos para ${ejercicio}. Pulsa «Añadir gasto» para empezar.`}
                 </TableCell>
               </TableRow>
             ) : (
@@ -707,6 +802,25 @@ export default function BloqueGastosTable({
                   {/* Actions */}
                   <TableCell className="p-1">
                     <div className="flex items-center gap-0.5">
+                      {activos.length > 0 && !lockedActivoId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${
+                            row.activo_id
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                          }`}
+                          title={
+                            row.activo_id
+                              ? `Activo: ${row.activo_nombre || "vinculado"}`
+                              : "Relacionar con activo"
+                          }
+                          onClick={() => setLinkTarget(row)}
+                        >
+                          <Link2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -774,6 +888,22 @@ export default function BloqueGastosTable({
           entityType="gasto"
           entityId={docsTarget.id}
           entityLabel={docsTarget.name}
+        />
+      )}
+
+      {linkTarget && (
+        <BloqueActivoLinkDialog
+          open={!!linkTarget}
+          onOpenChange={(open) => !open && setLinkTarget(null)}
+          bloqueLabel={config.label}
+          itemKind="gasto"
+          itemLabel={linkTarget.concepto}
+          activos={activos}
+          currentActivoId={linkTarget.activo_id}
+          currentActivoNombre={linkTarget.activo_nombre}
+          onSelect={(activoId) =>
+            updateField(linkTarget.id, "activo_id", activoId)
+          }
         />
       )}
 

@@ -18,6 +18,8 @@ import { type BloqueActivo, type BloqueCategoria, type ActivoTag, type ActivoCar
 import type { BloqueConfig } from "@/lib/bloqueConfig";
 import { ArrowLeft, Save, Loader2, Upload, Trash2, ImageIcon, X, Tag } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { BloqueActivoMovimientos } from "./BloqueActivoMovimientos";
+import type { BloqueActivoMovimientosPayload } from "@/lib/fetchActivoMovimientos";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ interface BloqueActivoDetailProps {
   categorias: BloqueCategoria[];
   allTags?: ActivoTag[];
   allCaracteristicas?: ActivoCaracteristica[];
+  movimientos?: BloqueActivoMovimientosPayload | null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -37,6 +40,7 @@ export default function BloqueActivoDetail({
   categorias,
   allTags = [],
   allCaracteristicas = [],
+  movimientos = null,
 }: BloqueActivoDetailProps) {
   const isNew = !activo;
 
@@ -513,6 +517,18 @@ export default function BloqueActivoDetail({
           )}
         </div>
       </div>
+
+      {!isNew && activo && movimientos && (
+        <>
+          <Separator />
+          <BloqueActivoMovimientos
+            config={config}
+            activoId={activo.id}
+            activoNombre={form.nombre || activo.nombre}
+            data={movimientos}
+          />
+        </>
+      )}
     </div>
   );
 }
