@@ -11,6 +11,7 @@ import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import type { ActivoCaracteristica, BloqueCategoria } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
+import { bloqueHasActivoInmuebles } from "@/lib/bloqueConfig";
 import { Plus, Trash2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 
@@ -29,6 +30,8 @@ export default function BloqueActivoCaracteristicasManager({
   const updateCaracteristica = config.endpoints.updateCaracteristica;
   const deleteCaracteristica = config.endpoints.deleteCaracteristica;
   if (!createCaracteristica || !updateCaracteristica || !deleteCaracteristica) return null;
+
+  const hasInmuebles = bloqueHasActivoInmuebles(config);
 
   const [items, setItems] = useState<ActivoCaracteristica[]>(initialCaracteristicas);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -122,58 +125,81 @@ export default function BloqueActivoCaracteristicasManager({
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead className="w-[200px]">Categoría de activo</TableHead>
+              {hasInmuebles && <TableHead className="w-[140px]">Tipo</TableHead>}
               <TableHead className="w-[40px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={hasInmuebles ? 4 : 3} className="text-center text-muted-foreground py-8">
                   Sin características. Pulsa «Añadir característica» para empezar.
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((item) => (
+              items.map((item) => {
+                const isPlantilla = item.plantilla_inmueble === true;
+                return (
                 <TableRow key={item.id}>
                   <TableCell className="p-1">
-                    <EditableCell
-                      value={item.nombre}
-                      type="text"
-                      onSave={(v) => updateName(item.id, v)}
-                    />
+                    {isPlantilla ? (
+                      <span className="text-sm px-2 py-1">{item.nombre}</span>
+                    ) : (
+                      <EditableCell
+                        value={item.nombre}
+                        type="text"
+                        onSave={(v) => updateName(item.id, v)}
+                      />
+                    )}
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select
-                      value={item.categoria_id ?? "__all__"}
-                      onValueChange={(v) =>
-                        updateCategoria(item.id, v === "__all__" ? null : v)
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__all__">Todas las categorías</SelectItem>
-                        {activoCategorias.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {isPlantilla ? (
+                      <span className="text-xs text-muted-foreground px-2">Todas</span>
+                    ) : (
+                      <Select
+                        value={item.categoria_id ?? "__all__"}
+                        onValueChange={(v) =>
+                          updateCategoria(item.id, v === "__all__" ? null : v)
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Todas las categorías</SelectItem>
+                          {activoCategorias.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
+                  {hasInmuebles && (
+                    <TableCell className="p-1">
+                      {isPlantilla && (
+                        <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Plantilla inmueble
+                        </span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="p-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteTarget({ id: item.id, name: item.nombre })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!isPlantilla && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeleteTarget({ id: item.id, name: item.nombre })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>

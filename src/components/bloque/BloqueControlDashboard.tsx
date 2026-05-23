@@ -1,6 +1,6 @@
 // src/components/bloque/BloqueControlDashboard.tsx
 import { useState } from "react";
-import { TrendingDown, TrendingUp, CalendarClock, Landmark } from "lucide-react";
+import { TrendingDown, TrendingUp, CalendarClock, Landmark, Building2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   type BloqueGasto,
@@ -24,6 +24,11 @@ interface Props {
   mesActual: number; // 1-12
   areas: BloqueArea[];
   areaAssignments: BloqueAreaCategoria[];
+  inmueblesStats?: {
+    count: number;
+    totalCompra: number;
+    totalEstimado: number;
+  };
 }
 
 export default function BloqueControlDashboard({
@@ -36,6 +41,7 @@ export default function BloqueControlDashboard({
   mesActual,
   areas,
   areaAssignments,
+  inmueblesStats,
 }: Props) {
   const gastosMap = buildOverridesMap(gastosOverrides, "gasto_id");
   const ingresosMap = buildOverridesMap(ingresosOverrides, "ingreso_id");
@@ -239,6 +245,39 @@ export default function BloqueControlDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {blockId === "sanyus" && inmueblesStats && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Inmuebles</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="text-2xl font-bold">{inmueblesStats.count}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {inmueblesStats.count === 1 ? "inmueble registrado" : "inmuebles registrados"}
+                </p>
+                {inmueblesStats.totalCompra > 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Coste: <strong>{formatEuro(inmueblesStats.totalCompra)}</strong>
+                    {inmueblesStats.totalEstimado > 0 && (
+                      <> · Estimado: <strong>{formatEuro(inmueblesStats.totalEstimado)}</strong></>
+                    )}
+                  </p>
+                )}
+              </div>
+              <a
+                href="/sanyus/activos?inmueble=1"
+                className="text-sm text-primary hover:underline"
+              >
+                Ver listado
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Row 2: Próximos pagos + Ranking Vida Diaria ─────── */}
       <div className="grid gap-4 lg:grid-cols-2">

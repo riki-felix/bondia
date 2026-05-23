@@ -1,4 +1,6 @@
 // src/components/bloque/BloqueActivoDetail.tsx
+"use client";
+
 import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,9 +18,13 @@ import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag, type ActivoCaracteristica, type ActivoCaracteristicaValor } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { bloqueHasActivoTags, bloqueHasActivoCaracteristicas } from "@/lib/bloqueConfig";
+import { bloqueHasActivoTags, bloqueHasActivoCaracteristicas, bloqueHasActivoInmuebles } from "@/lib/bloqueConfig";
+import BloqueActivoInmuebleSection from "./BloqueActivoInmuebleSection";
+import { INMUEBLE_PLANTILLA_SLUGS, INMUEBLE_PARTICIPACION_SLUGS, INMUEBLE_FIELD_META, type InmueblePlantillaSlug } from "@/lib/sanyusInmueblePlantilla";
+import { parseParticipacionInput } from "@/lib/participacion";
 import { ArrowLeft, Save, Loader2, Upload, Trash2, ImageIcon, X, Tag } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { uploadDocument } from "@/lib/documentApi";
 import { BloqueActivoMovimientos } from "./BloqueActivoMovimientos";
 import type { BloqueActivoMovimientosPayload } from "@/lib/fetchActivoMovimientos";
 
@@ -46,6 +52,9 @@ export default function BloqueActivoDetail({
   const isNew = !activo;
   const hasTags = bloqueHasActivoTags(config);
   const hasCaracteristicas = bloqueHasActivoCaracteristicas(config);
+  const hasInmuebles = bloqueHasActivoInmuebles(config);
+
+  const [esInmueble, setEsInmueble] = useState(() => Boolean(activo?.es_inmueble));
 
   const [form, setForm] = useState({
     nombre: activo?.nombre ?? "",
@@ -61,6 +70,7 @@ export default function BloqueActivoDetail({
   const [fechaEstimacion, setFechaEstimacion] = useState<string | null>(activo?.fecha_estimacion ?? null);
   const [uploading, setUploading] = useState(false);
   const [pendingFoto, setPendingFoto] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [pendingDocuments, setPendingDocuments] = useState<File[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(
     () => (activo?.tags ?? []).map((t) => t.id)
   );
@@ -74,12 +84,49 @@ export default function BloqueActivoDetail({
     return map;
   });
 
-  // Filter characteristics: show those that match the selected category or have no category
+  const plantillaCaracteristicas = useMemo(
+    () =>
+      allCaracteristicas.filter(
+        (c) => c.plantilla_inmueble || INMUEBLE_PLANTILLA_SLUGS.includes(c.slug as InmueblePlantillaSlug)
+      ),
+    [allCaracteristicas]
+  );
+
+  // Filter characteristics: ad hoc only (plantilla handled by inmueble section)
   const filteredCaracteristicas = useMemo(() => {
     return allCaracteristicas.filter(
-      (c) => !c.categoria_id || c.categoria_id === form.categoria_id
+      (c) =>
+        !c.plantilla_inmueble &&
+        !INMUEBLE_PLANTILLA_SLUGS.includes(c.slug as InmueblePlantillaSlug) &&
+        (!c.categoria_id || c.categoria_id === form.categoria_id)
     );
   }, [allCaracteristicas, form.categoria_id]);
+
+  const caracteristicasToSync = useMemo(() => {
+    const adHoc = allCaracteristicas.filter(
+      (c) =>
+        !c.plantilla_inmueble &&
+        !INMUEBLE_PLANTILLA_SLUGS.includes(c.slug as InmueblePlantillaSlug) &&
+        (!c.categoria_id || c.categoria_id === form.categoria_id)
+    );
+    return [...adHoc, ...plantillaCaracteristicas];
+  }, [allCaracteristicas, form.categoria_id, plantillaCaracteristicas]);
+
+  const buildPlantillaValores = useCallback(() => {
+    return INMUEBLE_PLANTILLA_SLUGS.flatMap((slug) => {
+      const c = allCaracteristicas.find((x) => x.slug === slug);
+      if (!c) return [];
+      const raw = caracValores[c.id] ?? caracValores[slug] ?? "";
+      const trimmed = raw.trim();
+      if (!trimmed) return [];
+      if (INMUEBLE_PARTICIPACION_SLUGS.includes(slug as (typeof INMUEBLE_PARTICIPACION_SLUGS)[number])) {
+        const parsed = parseParticipacionInput(trimmed);
+        if (parsed == null) return [];
+        return [{ caracteristica_id: c.id, valor: String(parsed) }];
+      }
+      return [{ caracteristica_id: c.id, valor: trimmed }];
+    });
+  }, [allCaracteristicas, caracValores]);
 
   const set =
     (field: string) =>
@@ -87,14 +134,29 @@ export default function BloqueActivoDetail({
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const dirty = useMemo(() => {
-    if (isNew) return form.nombre.trim().length > 0;
+    if (isNew) {
+      return (
+        form.nombre.trim().length > 0 ||
+        esInmueble ||
+        pendingDocuments.length > 0 ||
+        INMUEBLE_PLANTILLA_SLUGS.some((slug) => (caracValores[slug] ?? "").trim())
+      );
+    }
     const origValores: Record<string, string> = {};
     for (const v of activo?.caracteristica_valores ?? []) {
       origValores[v.caracteristica_id] = v.valor;
     }
-    const caracChanged = hasCaracteristicas && filteredCaracteristicas.some(
-      (c) => (caracValores[c.id] ?? "") !== (origValores[c.id] ?? "")
-    );
+    const caracChanged =
+      hasCaracteristicas &&
+      (caracteristicasToSync.some(
+        (c) => (caracValores[c.id] ?? "") !== (origValores[c.id] ?? "")
+      ) ||
+        INMUEBLE_PLANTILLA_SLUGS.some((slug) => {
+          const c = allCaracteristicas.find((x) => x.slug === slug);
+          const current = caracValores[c?.id ?? ""] ?? caracValores[slug] ?? "";
+          const orig = c ? (origValores[c.id] ?? "") : "";
+          return current !== orig;
+        }));
     const tagsChanged =
       hasTags &&
       JSON.stringify(selectedTagIds.slice().sort()) !==
@@ -106,15 +168,29 @@ export default function BloqueActivoDetail({
       form.precio_compra !== (activo?.precio_compra != null ? String(activo.precio_compra) : "") ||
       form.valor_estimado !== (activo?.valor_estimado != null ? String(activo.valor_estimado) : "") ||
       form.notas !== (activo?.notas ?? "") ||
+      (hasInmuebles && esInmueble !== (activo?.es_inmueble ?? false)) ||
       tagsChanged ||
       caracChanged
     );
-  }, [form, activo, isNew, selectedTagIds, caracValores, filteredCaracteristicas, hasTags, hasCaracteristicas]);
+  }, [form, activo, isNew, selectedTagIds, caracValores, caracteristicasToSync, allCaracteristicas, hasTags, hasCaracteristicas, hasInmuebles, esInmueble, pendingDocuments]);
 
   const handleSave = useCallback(async () => {
     if (!form.nombre.trim()) {
       toast.error("El nombre es obligatorio");
       return;
+    }
+
+    if (esInmueble) {
+      for (const slug of INMUEBLE_PARTICIPACION_SLUGS) {
+        const c = allCaracteristicas.find((x) => x.slug === slug);
+        const raw = caracValores[c?.id ?? ""] ?? caracValores[slug] ?? "";
+        if (raw.trim() && parseParticipacionInput(raw) === null) {
+          toast.error(
+            `Participación ${INMUEBLE_FIELD_META[slug].label}: introduce un porcentaje entre 0 y 100`
+          );
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -127,6 +203,8 @@ export default function BloqueActivoDetail({
         valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
         notas: form.notas,
       };
+
+      if (hasInmuebles) payload.es_inmueble = esInmueble;
 
       if (!isNew) payload.id = activo!.id;
 
@@ -164,9 +242,16 @@ export default function BloqueActivoDetail({
 
       // Sync characteristic values (solo Casa)
       if (hasCaracteristicas && config.endpoints.syncCaracteristicaValores) {
-        const valores = filteredCaracteristicas
+        const adHocValores = caracteristicasToSync
+          .filter(
+            (c) =>
+              !c.plantilla_inmueble &&
+              !INMUEBLE_PLANTILLA_SLUGS.includes(c.slug as InmueblePlantillaSlug)
+          )
           .map((c) => ({ caracteristica_id: c.id, valor: caracValores[c.id] ?? "" }))
           .filter((v) => v.valor.trim());
+        const plantillaValores = buildPlantillaValores();
+        const valores = [...adHocValores, ...plantillaValores];
         if (valores.length > 0 || !isNew) {
           try {
             await fetch(config.endpoints.syncCaracteristicaValores, {
@@ -193,6 +278,15 @@ export default function BloqueActivoDetail({
             // Non-blocking — photo upload failure doesn't prevent redirect
           }
         }
+        if (pendingDocuments.length > 0) {
+          try {
+            for (const file of pendingDocuments) {
+              await uploadDocument(config.id, "activo", activoId, file);
+            }
+          } catch {
+            // Non-blocking
+          }
+        }
         // Redirect to detail page of the new activo
         window.location.href = `${config.routes.activoDetalle}/${data.id}`;
       }
@@ -201,7 +295,7 @@ export default function BloqueActivoDetail({
     } finally {
       setSaving(false);
     }
-  }, [form, isNew, activo, config, selectedTagIds, pendingFoto, filteredCaracteristicas, caracValores, hasTags, hasCaracteristicas]);
+  }, [form, isNew, activo, config, selectedTagIds, pendingFoto, pendingDocuments, caracteristicasToSync, caracValores, allCaracteristicas, hasTags, hasCaracteristicas, hasInmuebles, esInmueble, buildPlantillaValores]);
 
   const handleUploadFoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -300,7 +394,8 @@ export default function BloqueActivoDetail({
 
       {/* ── Form ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column: main fields */}
+        {/* Left column: main fields + inmueble */}
+        <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Datos del activo</CardTitle>
@@ -424,6 +519,46 @@ export default function BloqueActivoDetail({
           </CardContent>
         </Card>
 
+          {hasCaracteristicas && filteredCaracteristicas.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Características</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {filteredCaracteristicas.map((c) => (
+                  <div key={c.id} className="space-y-1">
+                    <Label htmlFor={`carac-${c.id}`} className="text-xs text-muted-foreground">
+                      {c.nombre}
+                    </Label>
+                    <Input
+                      id={`carac-${c.id}`}
+                      value={caracValores[c.id] ?? ""}
+                      onChange={(e) =>
+                        setCaracValores((prev) => ({ ...prev, [c.id]: e.target.value }))
+                      }
+                      placeholder={c.nombre}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+        {hasInmuebles && (
+          <BloqueActivoInmuebleSection
+            esInmueble={esInmueble}
+            onEsInmuebleChange={(value) => setEsInmueble(value === true)}
+            onCategoriaAutoAssign={(categoriaId) =>
+              setForm((prev) => ({ ...prev, categoria_id: categoriaId }))
+            }
+            categorias={categorias}
+            plantillaCaracteristicas={plantillaCaracteristicas}
+            caracValores={caracValores}
+            setCaracValores={setCaracValores}
+          />
+        )}
+        </div>
+
         {/* Right column: foto + notas */}
         <div className="space-y-6">
           {/* Photo card */}
@@ -493,39 +628,23 @@ export default function BloqueActivoDetail({
             </CardContent>
           </Card>
 
-          {!isNew && activo && (
-            <EntityDocumentsPanel
-              bloque={config.id}
-              entityType="activo"
-              entityId={activo.id}
-            />
-          )}
-
-          {/* Características */}
-          {hasCaracteristicas && filteredCaracteristicas.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Características</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {filteredCaracteristicas.map((c) => (
-                  <div key={c.id} className="space-y-1">
-                    <Label htmlFor={`carac-${c.id}`} className="text-xs text-muted-foreground">
-                      {c.nombre}
-                    </Label>
-                    <Input
-                      id={`carac-${c.id}`}
-                      value={caracValores[c.id] ?? ""}
-                      onChange={(e) =>
-                        setCaracValores((prev) => ({ ...prev, [c.id]: e.target.value }))
-                      }
-                      placeholder={c.nombre}
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          <EntityDocumentsPanel
+            bloque={config.id}
+            entityType="activo"
+            entityId={activo?.id ?? null}
+            pendingFiles={isNew ? pendingDocuments : undefined}
+            onPendingFilesAdd={
+              isNew
+                ? (files) => setPendingDocuments((prev) => [...prev, ...files])
+                : undefined
+            }
+            onPendingFileRemove={
+              isNew
+                ? (index) =>
+                    setPendingDocuments((prev) => prev.filter((_, i) => i !== index))
+                : undefined
+            }
+          />
         </div>
       </div>
 

@@ -38,6 +38,10 @@ interface EntityDocumentsPanelProps {
   title?: string;
   disabledMessage?: string;
   compact?: boolean;
+  /** Archivos en cola antes de crear la entidad */
+  pendingFiles?: File[];
+  onPendingFilesAdd?: (files: File[]) => void;
+  onPendingFileRemove?: (index: number) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -53,6 +57,9 @@ export function EntityDocumentsPanel({
   title = "Documentos",
   disabledMessage = "Guarda la entidad para poder adjuntar documentos.",
   compact = false,
+  pendingFiles = [],
+  onPendingFilesAdd,
+  onPendingFileRemove,
 }: EntityDocumentsPanelProps) {
   const [documents, setDocuments] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,7 +91,15 @@ export function EntityDocumentsPanel({
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files?.length || !entityId) return;
+    if (!files?.length) return;
+
+    if (!entityId && onPendingFilesAdd) {
+      onPendingFilesAdd(Array.from(files));
+      e.target.value = "";
+      return;
+    }
+
+    if (!entityId) return;
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
@@ -143,9 +158,11 @@ export function EntityDocumentsPanel({
     }
   };
 
+  const canUploadPending = !entityId && !!onPendingFilesAdd;
+
   const content = (
     <>
-      {!entityId ? (
+      {!entityId && !canUploadPending ? (
         <p className="text-sm text-muted-foreground">{disabledMessage}</p>
       ) : (
         <>
@@ -173,16 +190,54 @@ export function EntityDocumentsPanel({
               )}
               Subir PDF o JPG
             </Button>
+            {canUploadPending && (
+              <span className="text-xs text-muted-foreground">
+                Se guardarán al crear el activo
+              </span>
+            )}
           </div>
 
-          {loading ? (
+          {canUploadPending && pendingFiles.length > 0 && (
+            <ul className="space-y-2 mb-3">
+              {pendingFiles.map((file, index) => (
+                <li
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
+                >
+                  {file.type === "application/pdf" ? (
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="flex-1 truncate">{file.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {formatSize(file.size)}
+                  </span>
+                  {onPendingFileRemove && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive shrink-0"
+                      onClick={() => onPendingFileRemove(index)}
+                      title="Quitar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {entityId && loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 className="h-4 w-4 animate-spin" />
               Cargando…
             </div>
-          ) : documents.length === 0 ? (
+          ) : entityId && documents.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin documentos adjuntos.</p>
-          ) : (
+          ) : entityId && documents.length > 0 ? (
             <ul className="space-y-2">
               {documents.map((doc, index) => (
                 <li
@@ -251,7 +306,9 @@ export function EntityDocumentsPanel({
                 </li>
               ))}
             </ul>
-          )}
+          ) : canUploadPending && pendingFiles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin documentos adjuntos.</p>
+          ) : null}
         </>
       )}
 

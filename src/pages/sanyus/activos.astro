@@ -48,6 +48,7 @@ const activosWithTags = activos.map((a: any) => ({
 }));
 
 const tagFilter = Astro.url.searchParams.get("tag");
+const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
 ---
 
 <Layout>
@@ -70,6 +71,7 @@ const tagFilter = Astro.url.searchParams.get("tag");
         initialCatFilter={catFilter}
         allTags={allTags}
         initialTagFilter={tagFilter}
+        initialInmuebleFilter={inmuebleFilter}
       />
     )}
   </div>

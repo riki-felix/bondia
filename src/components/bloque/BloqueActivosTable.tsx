@@ -9,7 +9,8 @@ import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { bloqueHasActivoInmuebles } from "@/lib/bloqueConfig";
+import { Plus, Trash2, Pencil, Building2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import BloqueCategoryDonut from "./BloqueCategoryDonut";
 
@@ -22,6 +23,7 @@ interface BloqueActivosTableProps {
   initialCatFilter?: string | null;
   allTags?: ActivoTag[];
   initialTagFilter?: string | string[] | null;
+  initialInmuebleFilter?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -33,9 +35,12 @@ export default function BloqueActivosTable({
   initialCatFilter = null,
   allTags = [],
   initialTagFilter = null,
+  initialInmuebleFilter = false,
 }: BloqueActivosTableProps) {
+  const hasInmuebles = bloqueHasActivoInmuebles(config);
   const [rows, setRows] = useState<BloqueActivo[]>(initialData);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
+  const [activeInmuebleOnly, setActiveInmuebleOnly] = useState(initialInmuebleFilter);
   const [activeTags, setActiveTags] = useState<string[]>(() => {
     if (!initialTagFilter) return [];
     return Array.isArray(initialTagFilter) ? initialTagFilter : [initialTagFilter];
@@ -50,8 +55,20 @@ export default function BloqueActivosTable({
         const rowTagIds = (r.tags ?? []).map((t) => t.id);
         return activeTags.every((tid) => rowTagIds.includes(tid));
       });
+    if (activeInmuebleOnly) result = result.filter((r) => r.es_inmueble === true);
     return result;
-  }, [rows, activeCat, activeTags]);
+  }, [rows, activeCat, activeTags, activeInmuebleOnly]);
+
+  const toggleInmuebleFilter = useCallback(() => {
+    setActiveInmuebleOnly((prev) => {
+      const next = !prev;
+      const url = new URL(window.location.href);
+      if (next) url.searchParams.set("inmueble", "1");
+      else url.searchParams.delete("inmueble");
+      window.history.replaceState({}, "", url.toString());
+      return next;
+    });
+  }, []);
 
   const categoriaOptions = useMemo(
     () => [
@@ -139,6 +156,20 @@ export default function BloqueActivosTable({
             <Plus className="h-4 w-4 mr-1" /> Añadir activo
           </a>
         </Button>
+        {hasInmuebles && (
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity border ${
+              activeInmuebleOnly
+                ? "bg-primary/10 border-primary text-primary"
+                : "border-border text-muted-foreground"
+            }`}
+            onClick={toggleInmuebleFilter}
+          >
+            <Building2 className="h-3 w-3" />
+            Solo inmuebles
+          </button>
+        )}
         {allTags.length > 0 && (
           <div className="flex items-center gap-1">
             {allTags.map((tag) => {
@@ -212,11 +243,18 @@ export default function BloqueActivosTable({
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="p-1">
-                    <EditableCell
-                      value={row.nombre}
-                      type="text"
-                      onSave={(v) => updateField(row.id, "nombre", v)}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <EditableCell
+                        value={row.nombre}
+                        type="text"
+                        onSave={(v) => updateField(row.id, "nombre", v)}
+                      />
+                      {row.es_inmueble && (
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Inmueble
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="p-1">
                     <EditableCell

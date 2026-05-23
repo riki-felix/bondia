@@ -84,6 +84,10 @@ export function bloqueHasActivoCaracteristicas(config: BloqueConfig): boolean {
   );
 }
 
+export function bloqueHasActivoInmuebles(config: BloqueConfig): boolean {
+  return config.id === "sanyus";
+}
+
 export const CASA_CONFIG: BloqueConfig = {
   id: "casa",
   label: "Casa",

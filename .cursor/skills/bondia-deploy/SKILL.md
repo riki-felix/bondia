@@ -38,15 +38,17 @@ Copiar `.env.example` → `.env` y rellenar. **Nunca** commitear `.env`.
 ```bash
 npm install
 netlify link          # enlazar sitio desplegado
-netlify dev --target-port 4321
+npm run dev:netlify
 ```
 
 Abrir **http://localhost:8888** (proxy). Astro corre en 4321; HMR configurado en `astro.config.ts` (`clientPort`/`port` 4321).
 
-| Comando | Functions | Puerto |
-|---------|-----------|--------|
-| `npm run dev` | No | 4321 |
-| `netlify dev --target-port 4321` | Sí | 8888 |
+| Comando | Functions | Puerto | Notas |
+|---------|-----------|--------|-------|
+| `npm run dev` | No | 4321 | Solo frontend |
+| `npm run dev:netlify` | Sí | 8888 | Desarrollo completo |
+| `npm run check` | — | — | Seguro con netlify dev activo |
+| `npm run build` | — | — | **Parar netlify dev antes** (ver abajo) |
 
 Para probar crear/editar/borrar, usar siempre **netlify dev**.
 
@@ -111,6 +113,16 @@ Requiere Supabase CLI (`supabase` en PATH) y login `supabase login`.
 | Síntoma | Causa probable |
 |---------|----------------|
 | 404 en `/.netlify/functions/*` | Solo `npm run dev` |
+| 404 en `/_astro/*.js` tras cambios del agente | Se ejecutó `npm run build` con netlify dev activo |
+| Terminal: `Removed function …` + `Loaded function ssr` | Mismo caso — reiniciar `npm run dev:netlify` |
 | Config: SUPABASE_SERVICE_ROLE ausente | Falta en `.env` |
 | Mutaciones OK en local, fallan en prod | Vars no en Netlify |
 | Lecturas vacías | `PUBLIC_*` incorrectas o RLS/proyecto equivocado |
+
+### Desarrollo continuo roto
+
+Si tras una tarea del agente hay que reiniciar netlify dev: el agente probablemente corrió `npm run build`. Desde ahora:
+
+- `prebuild` bloquea el build si el puerto 8888 está en uso (`FORCE_BUILD=1` para forzar).
+- El agente debe usar `npm run check` durante sesiones de dev.
+- Recuperación: Ctrl+C → `npm run dev:netlify` → refrescar :8888.

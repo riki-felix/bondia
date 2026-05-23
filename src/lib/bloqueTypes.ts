@@ -124,6 +124,7 @@ export interface BloqueActivo {
   foto_url: string | null;
   notas: string;
   slug: string | null;
+  es_inmueble?: boolean;
   created_at: string;
   updated_at: string;
   categoria_nombre?: string;
@@ -143,6 +144,7 @@ export interface ActivoCaracteristica {
   nombre: string;
   slug: string;
   categoria_id: string | null;
+  plantilla_inmueble?: boolean;
 }
 
 export interface ActivoCaracteristicaValor {

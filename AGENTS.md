@@ -14,8 +14,9 @@ Aplicación interna de gestión patrimonial: inversiones inmobiliarias, presupue
 1. **Lecturas**: páginas `.astro` y React usan clave anónima (`PUBLIC_SUPABASE_*` vía `supabaseClient` / `getSupabase`).
 2. **Escrituras**: solo vía `fetch('/.netlify/functions/...')` → service role en functions. No insertar/actualizar desde el cliente con anon key.
 3. **Casa ↔ Sanyus**: patrón espejo. Cambios en un bloque suelen replicarse en el otro (tablas, config, functions, páginas).
-4. **Dev local con mutaciones**: `netlify dev --target-port 4321` → http://localhost:8888. `npm run dev` solo no expone functions.
+4. **Dev local con mutaciones**: `npm run dev:netlify` (o `netlify dev --target-port 4321`) → http://localhost:8888. `npm run dev` solo no expone functions.
 5. **No asumir**: cuentas bancarias, ledger de transacciones, auth multi-usuario ni Prisma.
+6. **Verificación en dev**: usar `npm run check`, **no** `npm run build` con netlify dev activo (rompe HMR y functions). Ver `.cursor/rules/bondia-dev-workflow.mdc`.
 
 ## Dominios de negocio
 
@@ -60,8 +61,9 @@ Skill personal (dominio de negocio): `bondia-domain` en `~/.cursor/skills/bondia
 ```bash
 npm install
 netlify link
-netlify dev --target-port 4321   # desarrollo completo
-npm run build                    # producción (astro check && build)
+npm run dev:netlify              # desarrollo completo (alias de netlify dev)
+npm run check                    # verificar tipos sin romper netlify dev
+npm run build                    # producción (astro check && build); parar netlify dev antes
 ```
 
 Migraciones de BD: SQL en `supabase/migrations/` — manual en Supabase UI, vía **Supabase MCP** (ver `.cursor/mcp.json.example`) o `supabase db push`.

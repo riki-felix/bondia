@@ -1,0 +1,33 @@
+---
+description: Desarrollo local continuo con netlify dev — no romper HMR con builds
+alwaysApply: true
+---
+
+# Desarrollo local (netlify dev)
+
+## Regla crítica para el agente
+
+**Nunca ejecutes `npm run build` ni `astro build` mientras el usuario desarrolla con `netlify dev`.**
+
+Un build de producción regenera `dist/` y `.netlify/build`. Netlify CLI detecta esos cambios, descarga las ~64 functions de `netlify/functions/` y carga solo el bundle SSR. Resultado: 404 en `/_astro/*` y en `/.netlify/functions/*` hasta reiniciar el terminal.
+
+## Verificación segura durante dev
+
+- Usar **`npm run check`** (`astro check`) para validar tipos tras cambios.
+- Solo usar **`npm run build`** antes de deploy/merge, con netlify dev **parado**.
+- Si hace falta build con dev activo (excepcional): `FORCE_BUILD=1 npm run build` y avisar al usuario de que debe reiniciar `netlify dev`.
+
+## Comando de desarrollo
+
+```bash
+npm run dev:netlify
+# o: netlify dev --target-port 4321  →  http://localhost:8888
+```
+
+## Recuperación si el dev se rompe
+
+Síntomas: 404 en JS/CSS, mensajes `Removed function …` / `Loaded function ssr` en la terminal.
+
+1. Ctrl+C en la terminal de netlify dev
+2. `npm run dev:netlify`
+3. Refrescar el navegador en :8888

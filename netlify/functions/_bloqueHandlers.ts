@@ -159,6 +159,21 @@ export async function handleDeleteIngreso(table: string, body: any) {
 
 // ─── Activo ──────────────────────────────────────────────────
 
+const SANYUS_ACTIVOS_TABLE = 'sanyus_activos_v2';
+
+async function resolveInmueblesCategoriaId(
+  supabase: ReturnType<typeof serviceSupabase>,
+  categTable: string,
+): Promise<string | null> {
+  const { data } = await supabase.from(categTable).select('id, nombre, slug');
+  if (!data?.length) return null;
+  const found = data.find(
+    (c: { slug: string; nombre: string }) =>
+      c.slug === 'inmuebles' || c.nombre.toLowerCase() === 'inmuebles',
+  );
+  return found?.id ?? null;
+}
+
 export async function handleCreateActivo(table: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
@@ -167,10 +182,16 @@ export async function handleCreateActivo(table: string, body: any) {
   const slug = nombre ? slugifyEs(nombre) + '-' + Date.now() : 'activo-' + Date.now();
 
   const valorEstimado = toMoneyOrNull(body.valor_estimado);
+  const esInmueble = table === SANYUS_ACTIVOS_TABLE && body.es_inmueble === true;
+
+  let categoriaId = emptyOrNull(body.categoria_id);
+  if (esInmueble && !categoriaId) {
+    categoriaId = await resolveInmueblesCategoriaId(supabase, 'sanyus_activos_categorias');
+  }
 
   const row: Record<string, unknown> = {
     nombre,
-    categoria_id: emptyOrNull(body.categoria_id),
+    categoria_id: categoriaId,
     fecha_compra: toDateOrNull(body.fecha_compra),
     precio_compra: toMoneyOrNull(body.precio_compra),
     valor_estimado: valorEstimado,
@@ -179,6 +200,10 @@ export async function handleCreateActivo(table: string, body: any) {
     notas: body.notas ?? '',
     slug,
   };
+
+  if (table === SANYUS_ACTIVOS_TABLE) {
+    row.es_inmueble = esInmueble;
+  }
 
   const { data, error } = await supabase
     .from(table)
@@ -209,6 +234,22 @@ export async function handleUpdateActivo(table: string, body: any) {
   }
   if (body.foto_url !== undefined) updates.foto_url = emptyOrNull(body.foto_url);
   if (body.notas !== undefined) updates.notas = body.notas ?? '';
+
+  if (table === SANYUS_ACTIVOS_TABLE && body.es_inmueble !== undefined) {
+    const esInmueble = body.es_inmueble === true;
+    updates.es_inmueble = esInmueble;
+    if (esInmueble && body.categoria_id === undefined) {
+      const { data: current } = await supabase
+        .from(table)
+        .select('categoria_id')
+        .eq('id', id)
+        .single();
+      if (!current?.categoria_id) {
+        const inmueblesId = await resolveInmueblesCategoriaId(supabase, 'sanyus_activos_categorias');
+        if (inmueblesId) updates.categoria_id = inmueblesId;
+      }
+    }
+  }
 
   if (Object.keys(updates).length === 0) return json({ ok: true, id });
 
@@ -428,12 +469,34 @@ export async function handleCreateCaracteristica(catalogTable: string, body: any
   return json(data, 201);
 }
 
+const SANYUS_CARACTERISTICAS_TABLE = 'sanyus_activos_caracteristicas';
+
+async function isPlantillaInmuebleCaracteristica(
+  supabase: ReturnType<typeof serviceSupabase>,
+  catalogTable: string,
+  id: string,
+): Promise<boolean> {
+  if (catalogTable !== SANYUS_CARACTERISTICAS_TABLE) return false;
+  const { data } = await supabase
+    .from(catalogTable)
+    .select('plantilla_inmueble')
+    .eq('id', id)
+    .single();
+  return data?.plantilla_inmueble === true;
+}
+
 export async function handleUpdateCaracteristica(catalogTable: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
 
   const id = emptyOrNull(body.id);
   if (!id) return json({ error: 'id requerido' }, 400);
+
+  if (await isPlantillaInmuebleCaracteristica(supabase, catalogTable, id)) {
+    if (body.nombre !== undefined) {
+      return json({ error: 'No se puede renombrar una característica de plantilla inmueble' }, 400);
+    }
+  }
 
   const updates: Record<string, unknown> = {};
   if (body.nombre !== undefined) {
@@ -461,6 +524,10 @@ export async function handleDeleteCaracteristica(catalogTable: string, body: any
 
   const id = emptyOrNull(body.id);
   if (!id) return json({ error: 'id requerido' }, 400);
+
+  if (await isPlantillaInmuebleCaracteristica(supabase, catalogTable, id)) {
+    return json({ error: 'No se puede eliminar una característica de plantilla inmueble' }, 400);
+  }
 
   const { error } = await supabase
     .from(catalogTable)
