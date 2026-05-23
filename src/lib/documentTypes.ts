@@ -36,6 +36,8 @@ export const DOCUMENT_API = {
   signedUrl: "/.netlify/functions/getDocumentSignedUrl",
   tree: "/.netlify/functions/listDocumentsTree",
   search: "/.netlify/functions/searchDocuments",
+  listEntities: "/.netlify/functions/listDocumentEntities",
+  listCategories: "/.netlify/functions/listDocumentEntityCategories",
 } as const;
 
 export interface DocumentTreeEntity {
@@ -58,3 +60,45 @@ export interface DocumentSearchResult extends Documento {
   entity_href: string;
   breadcrumb: string;
 }
+
+export interface DocumentEntitySearchResult {
+  id: string;
+  label: string;
+  href: string;
+  bloque: DocumentBloque;
+  entity_type: DocumentEntityType;
+  breadcrumb: string;
+  documentCount: number;
+}
+
+export interface DocumentExplorerSearchResponse {
+  entities: DocumentEntitySearchResult[];
+  files: DocumentSearchResult[];
+}
+
+export interface DocumentTreeSectionSummary {
+  entityCount: number;
+  documentCount: number;
+}
+
+export interface DocumentEntityListItem {
+  id: string;
+  label: string;
+  href: string;
+  created_at: string;
+  documentCount: number;
+  ejercicio?: number | null;
+  categoria_id?: string | null;
+  categoria_nombre?: string | null;
+}
+
+export interface DocumentCategoriaOption {
+  id: string;
+  nombre: string;
+}
+
+export type DocumentEntitySort =
+  | "created_desc"
+  | "created_asc"
+  | "name_asc"
+  | "name_desc";

@@ -356,6 +356,36 @@ export async function handleGetDocumentSignedUrl(body: any) {
   });
 }
 
+const CATEGORIA_JOIN: Record<string, string> = {
+  casa_gastos: 'casa_gastos_categorias(nombre)',
+  casa_ingresos: 'casa_ingresos_categorias(nombre)',
+  casa_activos_v2: 'casa_activos_categorias(nombre)',
+  sanyus_gastos: 'sanyus_gastos_categorias(nombre)',
+  sanyus_ingresos: 'sanyus_ingresos_categorias(nombre)',
+  sanyus_activos_v2: 'sanyus_activos_categorias(nombre)',
+};
+
+const CATEGORIA_TABLE: Record<string, string> = {
+  'casa-gasto': 'casa_gastos_categorias',
+  'casa-ingreso': 'casa_ingresos_categorias',
+  'casa-activo': 'casa_activos_categorias',
+  'sanyus-gasto': 'sanyus_gastos_categorias',
+  'sanyus-ingreso': 'sanyus_ingresos_categorias',
+  'sanyus-activo': 'sanyus_activos_categorias',
+};
+
+function buildDocumentCountMaps(rows: { bloque: string; entity_type: string; entity_id: string }[]) {
+  const perEntity = new Map<string, number>();
+  const perSection = new Map<string, number>();
+  for (const row of rows) {
+    const entityKey = `${row.bloque}:${row.entity_type}:${row.entity_id}`;
+    perEntity.set(entityKey, (perEntity.get(entityKey) ?? 0) + 1);
+    const sectionKey = `${row.bloque}:${row.entity_type}`;
+    perSection.set(sectionKey, (perSection.get(sectionKey) ?? 0) + 1);
+  }
+  return { perEntity, perSection };
+}
+
 export async function handleListDocumentsTree() {
   ensureConfig();
   const supabase = serviceSupabase();
@@ -364,94 +394,273 @@ export async function handleListDocumentsTree() {
     .from('documentos')
     .select('entity_type, entity_id, bloque');
 
-  const countMap = new Map<string, number>();
-  for (const row of counts ?? []) {
-    const key = `${row.bloque}:${row.entity_type}:${row.entity_id}`;
-    countMap.set(key, (countMap.get(key) ?? 0) + 1);
-  }
+  const { perEntity, perSection } = buildDocumentCountMaps(counts ?? []);
 
-  async function entitiesFor(
-    cfg: ReturnType<typeof getDocumentEntityConfig>,
-    entityType: DocumentEntityType,
-    bloque: DocumentBloque
-  ) {
-    if (!cfg) return [];
+  async function entitiesForPropiedades() {
+    const cfg = getDocumentEntityConfig('engine', 'propiedad')!;
     const { data, error } = await supabase
       .from(cfg.table)
-      .select('*')
-      .order('created_at', { ascending: true });
+      .select('id, titulo, created_at')
+      .order('created_at', { ascending: false });
     if (error || !data) return [];
-    return (data as unknown as Record<string, unknown>[]).map((row) => {
+    return (data as { id: string; titulo: string | null; created_at: string }[]).map((row) => {
       const id = String(row.id);
-      const label = String(row[cfg.labelField] ?? id).trim() || id;
-      const ck = `${bloque}:${entityType}:${id}`;
+      const label = String(row.titulo ?? id).trim() || id;
+      const ck = `engine:propiedad:${id}`;
       return {
         id,
         label,
         href: cfg.href(id),
-        documentCount: countMap.get(ck) ?? 0,
+        documentCount: perEntity.get(ck) ?? 0,
       };
     });
   }
 
-  const propCfg = getDocumentEntityConfig('engine', 'propiedad')!;
-  const propiedades = await entitiesFor(propCfg, 'propiedad', 'engine');
+  async function sectionSummary(bloque: DocumentBloque, entityType: DocumentEntityType) {
+    const cfg = getDocumentEntityConfig(bloque, entityType);
+    if (!cfg) return { entityCount: 0, documentCount: 0 };
+    const { count, error } = await supabase
+      .from(cfg.table)
+      .select('*', { count: 'exact', head: true });
+    if (error) return { entityCount: 0, documentCount: 0 };
+    return {
+      entityCount: count ?? 0,
+      documentCount: perSection.get(`${bloque}:${entityType}`) ?? 0,
+    };
+  }
 
-  const casaActivos = await entitiesFor(
-    getDocumentEntityConfig('casa', 'activo'),
-    'activo',
-    'casa'
-  );
-  const casaGastos = await entitiesFor(getDocumentEntityConfig('casa', 'gasto'), 'gasto', 'casa');
-  const casaIngresos = await entitiesFor(
-    getDocumentEntityConfig('casa', 'ingreso'),
-    'ingreso',
-    'casa'
-  );
-
-  const sanyusActivos = await entitiesFor(
-    getDocumentEntityConfig('sanyus', 'activo'),
-    'activo',
-    'sanyus'
-  );
-  const sanyusGastos = await entitiesFor(
-    getDocumentEntityConfig('sanyus', 'gasto'),
-    'gasto',
-    'sanyus'
-  );
-  const sanyusIngresos = await entitiesFor(
-    getDocumentEntityConfig('sanyus', 'ingreso'),
-    'ingreso',
-    'sanyus'
-  );
+  const propiedades = await entitiesForPropiedades();
 
   return json({
     tree: {
-      engine: {
-        propiedades,
-      },
+      engine: { propiedades },
       casa: {
-        gastos: casaGastos,
-        ingresos: casaIngresos,
-        activos: casaActivos,
+        gastos: await sectionSummary('casa', 'gasto'),
+        ingresos: await sectionSummary('casa', 'ingreso'),
+        activos: await sectionSummary('casa', 'activo'),
       },
       sanyus: {
-        gastos: sanyusGastos,
-        ingresos: sanyusIngresos,
-        activos: sanyusActivos,
+        gastos: await sectionSummary('sanyus', 'gasto'),
+        ingresos: await sectionSummary('sanyus', 'ingreso'),
+        activos: await sectionSummary('sanyus', 'activo'),
       },
     },
   });
 }
 
+export async function handleListDocumentEntities(body: any) {
+  ensureConfig();
+  const resolved = resolveConfig(body);
+  if ('error' in resolved && resolved.error) return resolved.error;
+  const { entityType, bloque, cfg } = resolved;
+
+  if (entityType === 'propiedad') {
+    return json({ error: 'Usar el árbol de propiedades' }, 400);
+  }
+
+  const q = emptyOrNull(body.q);
+  const ejercicioRaw = body.ejercicio;
+  const ejercicio =
+    ejercicioRaw != null && ejercicioRaw !== '' && ejercicioRaw !== 'all'
+      ? Number(ejercicioRaw)
+      : null;
+  const hasDocuments = body.hasDocuments === true || body.hasDocuments === 'true';
+  const sort = emptyOrNull(body.sort) || 'created_desc';
+  const categoriaId = emptyOrNull(body.categoriaId);
+
+  const supabase = serviceSupabase();
+
+  const { data: docRows } = await supabase
+    .from('documentos')
+    .select('entity_id')
+    .eq('bloque', bloque)
+    .eq('entity_type', entityType);
+
+  const countMap = new Map<string, number>();
+  for (const row of docRows ?? []) {
+    countMap.set(row.entity_id, (countMap.get(row.entity_id) ?? 0) + 1);
+  }
+
+  const catJoin = CATEGORIA_JOIN[cfg.table];
+  let selectStr = `id, ${cfg.labelField}, created_at, categoria_id`;
+  if (entityType === 'gasto' || entityType === 'ingreso') selectStr += ', ejercicio';
+  if (catJoin) selectStr += `, ${catJoin}`;
+
+  let query = supabase.from(cfg.table).select(selectStr);
+
+  if (q) {
+    query = query.ilike(cfg.labelField, `%${q}%`);
+  }
+  if (ejercicio != null && Number.isFinite(ejercicio) && (entityType === 'gasto' || entityType === 'ingreso')) {
+    query = query.eq('ejercicio', ejercicio);
+  }
+  if (categoriaId && categoriaId !== 'all') {
+    if (categoriaId === '__none__') {
+      query = query.is('categoria_id', null);
+    } else {
+      query = query.eq('categoria_id', categoriaId);
+    }
+  }
+
+  const ascending = sort === 'created_asc' || sort === 'name_asc';
+  if (sort === 'name_asc' || sort === 'name_desc') {
+    query = query.order(cfg.labelField, { ascending, nullsFirst: false });
+  } else {
+    query = query.order('created_at', { ascending, nullsFirst: false });
+  }
+
+  const { data, error } = await query.limit(500);
+  if (error) return json({ error: error.message }, 500);
+
+  type Row = Record<string, unknown> & {
+    id: string;
+    created_at: string;
+    ejercicio?: number;
+  };
+
+  let entities = ((data ?? []) as unknown as Row[]).map((row) => {
+    const id = String(row.id);
+    const label = String(row[cfg.labelField] ?? id).trim() || id;
+    let categoria_nombre: string | null = null;
+    const joinKey = Object.keys(row).find((k) => k.includes('categorias'));
+    if (joinKey) {
+      const rel = row[joinKey] as { nombre?: string } | { nombre?: string }[] | null;
+      if (Array.isArray(rel)) categoria_nombre = rel[0]?.nombre ?? null;
+      else if (rel && typeof rel === 'object') categoria_nombre = rel.nombre ?? null;
+    }
+    const categoria_id =
+      row.categoria_id != null ? String(row.categoria_id) : null;
+    return {
+      id,
+      label,
+      href: cfg.href(id),
+      created_at: row.created_at,
+      ejercicio: row.ejercicio ?? null,
+      categoria_id,
+      categoria_nombre,
+      documentCount: countMap.get(id) ?? 0,
+    };
+  });
+
+  if (hasDocuments) {
+    entities = entities.filter((e) => e.documentCount > 0);
+  }
+
+  return json({ entities });
+}
+
+export async function handleListDocumentEntityCategories(body: any) {
+  ensureConfig();
+  const resolved = resolveConfig(body);
+  if ('error' in resolved && resolved.error) return resolved.error;
+  const { bloque, entityType } = resolved;
+
+  const table = CATEGORIA_TABLE[configKey(bloque, entityType)];
+  if (!table) return json({ categories: [] });
+
+  const supabase = serviceSupabase();
+  const { data, error } = await supabase
+    .from(table)
+    .select('id, nombre')
+    .order('nombre', { ascending: true });
+
+  if (error) return json({ error: error.message }, 500);
+
+  return json({
+    categories: (data ?? []).map((c: { id: string; nombre: string }) => ({
+      id: c.id,
+      nombre: c.nombre,
+    })),
+  });
+}
+
+const ENTITY_SEARCH_TARGETS: { bloque: DocumentBloque; entityType: DocumentEntityType }[] = [
+  { bloque: 'engine', entityType: 'propiedad' },
+  { bloque: 'casa', entityType: 'gasto' },
+  { bloque: 'casa', entityType: 'ingreso' },
+  { bloque: 'casa', entityType: 'activo' },
+  { bloque: 'sanyus', entityType: 'gasto' },
+  { bloque: 'sanyus', entityType: 'ingreso' },
+  { bloque: 'sanyus', entityType: 'activo' },
+];
+
+function entityBreadcrumb(bloque: DocumentBloque, entityType: DocumentEntityType, label: string) {
+  const section = bloque === 'engine' ? 'Engine' : bloque === 'casa' ? 'Casa' : 'Sanyus';
+  const typeLabel =
+    entityType === 'propiedad'
+      ? 'Propiedades'
+      : entityType === 'activo'
+        ? 'Activos'
+        : entityType === 'gasto'
+          ? 'Gastos'
+          : 'Ingresos';
+  return `${section} / ${typeLabel} / ${label}`;
+}
+
 export async function handleSearchDocuments(body: any) {
   ensureConfig();
-  const q = (emptyOrNull(body.q) ?? '').toLowerCase();
+  const qRaw = emptyOrNull(body.q) ?? '';
+  const q = qRaw.toLowerCase();
+  if (!q) return json({ entities: [], files: [] });
+
   const bloqueFilter = emptyOrNull(body.bloque) as DocumentBloque | null;
   const entityTypeFilter = emptyOrNull(body.entityType) as DocumentEntityType | null;
   const entityIdFilter = emptyOrNull(body.entityId);
 
   const supabase = serviceSupabase();
+
+  const { data: allDocs } = await supabase
+    .from('documentos')
+    .select('entity_type, entity_id, bloque');
+
+  const countMap = new Map<string, number>();
+  for (const row of allDocs ?? []) {
+    const key = `${row.bloque}:${row.entity_type}:${row.entity_id}`;
+    countMap.set(key, (countMap.get(key) ?? 0) + 1);
+  }
+
+  const entityResults: Array<Record<string, unknown>> = [];
+  const seenEntityKeys = new Set<string>();
+
+  for (const { bloque, entityType } of ENTITY_SEARCH_TARGETS) {
+    if (bloqueFilter && bloque !== bloqueFilter) continue;
+    if (entityTypeFilter && entityType !== entityTypeFilter) continue;
+
+    const cfg = getDocumentEntityConfig(bloque, entityType);
+    if (!cfg) continue;
+
+    const { data, error } = await supabase
+      .from(cfg.table)
+      .select(`id, ${cfg.labelField}`)
+      .ilike(cfg.labelField, `%${qRaw}%`)
+      .limit(30);
+
+    if (error || !data) continue;
+
+    for (const row of data as unknown as Record<string, unknown>[]) {
+      const id = String(row.id);
+      if (entityIdFilter && id !== entityIdFilter) continue;
+      const entityKey = `${bloque}:${entityType}:${id}`;
+      if (seenEntityKeys.has(entityKey)) continue;
+      seenEntityKeys.add(entityKey);
+
+      const label = String(row[cfg.labelField] ?? id).trim() || id;
+      entityResults.push({
+        id,
+        label,
+        href: cfg.href(id),
+        bloque,
+        entity_type: entityType,
+        breadcrumb: entityBreadcrumb(bloque, entityType, label),
+        documentCount: countMap.get(entityKey) ?? 0,
+      });
+    }
+  }
+
+  entityResults.sort((a, b) =>
+    String(a.label).localeCompare(String(b.label), 'es', { sensitivity: 'base' })
+  );
+
   let query = supabase.from('documentos').select('*').order('created_at', { ascending: false });
 
   if (bloqueFilter && BLOQUES.has(bloqueFilter)) query = query.eq('bloque', bloqueFilter);
@@ -463,15 +672,10 @@ export async function handleSearchDocuments(body: any) {
   const { data: docs, error } = await query.limit(200);
   if (error) return json({ error: error.message }, 500);
 
-  const filtered = (docs ?? []).filter((d) => {
-    if (!q) return true;
-    return d.display_name?.toLowerCase().includes(q);
-  });
-
-  const results: Array<Record<string, unknown>> = [];
+  const fileResults: Array<Record<string, unknown>> = [];
   const labelCache = new Map<string, string>();
 
-  for (const doc of filtered.slice(0, 100)) {
+  for (const doc of docs ?? []) {
     const cfg = getDocumentEntityConfig(doc.bloque as DocumentBloque, doc.entity_type as DocumentEntityType);
     if (!cfg) continue;
 
@@ -490,30 +694,27 @@ export async function handleSearchDocuments(body: any) {
       labelCache.set(cacheKey, entityLabel);
     }
 
-    const section =
-      doc.bloque === 'engine'
-        ? 'Engine'
-        : doc.bloque === 'casa'
-          ? 'Casa'
-          : 'Sanyus';
-    const typeLabel =
-      doc.entity_type === 'propiedad'
-        ? 'Propiedades'
-        : doc.entity_type === 'activo'
-          ? 'Activos'
-          : doc.entity_type === 'gasto'
-            ? 'Gastos'
-            : 'Ingresos';
+    const nameMatch = doc.display_name?.toLowerCase().includes(q);
+    const entityMatch = entityLabel.toLowerCase().includes(q);
+    if (!nameMatch && !entityMatch) continue;
 
-    results.push({
+    fileResults.push({
       ...doc,
       entity_label: entityLabel,
       entity_href: cfg.href(doc.entity_id),
-      breadcrumb: `${section} / ${typeLabel} / ${entityLabel}`,
+      breadcrumb: entityBreadcrumb(
+        doc.bloque as DocumentBloque,
+        doc.entity_type as DocumentEntityType,
+        entityLabel
+      ),
     });
+    if (fileResults.length >= 80) break;
   }
 
-  return json({ results });
+  return json({
+    entities: entityResults.slice(0, 80),
+    files: fileResults,
+  });
 }
 
 function corsPreflightResponse() {

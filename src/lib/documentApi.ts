@@ -7,6 +7,11 @@ import {
   type DocumentBloque,
   type DocumentEntityType,
   type DocumentSearchResult,
+  type DocumentExplorerSearchResponse,
+  type DocumentEntityListItem,
+  type DocumentEntitySort,
+  type DocumentTreeSectionSummary,
+  type DocumentCategoriaOption,
 } from "./documentTypes";
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
@@ -79,22 +84,64 @@ export async function getDocumentSignedUrl(id: string): Promise<{
   return postJson(DOCUMENT_API.signedUrl, { id });
 }
 
+export interface DocumentTreeProperty {
+  id: string;
+  label: string;
+  href: string;
+  documentCount: number;
+}
+
 export async function fetchDocumentsTree(): Promise<{
   tree: {
-    engine: { propiedades: Array<{ id: string; label: string; href: string; documentCount: number }> };
+    engine: { propiedades: DocumentTreeProperty[] };
     casa: {
-      gastos: Array<{ id: string; label: string; href: string; documentCount: number }>;
-      ingresos: Array<{ id: string; label: string; href: string; documentCount: number }>;
-      activos: Array<{ id: string; label: string; href: string; documentCount: number }>;
+      gastos: DocumentTreeSectionSummary;
+      ingresos: DocumentTreeSectionSummary;
+      activos: DocumentTreeSectionSummary;
     };
     sanyus: {
-      gastos: Array<{ id: string; label: string; href: string; documentCount: number }>;
-      ingresos: Array<{ id: string; label: string; href: string; documentCount: number }>;
-      activos: Array<{ id: string; label: string; href: string; documentCount: number }>;
+      gastos: DocumentTreeSectionSummary;
+      ingresos: DocumentTreeSectionSummary;
+      activos: DocumentTreeSectionSummary;
     };
   };
 }> {
   return postJson(DOCUMENT_API.tree, {});
+}
+
+export async function listDocumentEntities(params: {
+  bloque: DocumentBloque;
+  entityType: DocumentEntityType;
+  q?: string;
+  ejercicio?: number | "all";
+  categoriaId?: string;
+  hasDocuments?: boolean;
+  sort?: DocumentEntitySort;
+}): Promise<DocumentEntityListItem[]> {
+  const data = await postJson<{ entities: DocumentEntityListItem[] }>(
+    DOCUMENT_API.listEntities,
+    {
+      bloque: params.bloque,
+      entityType: params.entityType,
+      q: params.q?.trim() || undefined,
+      ejercicio: params.ejercicio,
+      categoriaId: params.categoriaId,
+      hasDocuments: params.hasDocuments,
+      sort: params.sort ?? "created_desc",
+    }
+  );
+  return data.entities ?? [];
+}
+
+export async function listDocumentEntityCategories(
+  bloque: DocumentBloque,
+  entityType: DocumentEntityType
+): Promise<DocumentCategoriaOption[]> {
+  const data = await postJson<{ categories: DocumentCategoriaOption[] }>(
+    DOCUMENT_API.listCategories,
+    { bloque, entityType }
+  );
+  return data.categories ?? [];
 }
 
 export async function searchDocuments(params: {
@@ -102,12 +149,15 @@ export async function searchDocuments(params: {
   bloque?: DocumentBloque;
   entityType?: DocumentEntityType;
   entityId?: string;
-}): Promise<DocumentSearchResult[]> {
-  const data = await postJson<{ results: DocumentSearchResult[] }>(
+}): Promise<DocumentExplorerSearchResponse> {
+  const data = await postJson<DocumentExplorerSearchResponse>(
     DOCUMENT_API.search,
     params
   );
-  return data.results ?? [];
+  return {
+    entities: data.entities ?? [],
+    files: data.files ?? [],
+  };
 }
 
 function fileToBase64(file: File): Promise<string> {
