@@ -250,6 +250,14 @@ export const handler: Handler = async (event) => {
 
 	if (direccion != null) payload.direccion = direccion;
 	if (origen != null) payload.origen = origen;
+	const notas = emptyToNull(body?.notas);
+	if (notas != null) payload.notas = notas;
+
+	const ocupadoParsed = body?.ocupado === undefined ? null : body.ocupado === true || body.ocupado === 'true';
+	if (body?.ocupado !== undefined) payload.ocupado = ocupadoParsed;
+
+	const fecha_venta = toDateISO(body?.fecha_venta);
+	if (fecha_venta != null) payload.fecha_venta = fecha_venta;
 	if (superficie_m2 != null) payload.superficie_m2 = superficie_m2;
 	if (anio_construccion != null) payload.anio_construccion = anio_construccion;
 	if (numero_catastro != null) payload.numero_catastro = numero_catastro;

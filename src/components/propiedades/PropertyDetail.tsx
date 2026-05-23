@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-import { getSupabase } from "@/lib/supabaseReact";
+import { uploadPropertyFeaturedImage } from "@/lib/propertyImageUpload";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro } from "@/lib/moneyCalc";
@@ -35,6 +35,7 @@ import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPane
 interface PropertyData {
   id: string;
   titulo: string | null;
+  origen: string | null;
   direccion: string | null;
   estado: string | null;
   ejercicio: number | null;
@@ -136,6 +137,7 @@ export default function PropertyDetail({
   const isCreate = !property;
   const [form, setForm] = useState({
     titulo: property?.titulo ?? "",
+    origen: property?.origen ?? "",
     direccion: property?.direccion ?? "",
     estado: property?.estado ?? "borrador",
     ocupado: property?.ocupado ? "true" : "false",
@@ -207,25 +209,11 @@ export default function PropertyDetail({
 
     setSaving(true);
     try {
-      let foto_destacada_path: string | null = null;
-      if (imageFile) {
-        const supabase = getSupabase();
-        const ext = imageFile.name.split(".").pop() || "jpg";
-        const filePath = `propiedades/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("propiedades-images")
-          .upload(filePath, imageFile, { upsert: false });
-        if (uploadError) {
-          console.warn("Image upload failed:", uploadError.message);
-        } else {
-          foto_destacada_path = filePath;
-        }
-      }
-
       const payload: Record<string, unknown> = {
         titulo: form.titulo.trim(),
         estado: form.estado || null,
         ocupado: form.ocupado === "true",
+        origen: form.origen.trim() || null,
         direccion: form.direccion.trim() || null,
         precio_compra: form.precio_compra || null,
         precio_venta: form.precio_venta || null,
@@ -235,14 +223,13 @@ export default function PropertyDetail({
         fecha_ingreso: form.fecha_ingreso || null,
         fecha_compra: form.fecha_compra || null,
         fecha_venta: form.fecha_venta || null,
+        notas: form.notas.trim() || null,
+        participacion_sanyus: pctS,
+        participacion_jasp: pctJ,
+        participacion_bienes_sanyus_cb: bienesCb,
       };
-      if (foto_destacada_path) payload.foto_destacada_path = foto_destacada_path;
 
       let url: string;
-      payload.participacion_sanyus = pctS;
-      payload.participacion_jasp = pctJ;
-      payload.participacion_bienes_sanyus_cb = bienesCb;
-
       if (isCreate) {
         payload.tipo = "inversion";
         url = "/.netlify/functions/createProperty";
@@ -259,9 +246,20 @@ export default function PropertyDetail({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al guardar");
 
+      const propertyId = isCreate ? (data.id as string) : property!.id;
+
+      if (imageFile) {
+        const { publicUrl } = await uploadPropertyFeaturedImage(
+          propertyId,
+          imageFile
+        );
+        setImagePreview(publicUrl);
+        setImageFile(null);
+      }
+
       if (isCreate) {
         toast.success("Propiedad creada");
-        window.location.href = `/propiedades/${data.id}`;
+        window.location.href = `/propiedades/${propertyId}`;
         return;
       }
       toast.success("Propiedad actualizada");
@@ -366,6 +364,15 @@ export default function PropertyDetail({
               <Input id="titulo" value={form.titulo} onChange={set("titulo")} />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="origen">Origen</Label>
+              <Input
+                id="origen"
+                value={form.origen}
+                onChange={set("origen")}
+                placeholder="Fuente u origen de la inversión"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="direccion">Dirección</Label>
               <Input id="direccion" value={form.direccion} onChange={set("direccion")} />
             </div>
@@ -482,25 +489,26 @@ export default function PropertyDetail({
         </CardContent>
       </Card>
 
-      {!isCreate && property && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Participación</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PropertyParticipacionSection
-              values={{
-                participacion_sanyus: form.participacion_sanyus,
-                participacion_jasp: form.participacion_jasp,
-                participacion_bienes_sanyus_cb: form.participacion_bienes_sanyus_cb,
-              }}
-              onChange={(field, value) =>
-                setForm((prev) => ({ ...prev, [field]: value }))
-              }
-            />
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Participación</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PropertyParticipacionSection
+            values={{
+              participacion_sanyus: form.participacion_sanyus,
+              participacion_jasp: form.participacion_jasp,
+              participacion_bienes_sanyus_cb: form.participacion_bienes_sanyus_cb,
+            }}
+            onChange={(field, value) =>
+              setForm((prev) => ({ ...prev, [field]: value }))
+            }
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Retribución y JASP se calculan desde el bruto en Liquidaciones.
+          </p>
+        </CardContent>
+      </Card>
 
       {!isCreate && property && (
         <EntityDocumentsPanel
