@@ -7,6 +7,7 @@ export interface Settlement {
   fecha_liquidacion: string;
   numero_liquidacion: number;
   numero_operacion: number | null;
+  beneficio_bruto: number | null;
   aportacion: number;
   retribucion: number;
   retencion: number;    // generated
@@ -24,4 +25,4 @@ export interface Settlement {
 }
 
 export const SETTLEMENT_SELECT =
-  "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)" as const;
+  "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo, participacion_sanyus, participacion_jasp)" as const;

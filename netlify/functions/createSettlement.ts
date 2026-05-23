@@ -51,11 +51,15 @@ export const handler: Handler = async (event) => {
 
     const ejercicio = body.ejercicio != null ? Number(body.ejercicio) : null;
 
+    const beneficio_bruto =
+      body.beneficio_bruto !== undefined ? toMoneyOrNull(body.beneficio_bruto) : null;
+
     const row = {
       propiedad_id,
       fecha_liquidacion,
       numero_liquidacion: Number(numero_liquidacion),
       numero_operacion: body.numero_operacion != null ? Number(body.numero_operacion) : null,
+      beneficio_bruto,
       aportacion: toMoneyOrNull(body.aportacion) ?? 0,
       retribucion: toMoneyOrNull(body.retribucion) ?? 0,
       transferencia: toMoneyOrNull(body.transferencia) ?? 0,
@@ -68,7 +72,7 @@ export const handler: Handler = async (event) => {
     const { data, error } = await supabase
       .from('liquidaciones')
       .insert(row)
-      .select('id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio')
+      .select('id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio')
       .single();
 
     if (error) {

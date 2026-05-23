@@ -77,6 +77,8 @@ interface EditableCellProps {
   value: unknown;
   type: CellType;
   options?: Option[];
+  /** Opción vacía mostrada cuando no hay valor (p. ej. "Elige propiedad") */
+  selectPlaceholder?: Option;
   onSave: (newValue: unknown) => void;
   className?: string;
   highlight?: boolean;
@@ -88,6 +90,7 @@ export function EditableCell({
   value,
   type,
   options = [],
+  selectPlaceholder,
   onSave,
   className = "",
   highlight = false,
@@ -153,16 +156,33 @@ export function EditableCell({
 
   // ── Select (inline) ──
   if (type === "select" || type === "badge-select") {
+    const emptyValue = selectPlaceholder?.value ?? "";
+    const hasValue =
+      value != null && String(value).trim() !== "" && String(value) !== emptyValue;
+    const selectValue = hasValue ? String(value) : emptyValue;
+    const allOptions = selectPlaceholder
+      ? [selectPlaceholder, ...options]
+      : options;
     const currentLabel =
-      options.find((o) => o.value === String(value ?? ""))?.label ??
-      String(value ?? "—");
+      allOptions.find((o) => o.value === selectValue)?.label ??
+      (hasValue ? String(value) : selectPlaceholder?.label ?? "—");
 
     return (
       <Select
-        value={String(value ?? "")}
-        onValueChange={(val) => onSave(val)}
+        value={selectValue}
+        onValueChange={(val) => {
+          if (selectPlaceholder && val === selectPlaceholder.value) {
+            onSave(null);
+            return;
+          }
+          onSave(val);
+        }}
       >
-        <SelectTrigger className="h-7 min-w-[100px] border-0 bg-transparent shadow-none text-sm px-1">
+        <SelectTrigger
+          className={`h-7 min-w-[100px] border-0 bg-transparent shadow-none text-sm px-1 ${
+            selectPlaceholder && !hasValue ? "text-muted-foreground" : ""
+          }`}
+        >
           {type === "badge-select" ? (
             <Badge variant={estadoVariant(value as string | null)}>
               {currentLabel}
@@ -172,7 +192,7 @@ export function EditableCell({
           )}
         </SelectTrigger>
         <SelectContent>
-          {options.map((opt) => (
+          {allOptions.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
             </SelectItem>

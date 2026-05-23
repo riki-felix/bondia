@@ -44,6 +44,13 @@ function emptyToNull(v: any) {
   return s === '' ? null : s;
 }
 
+function toPctOrNull(v: any): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(String(v).trim().replace('%', '').replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return Math.round(n * 1000) / 1000;
+}
+
 function toIntOrNull(v: any): number | null {
   const s = String(v ?? '').trim();
   if (!s) return null;
@@ -276,6 +283,28 @@ export const handler: Handler = async (event) => {
 	}
 
 	if (liquidacionParsed != null) payload.liquidacion = liquidacionParsed;
+
+	const pctSanyus = toPctOrNull(body?.participacion_sanyus);
+	if (body?.participacion_sanyus != null && body?.participacion_sanyus !== '' && pctSanyus == null) {
+	  return json({ error: 'participacion_sanyus inválida (0-100)' }, 400);
+	}
+	if (pctSanyus != null) payload.participacion_sanyus = pctSanyus;
+
+	const pctJasp = toPctOrNull(body?.participacion_jasp);
+	if (body?.participacion_jasp != null && body?.participacion_jasp !== '' && pctJasp == null) {
+	  return json({ error: 'participacion_jasp inválida (0-100)' }, 400);
+	}
+	if (pctJasp != null) payload.participacion_jasp = pctJasp;
+
+	const pctBienes = toPctOrNull(body?.participacion_bienes_sanyus_cb);
+	if (
+	  body?.participacion_bienes_sanyus_cb != null &&
+	  body?.participacion_bienes_sanyus_cb !== '' &&
+	  pctBienes == null
+	) {
+	  return json({ error: 'participacion_bienes_sanyus_cb inválida (0-100)' }, 400);
+	}
+	if (pctBienes != null) payload.participacion_bienes_sanyus_cb = pctBienes;
 
 	const { data, error } = await supabase
 	  .from('propiedades')

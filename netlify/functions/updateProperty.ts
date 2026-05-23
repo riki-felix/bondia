@@ -112,6 +112,65 @@ function pickFrom(v: any, allowed: Set<string>): string | null {
   return allowed.has(x) ? x : null;
 }
 
+function toPctOrNull(v: any): number | null {
+  if (v == null || v === '') return null;
+  const s = String(v).trim().replace('%', '').replace(',', '.');
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return Number(n.toFixed(3));
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function calcRetribucionFromBruto(bruto: number, pctSanyus: number): number {
+  return round2(bruto * (pctSanyus / 100));
+}
+
+function calcJaspFromBruto(bruto: number, pctJasp: number): number {
+  return round2(bruto * (pctJasp / 100));
+}
+
+async function recalcLiquidacionesYPropiedad(
+  supabase: any,
+  propiedadId: string,
+  participacionSanyus: number,
+  participacionJasp: number,
+  jaspManual: boolean,
+  jaspStored: number | null
+) {
+  const { data: liqs } = await supabase
+    .from('liquidaciones')
+    .select('id, beneficio_bruto')
+    .eq('propiedad_id', propiedadId);
+
+  let totalBruto = 0;
+  let totalRetribucion = 0;
+
+  for (const l of liqs ?? []) {
+    const bruto = Number(l.beneficio_bruto) || 0;
+    totalBruto += bruto;
+    if (bruto <= 0) continue;
+    const retribucion = calcRetribucionFromBruto(bruto, participacionSanyus);
+    totalRetribucion += retribucion;
+    await supabase
+      .from('liquidaciones')
+      .update({ retribucion })
+      .eq('id', l.id);
+  }
+
+  const propUpdates: Record<string, unknown> = {
+    retribucion: round2(totalRetribucion),
+  };
+  if (!jaspManual) {
+    propUpdates.jasp_10_percent = calcJaspFromBruto(totalBruto, participacionJasp);
+    propUpdates.jasp_manual = false;
+  }
+
+  await supabase.from('propiedades').update(propUpdates).eq('id', propiedadId);
+}
+
 function toBoolOrNull(v: any): boolean | null {
   if (v == null) return null;
   if (typeof v === 'boolean') return v;
@@ -302,6 +361,36 @@ export const handler: Handler = async (event) => {
 	  updates.fecha_venta = toDateISO(body.fecha_venta);
 	}
 
+	if (body.participacion_sanyus !== undefined) {
+	  const p = toPctOrNull(body.participacion_sanyus);
+	  if (body.participacion_sanyus != null && body.participacion_sanyus !== '' && p == null) {
+		return json({ error: 'participacion_sanyus inválida (0-100)' }, 400);
+	  }
+	  updates.participacion_sanyus = p;
+	}
+	if (body.participacion_jasp !== undefined) {
+	  const p = toPctOrNull(body.participacion_jasp);
+	  if (body.participacion_jasp != null && body.participacion_jasp !== '' && p == null) {
+		return json({ error: 'participacion_jasp inválida (0-100)' }, 400);
+	  }
+	  updates.participacion_jasp = p;
+	}
+	if (body.participacion_bienes_sanyus_cb !== undefined) {
+	  const p = toPctOrNull(body.participacion_bienes_sanyus_cb);
+	  if (
+		body.participacion_bienes_sanyus_cb != null &&
+		body.participacion_bienes_sanyus_cb !== '' &&
+		p == null
+	  ) {
+		return json({ error: 'participacion_bienes_sanyus_cb inválida (0-100)' }, 400);
+	  }
+	  updates.participacion_bienes_sanyus_cb = p;
+	}
+
+	const needsRecalc =
+	  updates.participacion_sanyus !== undefined ||
+	  updates.participacion_jasp !== undefined;
+
 	// slug si cambia título
 	if (updates.titulo && updates.titulo !== current.titulo) {
 	  const base = slugifyEs(updates.titulo) || 'propiedad';
@@ -322,6 +411,29 @@ export const handler: Handler = async (event) => {
 	if (error) {
 	  console.error('[updateProperty] supabase error:', error, { id, updates });
 	  return json({ error: error.message, code: (error as any).code, details: (error as any).details }, 500);
+	}
+
+	if (needsRecalc) {
+	  const { data: fin } = await supabase
+		.from('propiedades')
+		.select('participacion_sanyus, participacion_jasp, jasp_manual, jasp_10_percent')
+		.eq('id', id)
+		.single();
+	  if (fin) {
+		const sanyus = fin.participacion_sanyus ?? 40;
+		const jasp = fin.participacion_jasp ?? 20;
+		if (sanyus + jasp > 100) {
+		  return json({ error: 'Sanyus + JASP no pueden superar el 100%' }, 400);
+		}
+		await recalcLiquidacionesYPropiedad(
+		  supabase,
+		  id,
+		  sanyus,
+		  jasp,
+		  fin.jasp_manual,
+		  fin.jasp_10_percent
+		);
+	  }
 	}
 
 	return json({

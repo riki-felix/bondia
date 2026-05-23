@@ -12,7 +12,7 @@ const supabase = supabaseClient();
 const { data: allSettlements, error } = await supabase
   .from("liquidaciones")
   .select(
-    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
+    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo, participacion_sanyus)"
   )
   .order("numero_liquidacion", { ascending: true });
 
@@ -20,18 +20,20 @@ const { data: allSettlements, error } = await supabase
 const settlements = (allSettlements ?? []).map((r: any) => ({
   ...r,
   propiedad_titulo: r.propiedades?.titulo ?? "",
+  propiedad_participacion_sanyus: r.propiedades?.participacion_sanyus ?? null,
 }));
 
 // Fetch investment properties for the property selector
 const { data: propiedades } = await supabase
   .from("propiedades")
-  .select("id, titulo")
+  .select("id, titulo, participacion_sanyus")
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
 
 const properties = (propiedades ?? []).map((p: any) => ({
   id: p.id,
   titulo: p.titulo || "Sin título",
+  participacion_sanyus: p.participacion_sanyus ?? null,
 }));
 
 // Compute year range from settlements + properties

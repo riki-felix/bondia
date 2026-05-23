@@ -6,15 +6,14 @@ import { Toaster } from "../../components/ui/sonner";
 import InversionesTable from "../../components/inversiones/InversionesTable";
 import { supabaseClient } from "../../lib/supabaseClient";
 import type { Property } from "../../lib/propertyTypes";
+import { PROPERTY_SELECT } from "../../lib/propertyTypes";
 
 const supabase = supabaseClient();
 
 // Fetch all investment properties
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select(
-    "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
-  )
+  .select(PROPERTY_SELECT)
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
 

@@ -23,6 +23,16 @@ import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { PropertyParticipacionSection } from "./PropertyParticipacionSection";
+import {
+  DEFAULT_PARTICIPACION_BIENES_SANYUS_CB,
+  DEFAULT_PARTICIPACION_JASP,
+  DEFAULT_PARTICIPACION_SANYUS,
+  participacionBienesSanyusCbFormValue,
+  parseParticipacionInput,
+  validateBienesSanyusCb,
+  validateParticipacionPair,
+} from "@/lib/participacion";
 
 interface PropertyDialogProps {
   open: boolean;
@@ -46,6 +56,9 @@ const EMPTY_FORM = {
   fecha_ingreso: "",
   fecha_compra: "",
   fecha_venta: "",
+  participacion_sanyus: "",
+  participacion_jasp: "",
+  participacion_bienes_sanyus_cb: String(DEFAULT_PARTICIPACION_BIENES_SANYUS_CB),
 };
 
 export function PropertyDialog({
@@ -76,7 +89,7 @@ export function PropertyDialog({
       const { data, error } = await supabase
         .from("propiedades")
         .select(
-          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path"
+          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
         )
         .eq("id", editId)
         .single();
@@ -103,6 +116,17 @@ export function PropertyDialog({
         fecha_ingreso: data.fecha_ingreso ? String(data.fecha_ingreso).substring(0, 10) : "",
         fecha_compra: data.fecha_compra ? String(data.fecha_compra).substring(0, 10) : "",
         fecha_venta: data.fecha_venta ? String(data.fecha_venta).substring(0, 10) : "",
+        participacion_sanyus:
+          data.participacion_sanyus != null
+            ? String(data.participacion_sanyus)
+            : "",
+        participacion_jasp:
+          data.participacion_jasp != null
+            ? String(data.participacion_jasp)
+            : "",
+        participacion_bienes_sanyus_cb: participacionBienesSanyusCbFormValue(
+          data.participacion_bienes_sanyus_cb
+        ),
       });
 
       // Show existing image preview if available
@@ -140,6 +164,26 @@ export function PropertyDialog({
       e.preventDefault();
       if (!form.titulo.trim()) {
         toast.error("El nombre es obligatorio");
+        return;
+      }
+
+      const pctS =
+        parseParticipacionInput(form.participacion_sanyus) ??
+        DEFAULT_PARTICIPACION_SANYUS;
+      const pctJ =
+        parseParticipacionInput(form.participacion_jasp) ??
+        DEFAULT_PARTICIPACION_JASP;
+      const participacionError = validateParticipacionPair(pctS, pctJ);
+      if (participacionError) {
+        toast.error(participacionError);
+        return;
+      }
+      const bienesCb =
+        parseParticipacionInput(form.participacion_bienes_sanyus_cb) ??
+        DEFAULT_PARTICIPACION_BIENES_SANYUS_CB;
+      const bienesError = validateBienesSanyusCb(bienesCb);
+      if (bienesError) {
+        toast.error(bienesError);
         return;
       }
 
@@ -183,12 +227,14 @@ export function PropertyDialog({
         if (foto_destacada_path) payload.foto_destacada_path = foto_destacada_path;
 
         let url: string;
+        payload.participacion_sanyus = pctS;
+        payload.participacion_jasp = pctJ;
+        payload.participacion_bienes_sanyus_cb = bienesCb;
+
         if (isEdit) {
-          // Update existing
           payload.id = editId;
           url = "/.netlify/functions/updateProperty";
         } else {
-          // Create new
           payload.tipo = "inversion";
           url = "/.netlify/functions/createProperty";
         }
@@ -380,6 +426,31 @@ export function PropertyDialog({
                 </div>
               </div>
             </div>
+
+            {isEdit && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Participación
+                  </p>
+                  <PropertyParticipacionSection
+                    values={{
+                      participacion_sanyus: form.participacion_sanyus,
+                      participacion_jasp: form.participacion_jasp,
+                      participacion_bienes_sanyus_cb:
+                        form.participacion_bienes_sanyus_cb,
+                    }}
+                    onChange={(field, value) =>
+                      setForm((prev) => ({ ...prev, [field]: value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Retribución y JASP se calculan desde el bruto en Liquidaciones.
+                  </p>
+                </div>
+              </>
+            )}
 
             <Separator />
 

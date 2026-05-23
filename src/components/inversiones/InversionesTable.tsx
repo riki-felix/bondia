@@ -21,13 +21,16 @@ import { EditableCell } from "./EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import {
-  recalcProperty,
+  calcRetencion,
+  recalcPropertyEfectivo,
   formatEuro,
   sumColumn,
   toNum,
 } from "@/lib/moneyCalc";
+import { syncPropiedadFromLiquidaciones } from "@/lib/syncPropiedadFromLiquidaciones";
 import {
   type Property,
+  PROPERTY_SELECT,
   ESTADO_OPTIONS,
   PAGO_OPTIONS,
   OCUPADO_OPTIONS,
@@ -169,23 +172,21 @@ export default function InversionesTable({
             updated.numero_operacion = null;
           }
 
-          // Recalculate dependent fields when inputs change
-          if (
-            field === "aportacion" ||
-            field === "retribucion" ||
-            field === "ingreso_banco"
-          ) {
-            const aportacion = toNum(
-              field === "aportacion" ? value : r.aportacion
-            );
-            const retribucion = toNum(
-              field === "retribucion" ? value : r.retribucion
-            );
-            const ingreso_banco = toNum(
-              field === "ingreso_banco" ? value : r.ingreso_banco
-            );
-            const calc = recalcProperty({ aportacion, retribucion, ingreso_banco });
+          if (field === "ingreso_banco") {
+            const calc = recalcPropertyEfectivo({
+              retribucion: toNum(updated.retribucion),
+              ingreso_banco: toNum(value),
+            });
             Object.assign(updated, calc);
+          }
+
+          if (field === "jasp_10_percent") {
+            updated.jasp_10_percent = toNum(value);
+            updated.jasp_manual = true;
+          }
+
+          if (field === "__jasp_auto__") {
+            updated.jasp_manual = false;
           }
 
           return updated;
@@ -193,15 +194,23 @@ export default function InversionesTable({
       );
 
       // Build the update payload
-      const payload: Record<string, unknown> = { [field]: value };
+      const payload: Record<string, unknown> = {};
+
+      if (field === "__jasp_auto__") {
+        payload.jasp_manual = false;
+      } else if (field === "jasp_10_percent") {
+        payload.jasp_10_percent = value;
+        payload.jasp_manual = true;
+      } else {
+        payload[field] = value;
+      }
 
       // Borradores nunca tienen numero_operacion
       if (field === "estado" && value === "borrador") {
         payload.numero_operacion = null;
       }
 
-      // Do not send generated columns (retencion/efectivo/jasp_10_percent) to DB.
-      // They are recalculated optimistically in UI and persisted by DB generation rules.
+      // retencion/efectivo: columnas generadas en BD; no enviar
 
       try {
         const supabase = getSupabase();
@@ -211,6 +220,23 @@ export default function InversionesTable({
           .eq("id", id);
 
         if (error) throw new Error(error.message || error.code || "Error desconocido de Supabase");
+
+        if (field === "__jasp_auto__") {
+          const row = rows.find((r) => r.id === id);
+          if (row) {
+            await syncPropiedadFromLiquidaciones(getSupabase(), id);
+            const { data: fresh } = await getSupabase()
+              .from("propiedades")
+              .select("jasp_10_percent, jasp_manual, retribucion, retencion, efectivo")
+              .eq("id", id)
+              .single();
+            if (fresh) {
+              setRows((prev) =>
+                prev.map((r) => (r.id === id ? { ...r, ...fresh } : r))
+              );
+            }
+          }
+        }
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Error al guardar";
@@ -235,7 +261,7 @@ export default function InversionesTable({
     const { data: fresh } = await supabase
       .from("propiedades")
       .select(
-        "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug"
+        PROPERTY_SELECT
       )
       .eq("tipo", "inversion")
       .order("numero_operacion", { ascending: true });
@@ -331,7 +357,9 @@ export default function InversionesTable({
                 EFECTIVO
               </TableHead>
               <TableHead className="w-[100px] text-right">
-                JASP 20%
+                <span title="Automático: % JASP del bruto total en liquidaciones. Editable en línea; doble clic restaura automático.">
+                  JASP
+                </span>
               </TableHead>
               <TableHead className="w-[110px]">TRANSFE</TableHead>
               <TableHead className="w-[120px]">FECHA COMPRA</TableHead>
@@ -386,7 +414,10 @@ export default function InversionesTable({
                 // Use liquidación values only when the property is actually marked as liquidated.
                 const displayAportacion = isLiquidada && row.liq ? row.liq.aportacion : row.aportacion;
                 const displayRetribucion = isLiquidada && row.liq ? row.liq.retribucion : row.retribucion;
-                const displayRetencion = isLiquidada && row.liq ? row.liq.retencion : row.retencion;
+                const displayRetencion =
+                  isLiquidada && row.liq
+                    ? row.liq.retencion
+                    : calcRetencion(toNum(row.retribucion));
                 const displayIngresoBanco = effectiveIngresoBancoPropiedad({
                   ingreso_banco: row.ingreso_banco,
                   liqTransferencia: row.liq?.transferencia ?? null,
@@ -495,17 +526,13 @@ export default function InversionesTable({
                     )}
                   </TableCell>
 
-                  {/* RETRIBUCIÓN */}
+                  {/* RETRIBUCIÓN (desde liquidaciones / bruto) */}
                   <TableCell>
-                    {isLiquidada ? (
-                      <EditableCell value={displayRetribucion} type="readonly-money" onSave={() => {}} />
-                    ) : (
-                      <EditableCell
-                        value={row.retribucion}
-                        type="money"
-                        onSave={(v) => saveField(row.id, "retribucion", v)}
-                      />
-                    )}
+                    <EditableCell
+                      value={displayRetribucion}
+                      type="readonly-money"
+                      onSave={() => {}}
+                    />
                   </TableCell>
 
                   {/* RETENCIÓN (always readonly) */}
@@ -540,13 +567,41 @@ export default function InversionesTable({
                     />
                   </TableCell>
 
-                  {/* JASP 20% (calculated from propiedades.ingreso_banco) */}
+                  {/* JASP: % participación del bruto, o manual si no liquidada */}
                   <TableCell>
-                    <EditableCell
-                      value={row.jasp_10_percent}
-                      type="readonly-money"
-                      onSave={() => {}}
-                    />
+                    {isLiquidada ? (
+                      <EditableCell
+                        value={row.jasp_10_percent}
+                        type="readonly-money"
+                        onSave={() => {}}
+                      />
+                    ) : (
+                      <div
+                        className="min-w-[72px]"
+                        title={
+                          row.jasp_manual
+                            ? "Valor manual — doble clic para volver al cálculo automático"
+                            : "Cálculo automático (% JASP del bruto) — clic para editar"
+                        }
+                        onDoubleClick={(e) => {
+                          e.preventDefault();
+                          if (row.jasp_manual) {
+                            saveField(row.id, "__jasp_auto__", null);
+                          }
+                        }}
+                      >
+                        <EditableCell
+                          value={row.jasp_10_percent}
+                          type="money"
+                          className={
+                            row.jasp_manual
+                              ? "text-amber-800 dark:text-amber-200 font-medium"
+                              : ""
+                          }
+                          onSave={(v) => saveField(row.id, "jasp_10_percent", v)}
+                        />
+                      </div>
+                    )}
                   </TableCell>
 
                   {/* TRANSFE (date — from liquidación if available) */}

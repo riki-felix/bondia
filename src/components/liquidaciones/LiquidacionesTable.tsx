@@ -20,14 +20,11 @@ import { Button } from "@/components/ui/button";
 import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
+import { formatEuro, round2, toNum } from "@/lib/moneyCalc";
 import {
-  calcRetencion,
-  calcNeto,
-  calcEfectivoFromTransfer,
-  formatEuro,
-  sumColumn,
-  toNum,
-} from "@/lib/moneyCalc";
+  deriveSettlementMoney,
+  syncPropiedadFromLiquidaciones,
+} from "@/lib/syncPropiedadFromLiquidaciones";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2 } from "lucide-react";
 import { LiquidacionesSummary } from "./LiquidacionesSummary";
@@ -42,6 +39,7 @@ interface SettlementRow {
   fecha_liquidacion: string;
   numero_liquidacion: number;
   numero_operacion: number | null;
+  beneficio_bruto: number | null;
   aportacion: number;
   retribucion: number;
   retencion: number;
@@ -53,11 +51,68 @@ interface SettlementRow {
   liquidado: boolean;
   ejercicio: number | null;
   propiedad_titulo?: string;
+  propiedad_participacion_sanyus?: number | null;
+}
+
+function mapSettlementRow(r: Record<string, unknown>): SettlementRow {
+  const prop = r.propiedades as Record<string, unknown> | null;
+  return {
+    ...(r as unknown as SettlementRow),
+    propiedad_titulo: (prop?.titulo as string) ?? "",
+    propiedad_participacion_sanyus:
+      (prop?.participacion_sanyus as number | null) ?? null,
+  };
 }
 
 interface PropertyOption {
   id: string;
   titulo: string;
+  participacion_sanyus?: number | null;
+}
+
+const PROPERTY_PLACEHOLDER = {
+  value: "__none__",
+  label: "Elige propiedad",
+} as const;
+
+function isDraftRow(row: Pick<SettlementRow, "id">): boolean {
+  return row.id.startsWith("draft-");
+}
+
+function createEmptyDraftRow(): SettlementRow {
+  const today = new Date().toISOString().split("T")[0];
+  return {
+    id: `draft-${crypto.randomUUID()}`,
+    propiedad_id: "",
+    fecha_liquidacion: today,
+    numero_liquidacion: 0,
+    numero_operacion: null,
+    beneficio_bruto: null,
+    aportacion: 0,
+    retribucion: 0,
+    retencion: 0,
+    neto: 0,
+    efectivo: 0,
+    transferencia: 0,
+    fecha_transferencia: null,
+    fecha_aportacion: null,
+    liquidado: false,
+    ejercicio: new Date().getFullYear(),
+    propiedad_titulo: "",
+    propiedad_participacion_sanyus: null,
+  };
+}
+
+function settlementFromApi(
+  data: Record<string, unknown>,
+  properties: PropertyOption[]
+): SettlementRow {
+  const prop = properties.find((p) => p.id === data.propiedad_id);
+  return {
+    ...(data as unknown as SettlementRow),
+    propiedad_titulo: prop?.titulo ?? "",
+    propiedad_participacion_sanyus: prop?.participacion_sanyus ?? null,
+  };
 }
 
 interface LiquidacionesTableProps {
@@ -131,16 +186,26 @@ export default function LiquidacionesTable({
 
   // ── Totals ──
   const totals = useMemo(() => {
-    const fields = [
-      "aportacion",
-      "retribucion",
-      "retencion",
-      "neto",
-      "efectivo",
-    ] as const;
-    const result: Record<string, number> = {};
-    for (const f of fields) {
-      result[f] = sumColumn(filteredRows as unknown as Record<string, unknown>[], f);
+    const result: Record<string, number> = {
+      beneficio_bruto: 0,
+      aportacion: 0,
+      retribucion: 0,
+      retencion: 0,
+      neto: 0,
+      efectivo: 0,
+    };
+    for (const row of filteredRows) {
+      if (isDraftRow(row)) continue;
+      result.beneficio_bruto += toNum(row.beneficio_bruto);
+      result.aportacion += toNum(row.aportacion);
+      const derived = deriveSettlementMoney(row);
+      result.retribucion += derived.retribucion;
+      result.retencion += derived.retencion;
+      result.neto += derived.neto;
+      result.efectivo += derived.efectivo;
+    }
+    for (const key of Object.keys(result)) {
+      result[key] = round2(result[key]);
     }
     const { total: transferencia } = sumTransferenciasLiquidaciones(
       filteredRows.map((r) => ({
@@ -153,40 +218,144 @@ export default function LiquidacionesTable({
     return result;
   }, [filteredRows, ejercicioFilter]);
 
+  const applyRowPatch = useCallback(
+    (row: SettlementRow, field: string, value: unknown): SettlementRow => {
+      const updated = { ...row, [field]: value };
+
+      if (field === "beneficio_bruto") {
+        updated.beneficio_bruto =
+          value == null || value === "" ? null : toNum(value);
+      }
+
+      if (field === "propiedad_id") {
+        const propId = value != null && value !== "" ? String(value) : "";
+        updated.propiedad_id = propId;
+        const prop = properties.find((p) => p.id === propId);
+        if (prop) {
+          updated.propiedad_titulo = prop.titulo;
+          updated.propiedad_participacion_sanyus =
+            prop.participacion_sanyus ?? null;
+        } else {
+          updated.propiedad_titulo = "";
+          updated.propiedad_participacion_sanyus = null;
+        }
+      }
+
+      const derived = deriveSettlementMoney(updated);
+      Object.assign(updated, {
+        retribucion: derived.retribucion,
+        retencion: derived.retencion,
+        neto: derived.neto,
+        efectivo: derived.efectivo,
+      });
+
+      return updated;
+    },
+    [properties]
+  );
+
+  const persistDraft = useCallback(
+    async (draft: SettlementRow) => {
+      if (!draft.propiedad_id) {
+        toast.error("Elige una propiedad para guardar la liquidación");
+        return;
+      }
+
+      try {
+        const res = await fetch("/.netlify/functions/createSettlement", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            propiedad_id: draft.propiedad_id,
+            fecha_liquidacion: draft.fecha_liquidacion,
+            numero_operacion: draft.numero_operacion,
+            beneficio_bruto: draft.beneficio_bruto,
+            aportacion: draft.aportacion,
+            retribucion: draft.retribucion,
+            transferencia: draft.transferencia,
+            fecha_transferencia: draft.fecha_transferencia,
+            fecha_aportacion: draft.fecha_aportacion,
+            liquidado: draft.liquidado,
+            ejercicio: draft.ejercicio,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al crear");
+
+        const saved = settlementFromApi(
+          data as Record<string, unknown>,
+          properties
+        );
+        setRows((prev) =>
+          prev.map((r) => (r.id === draft.id ? saved : r))
+        );
+        if (toNum(saved.beneficio_bruto) > 0) {
+          await syncPropiedadFromLiquidaciones(getSupabase(), saved.propiedad_id);
+        }
+        toast.success("Liquidación creada");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Error al crear liquidación";
+        toast.error(message);
+      }
+    },
+    [properties]
+  );
+
   // ── Save field ──
   const saveField = useCallback(
     async (id: string, field: string, value: unknown) => {
+      let draftToPersist: SettlementRow | null = null;
+
       setRows((prev) =>
         prev.map((r) => {
           if (r.id !== id) return r;
-          const updated = { ...r, [field]: value };
-
-          // Recalculate generated fields
-          if (field === "retribucion" || field === "transferencia") {
-            const retribucion = toNum(
-              field === "retribucion" ? value : r.retribucion
-            );
-            const transferencia = toNum(
-              field === "transferencia" ? value : r.transferencia
-            );
-            const retencion = calcRetencion(retribucion);
-            const neto = calcNeto(retribucion, retencion);
-            const efectivo = calcEfectivoFromTransfer(neto, transferencia);
-            Object.assign(updated, { retencion, neto, efectivo });
+          const updated = applyRowPatch(r, field, value);
+          if (
+            isDraftRow(updated) &&
+            field === "propiedad_id" &&
+            updated.propiedad_id
+          ) {
+            draftToPersist = updated;
           }
-
-          // Update property title if property changes
-          if (field === "propiedad_id") {
-            const prop = properties.find((p) => p.id === value);
-            if (prop) updated.propiedad_titulo = prop.titulo;
-          }
-
           return updated;
         })
       );
 
-      // Persist to DB (only user-editable fields)
+      if (draftToPersist) {
+        await persistDraft(draftToPersist);
+        return;
+      }
+
+      const row = rows.find((r) => r.id === id);
+      if (!row || isDraftRow(row)) return;
+
+      const nextRow = { ...row, [field]: value };
+      if (field === "beneficio_bruto") {
+        nextRow.beneficio_bruto =
+          value == null || value === "" ? null : toNum(value);
+      }
+      if (field === "propiedad_id") {
+        const prop = properties.find((p) => p.id === value);
+        if (prop) {
+          nextRow.propiedad_participacion_sanyus =
+            prop.participacion_sanyus ?? null;
+        }
+      }
+
+      const derived = deriveSettlementMoney(nextRow);
       const payload: Record<string, unknown> = { [field]: value };
+
+      if (field === "beneficio_bruto") {
+        payload.beneficio_bruto = nextRow.beneficio_bruto;
+        payload.retribucion = derived.retribucion;
+      } else if (field === "propiedad_id" && toNum(nextRow.beneficio_bruto) > 0) {
+        payload.retribucion = derived.retribucion;
+      }
+
+      const syncPropiedad =
+        field === "beneficio_bruto" ||
+        (field === "propiedad_id" && toNum(nextRow.beneficio_bruto) > 0);
 
       try {
         const supabase = getSupabase();
@@ -195,13 +364,17 @@ export default function LiquidacionesTable({
           .update(payload)
           .eq("id", id);
         if (error) throw error;
+
+        if (syncPropiedad) {
+          await syncPropiedadFromLiquidaciones(supabase, nextRow.propiedad_id);
+        }
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Error al guardar";
         toast.error(message);
       }
     },
-    [properties]
+    [applyRowPatch, persistDraft, properties, rows]
   );
 
   // ── Swap numero_liquidacion ──
@@ -250,42 +423,24 @@ export default function LiquidacionesTable({
     [rows]
   );
 
-  // ── Create new settlement ──
-  const createSettlement = useCallback(async () => {
-    try {
-      const defaultProperty = properties[0];
-      if (!defaultProperty) {
-        toast.error("No hay propiedades disponibles");
-        return;
-      }
-
-      const res = await fetch("/.netlify/functions/createSettlement", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          propiedad_id: defaultProperty.id,
-          fecha_liquidacion: new Date().toISOString().split("T")[0],
-          aportacion: 0,
-          retribucion: 0,
-          transferencia: 0,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al crear");
-
-      // Reload from Supabase
-      await reloadData();
-      toast.success("Liquidación creada");
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Error al crear liquidación";
-      toast.error(message);
+  // ── Create new settlement (fila borrador al inicio) ──
+  const createSettlement = useCallback(() => {
+    if (properties.length === 0) {
+      toast.error("No hay propiedades disponibles");
+      return;
     }
-  }, [properties]);
+    setRows((prev) => [createEmptyDraftRow(), ...prev]);
+  }, [properties.length]);
 
   // ── Delete settlement ──
   const deleteSettlement = useCallback(async () => {
     if (!deleteTarget) return;
+
+    if (isDraftRow({ id: deleteTarget.id })) {
+      setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      return;
+    }
 
     const res = await fetch("/.netlify/functions/deleteSettlement", {
       method: "POST",
@@ -307,16 +462,12 @@ export default function LiquidacionesTable({
     const { data } = await supabase
       .from("liquidaciones")
       .select(
-        "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo)"
+        "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo, participacion_sanyus)"
       )
       .order("numero_liquidacion", { ascending: true });
 
     if (data) {
-      const mapped = data.map((r: Record<string, unknown>) => ({
-        ...r,
-        propiedad_titulo: (r.propiedades as Record<string, string> | null)?.titulo ?? "",
-      })) as SettlementRow[];
-      setRows(mapped);
+      setRows(data.map((r) => mapSettlementRow(r as Record<string, unknown>)));
     }
   }, []);
 
@@ -368,6 +519,9 @@ export default function LiquidacionesTable({
               <TableHead className="min-w-[200px]">PROPIEDAD</TableHead>
               <TableHead className="w-[130px]">FECHA</TableHead>
               <TableHead className="w-[120px] text-right">APORTACIÓN</TableHead>
+              <TableHead className="w-[110px] text-right" title="Beneficio bruto">
+                BRUTO
+              </TableHead>
               <TableHead className="w-[120px] text-right">RETRIBUCIÓN</TableHead>
               <TableHead className="w-[120px] text-right">RETENCIÓN</TableHead>
               <TableHead className="w-[120px] text-right">NETO</TableHead>
@@ -387,6 +541,9 @@ export default function LiquidacionesTable({
               <TableCell colSpan={4} />
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
+              </TableCell>
+              <TableCell data-money className="text-right tabular-nums text-sm">
+                {formatEuro(totals.beneficio_bruto)}
               </TableCell>
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.retribucion)}
@@ -417,17 +574,30 @@ export default function LiquidacionesTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={17}
+                  colSpan={18}
                   className="text-center text-muted-foreground py-8"
                 >
                   No hay liquidaciones para mostrar.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((row) => (
-                <TableRow key={row.id}>
+              filteredRows.map((row) => {
+                const money = deriveSettlementMoney(row);
+                const draft = isDraftRow(row);
+                return (
+                <TableRow
+                  key={row.id}
+                  className={
+                    draft
+                      ? "bg-amber-50/90 border-l-4 border-l-amber-400 hover:bg-amber-50"
+                      : undefined
+                  }
+                >
                   {/* Nº */}
-                  <TableCell>
+                  <TableCell className={draft ? "bg-amber-50/90" : undefined}>
+                    {draft ? (
+                      <span className="text-sm text-muted-foreground px-1">—</span>
+                    ) : (
                     <EditableCell
                       value={String(row.numero_liquidacion)}
                       type="text"
@@ -437,6 +607,7 @@ export default function LiquidacionesTable({
                         if (Number.isFinite(n) && n >= 1) swapOrder(row.id, n);
                       }}
                     />
+                    )}
                   </TableCell>
 
                   {/* OP */}
@@ -450,10 +621,11 @@ export default function LiquidacionesTable({
                   </TableCell>
 
                   {/* PROPIEDAD */}
-                  <TableCell>
+                  <TableCell className={draft ? "bg-amber-50/90" : undefined}>
                     <EditableCell
-                      value={row.propiedad_id}
+                      value={row.propiedad_id || null}
                       type="select"
+                      selectPlaceholder={PROPERTY_PLACEHOLDER}
                       options={properties.map((p) => ({ value: p.id, label: p.titulo }))}
                       onSave={(v) => saveField(row.id, "propiedad_id", v)}
                     />
@@ -483,19 +655,28 @@ export default function LiquidacionesTable({
                     />
                   </TableCell>
 
-                  {/* RETRIBUCIÓN */}
+                  {/* BRUTO */}
                   <TableCell>
                     <EditableCell
-                      value={row.retribucion}
+                      value={row.beneficio_bruto}
                       type="money"
-                      onSave={(v) => saveField(row.id, "retribucion", v)}
+                      onSave={(v) => saveField(row.id, "beneficio_bruto", v)}
+                    />
+                  </TableCell>
+
+                  {/* RETRIBUCIÓN (% Sanyus del bruto) */}
+                  <TableCell>
+                    <EditableCell
+                      value={money.retribucion}
+                      type="readonly-money"
+                      onSave={() => {}}
                     />
                   </TableCell>
 
                   {/* RETENCIÓN (calculated) */}
                   <TableCell>
                     <EditableCell
-                      value={row.retencion}
+                      value={money.retencion}
                       type="readonly-money"
                       onSave={() => {}}
                     />
@@ -504,7 +685,7 @@ export default function LiquidacionesTable({
                   {/* NETO (calculated) */}
                   <TableCell>
                     <EditableCell
-                      value={row.neto}
+                      value={money.neto}
                       type="readonly-money"
                       onSave={() => {}}
                     />
@@ -513,7 +694,7 @@ export default function LiquidacionesTable({
                   {/* EFECTIVO (calculated) */}
                   <TableCell>
                     <EditableCell
-                      value={row.efectivo}
+                      value={money.efectivo}
                       type="readonly-money"
                       onSave={() => {}}
                     />
@@ -561,7 +742,11 @@ export default function LiquidacionesTable({
                   {/* DURACIÓN (calculated) */}
                   {(() => {
                     const duracion = calcDuracion(row.fecha_aportacion, row.fecha_transferencia);
-                    const beneficio = calcBeneficio(row.retribucion, row.aportacion, duracion);
+                    const beneficio = calcBeneficio(
+                      money.retribucion,
+                      row.aportacion,
+                      duracion
+                    );
                     return (
                       <>
                         <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
@@ -607,7 +792,9 @@ export default function LiquidacionesTable({
                       onClick={() =>
                         setDeleteTarget({
                           id: row.id,
-                          name: `Liquidación #${row.numero_liquidacion} - ${row.propiedad_titulo || ""}`
+                          name: draft
+                            ? "Nueva liquidación (sin guardar)"
+                            : `Liquidación #${row.numero_liquidacion} - ${row.propiedad_titulo || ""}`,
                         })
                       }
                     >
@@ -615,7 +802,8 @@ export default function LiquidacionesTable({
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>

@@ -2,16 +2,25 @@
 // Decimal-safe calculation helpers for financial data.
 // All functions round to 2 decimal places to match DECIMAL(12,2) in PostgreSQL.
 
+import { toNum } from "./money";
+
 export { toNum, formatEuro, formatEuroPlain, parseEuro } from "./money";
 
-/** Round to 2 decimal places (banker's rounding avoided — standard rounding) */
+/** Redondeo a céntimos (alineado con ROUND(..., 2) en PostgreSQL NUMERIC) */
 export function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+  if (!Number.isFinite(value)) return 0;
+  const n = value >= 0 ? value + 1e-9 : value - 1e-9;
+  return Math.round(n * 100) / 100;
 }
 
-/** Retención = retribución × 19% */
+/** Retención IRPF = 19% de retribución */
 export function calcRetencion(retribucion: number): number {
   return round2(retribucion * 0.19);
+}
+
+/** Neto = retribución − retención */
+export function calcNetoFromRetribucion(retribucion: number): number {
+  return round2(retribucion - calcRetencion(retribucion));
 }
 
 /** Efectivo = retribución − retención − ingreso_banco */
@@ -23,14 +32,22 @@ export function calcEfectivo(
   return round2(retribucion - retencion - ingresoBanco);
 }
 
-/** JASP 20% = (aportación × 2) × 20% */
-export function calcJasp(aportacion: number): number {
-  return round2(aportacion * 2 * 0.20);
+/** Retribución = ROUND(bruto × % / 100, 2) — mismo criterio que la BD */
+export function calcRetribucionFromBruto(
+  bruto: number,
+  pctSanyus: number
+): number {
+  return round2((bruto * pctSanyus) / 100);
 }
 
-/** Neto = retribución − retención */
-export function calcNeto(retribucion: number, retencion: number): number {
-  return round2(retribucion - retencion);
+/** JASP automático = bruto × % JASP de la ficha */
+export function calcJaspAutoFromBruto(bruto: number, pctJasp: number): number {
+  return round2(bruto * (pctJasp / 100));
+}
+
+/** Neto = retribución − retención (usa retención pasada o la recalcula desde retribución) */
+export function calcNeto(retribucion: number, retencion?: number): number {
+  return round2(retribucion - (retencion ?? calcRetencion(retribucion)));
 }
 
 /** Efectivo (cash) = neto − transferencia (bank transfer) */
@@ -38,16 +55,15 @@ export function calcEfectivoFromTransfer(neto: number, transferencia: number): n
   return round2(neto - transferencia);
 }
 
-/** Recalculate all derived fields from user-editable inputs */
-export function recalcProperty(row: {
+/** Recalcula retención y efectivo en propiedad (retribución ya viene de liquidaciones) */
+export function recalcPropertyEfectivo(row: {
   retribucion: number;
   ingreso_banco: number;
-  aportacion: number;
 }) {
-  const retencion = calcRetencion(row.retribucion);
-  const efectivo = calcEfectivo(row.retribucion, retencion, row.ingreso_banco);
-  const jasp_10_percent = calcJasp(row.aportacion);
-  return { retencion, efectivo, jasp_10_percent };
+  const retribucion = toNum(row.retribucion);
+  const retencion = calcRetencion(retribucion);
+  const efectivo = calcEfectivo(retribucion, retencion, row.ingreso_banco);
+  return { retencion, efectivo };
 }
 
 /** Sum an array of numbers (for totals row) */

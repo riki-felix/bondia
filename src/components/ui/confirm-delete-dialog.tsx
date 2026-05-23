@@ -10,6 +10,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 interface ConfirmDeleteDialogProps {
@@ -81,7 +83,7 @@ export function ConfirmDeleteDialog({
               e.preventDefault();
               handleConfirm();
             }}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={cn(buttonVariants({ variant: "destructive" }))}
           >
             {deleting ? (
               <>

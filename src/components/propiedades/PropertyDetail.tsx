@@ -17,6 +17,16 @@ import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro } from "@/lib/moneyCalc";
+import { PropertyParticipacionSection } from "@/components/inversiones/PropertyParticipacionSection";
+import {
+  DEFAULT_PARTICIPACION_BIENES_SANYUS_CB,
+  DEFAULT_PARTICIPACION_JASP,
+  DEFAULT_PARTICIPACION_SANYUS,
+  participacionBienesSanyusCbFormValue,
+  parseParticipacionInput,
+  validateBienesSanyusCb,
+  validateParticipacionPair,
+} from "@/lib/participacion";
 import { ArrowLeft, Building2, Calendar, Clock, ImagePlus, Loader2, Save } from "lucide-react";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 
@@ -43,6 +53,9 @@ interface PropertyData {
   // Investment data
   numero_operacion: number | null;
   pago: boolean;
+  participacion_sanyus: number | null;
+  participacion_jasp: number | null;
+  participacion_bienes_sanyus_cb: number | null;
   aportacion: number | null;
   retribucion: number | null;
   retencion: number | null;
@@ -56,6 +69,7 @@ interface Settlement {
   id: string;
   numero_liquidacion: number;
   fecha_liquidacion: string;
+  beneficio_bruto: number | null;
   aportacion: number;
   retribucion: number;
   retencion: number;
@@ -134,6 +148,17 @@ export default function PropertyDetail({
     fecha_compra: property?.fecha_compra ? String(property.fecha_compra).substring(0, 10) : "",
     fecha_venta: property?.fecha_venta ? String(property.fecha_venta).substring(0, 10) : "",
     notas: property?.notas ?? "",
+    participacion_sanyus:
+      property?.participacion_sanyus != null
+        ? String(property.participacion_sanyus)
+        : "",
+    participacion_jasp:
+      property?.participacion_jasp != null
+        ? String(property.participacion_jasp)
+        : "",
+    participacion_bienes_sanyus_cb: participacionBienesSanyusCbFormValue(
+      property?.participacion_bienes_sanyus_cb
+    ),
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initialImageUrl);
@@ -159,6 +184,27 @@ export default function PropertyDetail({
       toast.error("El nombre es obligatorio");
       return;
     }
+
+    const pctS =
+      parseParticipacionInput(form.participacion_sanyus) ??
+      DEFAULT_PARTICIPACION_SANYUS;
+    const pctJ =
+      parseParticipacionInput(form.participacion_jasp) ??
+      DEFAULT_PARTICIPACION_JASP;
+    const participacionError = validateParticipacionPair(pctS, pctJ);
+    if (participacionError) {
+      toast.error(participacionError);
+      return;
+    }
+    const bienesCb =
+      parseParticipacionInput(form.participacion_bienes_sanyus_cb) ??
+      DEFAULT_PARTICIPACION_BIENES_SANYUS_CB;
+    const bienesError = validateBienesSanyusCb(bienesCb);
+    if (bienesError) {
+      toast.error(bienesError);
+      return;
+    }
+
     setSaving(true);
     try {
       let foto_destacada_path: string | null = null;
@@ -193,6 +239,10 @@ export default function PropertyDetail({
       if (foto_destacada_path) payload.foto_destacada_path = foto_destacada_path;
 
       let url: string;
+      payload.participacion_sanyus = pctS;
+      payload.participacion_jasp = pctJ;
+      payload.participacion_bienes_sanyus_cb = bienesCb;
+
       if (isCreate) {
         payload.tipo = "inversion";
         url = "/.netlify/functions/createProperty";
@@ -433,6 +483,26 @@ export default function PropertyDetail({
       </Card>
 
       {!isCreate && property && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Participación</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PropertyParticipacionSection
+              values={{
+                participacion_sanyus: form.participacion_sanyus,
+                participacion_jasp: form.participacion_jasp,
+                participacion_bienes_sanyus_cb: form.participacion_bienes_sanyus_cb,
+              }}
+              onChange={(field, value) =>
+                setForm((prev) => ({ ...prev, [field]: value }))
+              }
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {!isCreate && property && (
         <EntityDocumentsPanel
           bloque="engine"
           entityType="propiedad"
@@ -476,7 +546,7 @@ export default function PropertyDetail({
               <span className="font-medium tabular-nums">{formatEuro(property.efectivo)}</span>
             </div>
             <div>
-              <span className="text-muted-foreground block text-xs uppercase">JASP 20%</span>
+              <span className="text-muted-foreground block text-xs uppercase">JASP</span>
               <span className="font-medium tabular-nums">{formatEuro(property.jasp_10_percent)}</span>
             </div>
             <div>
@@ -505,6 +575,7 @@ export default function PropertyDetail({
                     <th className="py-2 pr-4">Nº</th>
                     <th className="py-2 pr-4">Fecha</th>
                     <th className="py-2 pr-4 text-right">Aportación</th>
+                    <th className="py-2 pr-4 text-right">Bruto</th>
                     <th className="py-2 pr-4 text-right">Retribución</th>
                     <th className="py-2 pr-4 text-right">Transferencia</th>
                     <th className="py-2 pr-4">F. Transferencia</th>
@@ -517,6 +588,7 @@ export default function PropertyDetail({
                       <td className="py-2 pr-4 tabular-nums">{s.numero_liquidacion}</td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.aportacion)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.beneficio_bruto)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.retribucion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.transferencia)}</td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>

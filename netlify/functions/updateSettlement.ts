@@ -57,6 +57,9 @@ export const handler: Handler = async (event) => {
       const n = body.numero_operacion != null ? Number(body.numero_operacion) : null;
       updates.numero_operacion = n != null && Number.isFinite(n) ? n : null;
     }
+    if (body.beneficio_bruto !== undefined) {
+      updates.beneficio_bruto = toMoneyOrNull(body.beneficio_bruto);
+    }
     if (body.aportacion !== undefined) updates.aportacion = toMoneyOrNull(body.aportacion) ?? 0;
     if (body.retribucion !== undefined) updates.retribucion = toMoneyOrNull(body.retribucion) ?? 0;
     if (body.transferencia !== undefined) updates.transferencia = toMoneyOrNull(body.transferencia) ?? 0;
@@ -76,7 +79,7 @@ export const handler: Handler = async (event) => {
       .from('liquidaciones')
       .update(updates)
       .eq('id', id)
-      .select('id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio')
+      .select('id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio')
       .single();
 
     if (error) {

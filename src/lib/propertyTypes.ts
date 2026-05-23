@@ -9,12 +9,15 @@ export interface Property {
   estado: string | null;
   created_at: string | null;
   pago: boolean;
+  participacion_sanyus: number | null;
+  participacion_jasp: number | null;
   aportacion: number | null;
   retribucion: number | null;
   retencion: number | null;
   ingreso_banco: number | null;
   efectivo: number | null;
   jasp_10_percent: number | null;
+  jasp_manual?: boolean;
   transfe: string | null;
   fecha_compra: string | null;
   fecha_venta: string | null;
@@ -58,4 +61,4 @@ export const OCUPADO_OPTIONS = [
 
 /** Columns that are fetched from Supabase for the inversiones table */
 export const PROPERTY_SELECT =
-  "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug" as const;
+  "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, participacion_sanyus, participacion_jasp, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug" as const;
