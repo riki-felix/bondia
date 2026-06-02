@@ -44,7 +44,19 @@ Archivos `step*.sql` en la misma carpeta: evolución de liquidaciones/propiedade
 
 ## RLS y seguridad
 
-Políticas permisivas (`USING (true)`) en tablas de aplicación. La app confía en red interna; **mutaciones reales** van por service role en Netlify Functions. No asumir que RLS protege escrituras desde el cliente anon.
+Bondia lee con **`anon`** (`PUBLIC_SUPABASE_ANON_KEY`) en páginas `.astro` sin login. Las **mutaciones** van por `service_role` en Netlify Functions.
+
+Políticas esperadas en tablas de app (ver `20260603120000_restore_bondia_anon_rls.sql` + `20260604120000_security_advisor_fixes.sql`):
+
+- `bondia_anon_select` — `FOR SELECT TO anon USING (true)` únicamente
+- Sin política `authenticated`: mutaciones solo vía `service_role` (Netlify)
+- `bondia_reset_anon_select_rls(regclass)` — solo ejecutable por `service_role` (no RPC pública)
+
+**No aplicar** el Security Advisor que sustituye `USING (true)` en **SELECT anon** por `(auth.uid() IS NOT NULL)`: la UI queda vacía.
+
+Bucket `activos-fotos` es **público** (`public: true`): no añadir políticas `SELECT` amplias en `storage.objects` (permite listado). Subida/borrado en Netlify con service role.
+
+Auth: activar “Prevent use of leaked passwords” en [Auth → Email](https://supabase.com/dashboard/project/_/auth/providers?provider=Email) si el plan lo permite (Pro+).
 
 ## Storage buckets
 
