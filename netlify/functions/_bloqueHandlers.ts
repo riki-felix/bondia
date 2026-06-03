@@ -1023,42 +1023,4 @@ export async function handleUpdateAhorroCartera(body: any) {
   return json(data);
 }
 
-// ─── CORS preflight helper ───────────────────────────────────
-
-export function corsPreflightResponse() {
-  return {
-    statusCode: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    },
-    body: '',
-  };
-}
-
-// ─── Standard handler wrapper ────────────────────────────────
-
-export function wrapHandler(
-  handler: (body: any) => Promise<any>,
-  label: string
-) {
-  return async (event: any) => {
-    if (event.httpMethod === 'OPTIONS') return corsPreflightResponse();
-    if (event.httpMethod !== 'POST') return json({ error: 'Method not allowed' }, 405);
-
-    try {
-      const body = parseBody(event.body);
-      const result = await handler(body);
-      // Guard: ensure we always return a valid response object
-      if (!result || typeof result.statusCode !== 'number') {
-        console.error(`[${label}] handler returned invalid response:`, result);
-        return json({ error: 'Respuesta inválida del servidor' }, 500);
-      }
-      return result;
-    } catch (e: any) {
-      console.error(`[${label}] fatal:`, e);
-      return json({ error: e.message || 'Error inesperado' }, 500);
-    }
-  };
-}
+export { corsPreflightResponse, wrapHandler } from "./_shared";

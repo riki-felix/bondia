@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
-import { Building2, ChevronDown, FileStack, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { Building2, ChevronDown, FileStack, FileText, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -40,6 +40,7 @@ const casaItems = [
 
 const sanyusItems = [
   { title: "Control", href: "/sanyus/control", icon: LayoutDashboard },
+  { title: "Modelo 184", href: "/sanyus/modelo-184", icon: FileText },
   { title: "Gastos", href: "/sanyus/gastos", icon: TrendingDown },
   { title: "Ingresos", href: "/sanyus/ingresos", icon: TrendingUp },
   { title: "Activos", href: "/sanyus/activos", icon: Package },

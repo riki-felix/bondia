@@ -95,6 +95,42 @@ export function toDateOrNull(v: any): string | null {
   return s;
 }
 
+export function corsPreflightResponse() {
+  return {
+    statusCode: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+    },
+    body: "",
+  };
+}
+
+export function wrapHandler(
+  handler: (body: Record<string, unknown>) => Promise<{ statusCode: number; headers?: Record<string, string>; body: string }>,
+  label: string
+) {
+  return async (event: { httpMethod?: string; body?: string | null }) => {
+    if (event.httpMethod === "OPTIONS") return corsPreflightResponse();
+    if (event.httpMethod !== "POST") return json({ error: "Method not allowed" }, 405);
+
+    try {
+      const body = parseBody(event.body);
+      const result = await handler(body);
+      if (!result || typeof result.statusCode !== "number") {
+        console.error(`[${label}] handler returned invalid response:`, result);
+        return json({ error: "Respuesta inválida del servidor" }, 500);
+      }
+      return result;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error inesperado";
+      console.error(`[${label}] fatal:`, e);
+      return json({ error: msg }, 500);
+    }
+  };
+}
+
 export function pickFrom(v: any, allowed: Set<string>) {
   if (typeof v !== 'string') return null;
   const x = v.trim().toLowerCase();

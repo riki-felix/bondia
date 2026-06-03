@@ -56,6 +56,8 @@ Políticas esperadas en tablas de app (ver `20260603120000_restore_bondia_anon_r
 
 Bucket `activos-fotos` es **público** (`public: true`): no añadir políticas `SELECT` amplias en `storage.objects` (permite listado). Subida/borrado en Netlify con service role.
 
+**Modelo 184:** tabla `sanyus_modelo184_config` (fila `default`) — ficha editable en `/sanyus/modelo-184`; guardado vía `upsertSanyusModelo184Config`.
+
 Auth: activar “Prevent use of leaked passwords” en [Auth → Email](https://supabase.com/dashboard/project/_/auth/providers?provider=Email) si el plan lo permite (Pro+).
 
 ## Storage buckets

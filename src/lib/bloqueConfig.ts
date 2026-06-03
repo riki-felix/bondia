@@ -61,7 +61,10 @@ export interface BloqueConfig {
     deleteArea: string;
     syncAreaCategorias: string;
     upsertOverride: string;
-  } & Partial<BloqueActivoMetadataEndpoints>;
+  } & Partial<BloqueActivoMetadataEndpoints> & {
+    /** Solo Sanyus — ficha Modelo 184 */
+    upsertModelo184Config?: string;
+  };
   routes: {
     control: string;
     gastos: string;
@@ -70,6 +73,8 @@ export interface BloqueConfig {
     activoNuevo: string;
     activoDetalle: string; // append /{id}
     categorias: string;
+    /** Solo Sanyus — declaración modelo 184 AEAT */
+    modelo184?: string;
   };
 }
 
@@ -204,6 +209,7 @@ export const SANYUS_CONFIG: BloqueConfig = {
     updateCaracteristica: "/.netlify/functions/updateSanyusCaracteristica",
     deleteCaracteristica: "/.netlify/functions/deleteSanyusCaracteristica",
     syncCaracteristicaValores: "/.netlify/functions/syncSanyusCaracteristicaValores",
+    upsertModelo184Config: "/.netlify/functions/upsertSanyusModelo184Config",
   },
   routes: {
     control: "/sanyus/control",
@@ -213,5 +219,6 @@ export const SANYUS_CONFIG: BloqueConfig = {
     activoNuevo: "/sanyus/activos/nuevo",
     activoDetalle: "/sanyus/activos",
     categorias: "/sanyus/categorias",
+    modelo184: "/sanyus/modelo-184",
   },
 };

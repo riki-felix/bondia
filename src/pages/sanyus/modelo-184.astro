@@ -1,0 +1,103 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import Modelo184View from "../../components/sanyus/Modelo184View";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
+import { mapBloqueGastoRow, mapBloqueIngresoRow } from "../../lib/bloqueTypes";
+import { fichaFromRow } from "../../lib/modelo184Config";
+
+const cfg = SANYUS_CONFIG;
+const supabase = supabaseClient();
+const currentYear = new Date().getFullYear();
+const url = new URL(Astro.request.url);
+const yearParam = url.searchParams.get("year");
+const ejercicio = yearParam ? Number(yearParam) : currentYear;
+
+const { data: activosRaw } = await supabase
+  .from(cfg.tables.activos)
+  .select(
+    "id, nombre, slug, fecha_compra, precio_compra, valor_estimado, fecha_estimacion, es_inmueble"
+  )
+  .eq("es_inmueble", true)
+  .order("nombre");
+
+const activosList = activosRaw ?? [];
+const activoIds = activosList.map((a) => a.id);
+
+const configRes = await supabase
+  .from("sanyus_modelo184_config")
+  .select("*")
+  .eq("id", "default")
+  .maybeSingle();
+
+const initialFicha = fichaFromRow(configRes.data ?? null);
+
+const [caracRes, valoresRes, gastosRes, ingresosRes, gastosOvRes, ingresosOvRes] =
+  await Promise.all([
+    supabase
+      .from(cfg.tables.activosCaracteristicas!)
+      .select("id, slug")
+      .eq("plantilla_inmueble", true),
+    activoIds.length > 0
+      ? supabase
+          .from(cfg.tables.activosCaracteristicaValores!)
+          .select("activo_id, caracteristica_id, valor")
+          .in("activo_id", activoIds)
+      : Promise.resolve({ data: [] as { activo_id: string; caracteristica_id: string; valor: string }[] }),
+    supabase
+      .from(cfg.tables.gastos)
+      .select(`*, ${cfg.joins.gastosCateg}, ${cfg.tables.activos}(nombre)`)
+      .eq("ejercicio", ejercicio),
+    supabase
+      .from(cfg.tables.ingresos)
+      .select(`*, ${cfg.joins.ingresosCateg}, ${cfg.tables.activos}(nombre)`)
+      .eq("ejercicio", ejercicio),
+    supabase.from(cfg.tables.gastosOverrides).select("*").eq("ejercicio", ejercicio),
+    supabase.from(cfg.tables.ingresosOverrides).select("*").eq("ejercicio", ejercicio),
+  ]);
+
+const valoresByActivo = new Map<string, { caracteristica_id: string; valor: string }[]>();
+for (const v of valoresRes.data ?? []) {
+  const list = valoresByActivo.get(v.activo_id) ?? [];
+  list.push({ caracteristica_id: v.caracteristica_id, valor: v.valor ?? "" });
+  valoresByActivo.set(v.activo_id, list);
+}
+
+const activos = activosList.map((a) => ({
+  id: a.id,
+  nombre: a.nombre,
+  slug: a.slug,
+  fecha_compra: a.fecha_compra,
+  precio_compra: a.precio_compra,
+  valor_estimado: a.valor_estimado,
+  fecha_estimacion: a.fecha_estimacion,
+  caracteristica_valores: valoresByActivo.get(a.id) ?? [],
+}));
+
+const gastos = ((gastosRes.data ?? []) as any[]).map((r) =>
+  mapBloqueGastoRow(r, cfg.tables.gastosCateg, cfg.tables.activos)
+);
+const ingresos = ((ingresosRes.data ?? []) as any[]).map((r) =>
+  mapBloqueIngresoRow(r, cfg.tables.ingresosCateg, cfg.tables.activos)
+);
+---
+
+<Layout>
+  <Modelo184View
+    client:load
+    ejercicio={ejercicio}
+    initialFicha={initialFicha}
+    saveConfigEndpoint={cfg.endpoints.upsertModelo184Config!}
+    activos={activos}
+    caracteristicas={caracRes.data ?? []}
+    gastos={gastos}
+    ingresos={ingresos}
+    gastosOverrides={gastosOvRes.data ?? []}
+    ingresosOverrides={ingresosOvRes.data ?? []}
+    activoDetalleBase={cfg.routes.activoDetalle}
+  />
+  <Toaster client:load />
+</Layout>
