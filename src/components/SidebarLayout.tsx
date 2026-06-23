@@ -7,11 +7,12 @@ import { AppSidebar, type FavoritoItem } from "./AppSidebar"
 
 interface SidebarLayoutProps {
   currentPath: string
+  currentSearch?: string
   favoritos?: FavoritoItem[]
   children: ReactNode
 }
 
-export function SidebarLayout({ currentPath, favoritos = [], children }: SidebarLayoutProps) {
+export function SidebarLayout({ currentPath, currentSearch = "", favoritos = [], children }: SidebarLayoutProps) {
   const [incognito, setIncognito] = useState(false)
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function SidebarLayout({ currentPath, favoritos = [], children }: Sidebar
 
   return (
     <SidebarProvider>
-      <AppSidebar currentPath={currentPath} favoritos={favoritos} />
+      <AppSidebar currentPath={currentPath} currentSearch={currentSearch} favoritos={favoritos} />
       <SidebarInset data-incognito={incognito || undefined}>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

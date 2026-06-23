@@ -6,6 +6,7 @@ import { supabaseClient } from "../lib/supabaseClient";
 import { CASA_CONFIG, SANYUS_CONFIG } from "../lib/bloqueConfig";
 
 const currentPath = Astro.url.pathname;
+const currentSearch = Astro.url.search;
 const supabase = supabaseClient();
 
 // Fetch favorite categories for sidebar
@@ -34,7 +35,7 @@ const favoritos: FavItem[] = [
 <html lang="es">
   <Head />
   <body class="min-h-screen bg-background font-sans antialiased">
-    <SidebarLayout client:load currentPath={currentPath} favoritos={favoritos}>
+    <SidebarLayout client:load currentPath={currentPath} currentSearch={currentSearch} favoritos={favoritos}>
       <slot />
     </SidebarLayout>
   </body>

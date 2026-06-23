@@ -6,9 +6,12 @@ import { Toaster } from "../../../components/ui/sonner";
 import BloqueActivoDetail from "../../../components/bloque/BloqueActivoDetail";
 import { supabaseClient } from "../../../lib/supabaseClient";
 import { CASA_CONFIG } from "../../../lib/bloqueConfig";
+import { isCasaActivoTitular } from "../../../lib/casaActivoTitular";
 
 const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
+const titularParam = Astro.url.searchParams.get("titular");
+const defaultTitular = isCasaActivoTitular(titularParam) ? titularParam : null;
 
 // Fetch categories for the select
 const { data: allCategorias } = await supabase
@@ -38,6 +41,7 @@ const allCaracteristicas = caracData ?? [];
     categorias={categorias}
     allTags={allTags}
     allCaracteristicas={allCaracteristicas}
+    defaultTitular={defaultTitular}
   />
   <Toaster client:load />
 </Layout>

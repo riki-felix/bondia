@@ -1,5 +1,5 @@
 // src/components/bloque/BloqueActivosTable.tsx
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -9,7 +9,12 @@ import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { bloqueHasActivoInmuebles } from "@/lib/bloqueConfig";
+import { bloqueHasActivoInmuebles, bloqueHasActivoTitular } from "@/lib/bloqueConfig";
+import {
+  CASA_ACTIVO_TITULAR_OPTIONS,
+  type CasaActivoTitular,
+  isCasaActivoTitular,
+} from "@/lib/casaActivoTitular";
 import { Plus, Trash2, Pencil, Building2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import BloqueCategoryDonut from "./BloqueCategoryDonut";
@@ -24,6 +29,7 @@ interface BloqueActivosTableProps {
   allTags?: ActivoTag[];
   initialTagFilter?: string | string[] | null;
   initialInmuebleFilter?: boolean;
+  initialTitularFilter?: CasaActivoTitular | null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -36,28 +42,60 @@ export default function BloqueActivosTable({
   allTags = [],
   initialTagFilter = null,
   initialInmuebleFilter = false,
+  initialTitularFilter = null,
 }: BloqueActivosTableProps) {
   const hasInmuebles = bloqueHasActivoInmuebles(config);
+  const hasTitular = bloqueHasActivoTitular(config);
   const [rows, setRows] = useState<BloqueActivo[]>(initialData);
   const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
   const [activeInmuebleOnly, setActiveInmuebleOnly] = useState(initialInmuebleFilter);
+  const [activeTitular, setActiveTitular] = useState<CasaActivoTitular | null>(
+    initialTitularFilter
+  );
   const [activeTags, setActiveTags] = useState<string[]>(() => {
     if (!initialTagFilter) return [];
     return Array.isArray(initialTagFilter) ? initialTagFilter : [initialTagFilter];
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const filteredRows = useMemo(() => {
+  const rowsBeforeTagFilter = useMemo(() => {
     let result = rows;
     if (activeCat) result = result.filter((r) => r.categoria_id === activeCat);
+    if (activeInmuebleOnly) result = result.filter((r) => r.es_inmueble === true);
+    if (activeTitular) result = result.filter((r) => r.titular === activeTitular);
+    return result;
+  }, [rows, activeCat, activeInmuebleOnly, activeTitular]);
+
+  const visibleTags = useMemo(() => {
+    const tagIds = new Set<string>();
+    for (const row of rowsBeforeTagFilter) {
+      for (const tag of row.tags ?? []) tagIds.add(tag.id);
+    }
+    return allTags.filter((tag) => tagIds.has(tag.id));
+  }, [allTags, rowsBeforeTagFilter]);
+
+  useEffect(() => {
+    setActiveTags((prev) => {
+      const visibleIds = new Set(visibleTags.map((t) => t.id));
+      const next = prev.filter((id) => visibleIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [visibleTags]);
+
+  const filteredRows = useMemo(() => {
+    let result = rowsBeforeTagFilter;
     if (activeTags.length > 0)
       result = result.filter((r) => {
         const rowTagIds = (r.tags ?? []).map((t) => t.id);
         return activeTags.every((tid) => rowTagIds.includes(tid));
       });
-    if (activeInmuebleOnly) result = result.filter((r) => r.es_inmueble === true);
     return result;
-  }, [rows, activeCat, activeTags, activeInmuebleOnly]);
+  }, [rowsBeforeTagFilter, activeTags]);
+
+  const titularOptions = useMemo(
+    () => CASA_ACTIVO_TITULAR_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    []
+  );
 
   const toggleInmuebleFilter = useCallback(() => {
     setActiveInmuebleOnly((prev) => {
@@ -147,12 +185,20 @@ export default function BloqueActivosTable({
       .sort((a, b) => b.value - a.value);
   }, [rows]);
 
+  const nuevoActivoHref = useMemo(() => {
+    if (!hasTitular || !activeTitular) return config.routes.activoNuevo;
+    return `${config.routes.activoNuevo}?titular=${activeTitular}`;
+  }, [config.routes.activoNuevo, hasTitular, activeTitular]);
+
+  const tableColCount =
+    6 + (allTags.length > 0 ? 1 : 0) + (hasTitular ? 1 : 0);
+
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 flex-wrap">
         <Button size="sm" variant="outline" asChild>
-          <a href={config.routes.activoNuevo}>
+          <a href={nuevoActivoHref}>
             <Plus className="h-4 w-4 mr-1" /> Añadir activo
           </a>
         </Button>
@@ -170,9 +216,9 @@ export default function BloqueActivosTable({
             Solo inmuebles
           </button>
         )}
-        {allTags.length > 0 && (
-          <div className="flex items-center gap-1">
-            {allTags.map((tag) => {
+        {visibleTags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {visibleTags.map((tag) => {
               const selected = activeTags.includes(tag.id);
               return (
                 <button
@@ -221,6 +267,7 @@ export default function BloqueActivosTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[250px]">Nombre</TableHead>
+              {hasTitular && <TableHead className="w-[120px]">Titular</TableHead>}
               <TableHead className="w-[180px]">Categoría</TableHead>
               {allTags.length > 0 && <TableHead className="w-[150px]">Tags</TableHead>}
               <TableHead className="w-[150px]">Fecha compra</TableHead>
@@ -233,7 +280,7 @@ export default function BloqueActivosTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={allTags.length > 0 ? 8 : 7}
+                  colSpan={tableColCount}
                   className="text-center text-muted-foreground py-8"
                 >
                   Sin activos registrados. Pulsa «Añadir activo» para empezar.
@@ -256,6 +303,19 @@ export default function BloqueActivosTable({
                       )}
                     </div>
                   </TableCell>
+                  {hasTitular && (
+                    <TableCell className="p-1">
+                      <EditableCell
+                        value={row.titular ?? "carlos"}
+                        type="select"
+                        options={titularOptions}
+                        onSave={(v) => {
+                          if (!isCasaActivoTitular(String(v))) return;
+                          updateField(row.id, "titular", v);
+                        }}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="p-1">
                     <EditableCell
                       value={row.categoria_id ?? "__none__"}

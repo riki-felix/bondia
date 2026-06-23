@@ -160,6 +160,25 @@ export async function handleDeleteIngreso(table: string, body: any) {
 // ─── Activo ──────────────────────────────────────────────────
 
 const SANYUS_ACTIVOS_TABLE = 'sanyus_activos_v2';
+const CASA_ACTIVOS_TABLE = 'casa_activos_v2';
+const CASA_ACTIVO_TITULARES = ['carlos', 'laura', 'izan', 'comun'] as const;
+
+function parseCasaActivoTitular(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return CASA_ACTIVO_TITULARES.includes(value as (typeof CASA_ACTIVO_TITULARES)[number])
+    ? value
+    : null;
+}
+
+function activosCategTableForActivos(table: string): string | null {
+  if (table === SANYUS_ACTIVOS_TABLE) return 'sanyus_activos_categorias';
+  if (table === CASA_ACTIVOS_TABLE) return 'casa_activos_categorias';
+  return null;
+}
+
+function supportsActivoInmueble(table: string): boolean {
+  return table === SANYUS_ACTIVOS_TABLE || table === CASA_ACTIVOS_TABLE;
+}
 
 async function resolveInmueblesCategoriaId(
   supabase: ReturnType<typeof serviceSupabase>,
@@ -182,11 +201,14 @@ export async function handleCreateActivo(table: string, body: any) {
   const slug = nombre ? slugifyEs(nombre) + '-' + Date.now() : 'activo-' + Date.now();
 
   const valorEstimado = toMoneyOrNull(body.valor_estimado);
-  const esInmueble = table === SANYUS_ACTIVOS_TABLE && body.es_inmueble === true;
+  const esInmueble = supportsActivoInmueble(table) && body.es_inmueble === true;
 
   let categoriaId = emptyOrNull(body.categoria_id);
   if (esInmueble && !categoriaId) {
-    categoriaId = await resolveInmueblesCategoriaId(supabase, 'sanyus_activos_categorias');
+    const categTable = activosCategTableForActivos(table);
+    if (categTable) {
+      categoriaId = await resolveInmueblesCategoriaId(supabase, categTable);
+    }
   }
 
   const row: Record<string, unknown> = {
@@ -201,8 +223,12 @@ export async function handleCreateActivo(table: string, body: any) {
     slug,
   };
 
-  if (table === SANYUS_ACTIVOS_TABLE) {
+  if (supportsActivoInmueble(table)) {
     row.es_inmueble = esInmueble;
+  }
+
+  if (table === CASA_ACTIVOS_TABLE) {
+    row.titular = parseCasaActivoTitular(body.titular) ?? 'carlos';
   }
 
   const { data, error } = await supabase
@@ -235,7 +261,13 @@ export async function handleUpdateActivo(table: string, body: any) {
   if (body.foto_url !== undefined) updates.foto_url = emptyOrNull(body.foto_url);
   if (body.notas !== undefined) updates.notas = body.notas ?? '';
 
-  if (table === SANYUS_ACTIVOS_TABLE && body.es_inmueble !== undefined) {
+  if (table === CASA_ACTIVOS_TABLE && body.titular !== undefined) {
+    const titular = parseCasaActivoTitular(body.titular);
+    if (!titular) return json({ error: 'titular inválido' }, 400);
+    updates.titular = titular;
+  }
+
+  if (supportsActivoInmueble(table) && body.es_inmueble !== undefined) {
     const esInmueble = body.es_inmueble === true;
     updates.es_inmueble = esInmueble;
     if (esInmueble && body.categoria_id === undefined) {
@@ -245,8 +277,11 @@ export async function handleUpdateActivo(table: string, body: any) {
         .eq('id', id)
         .single();
       if (!current?.categoria_id) {
-        const inmueblesId = await resolveInmueblesCategoriaId(supabase, 'sanyus_activos_categorias');
-        if (inmueblesId) updates.categoria_id = inmueblesId;
+        const categTable = activosCategTableForActivos(table);
+        if (categTable) {
+          const inmueblesId = await resolveInmueblesCategoriaId(supabase, categTable);
+          if (inmueblesId) updates.categoria_id = inmueblesId;
+        }
       }
     }
   }
@@ -469,19 +504,17 @@ export async function handleCreateCaracteristica(catalogTable: string, body: any
   return json(data, 201);
 }
 
-const SANYUS_CARACTERISTICAS_TABLE = 'sanyus_activos_caracteristicas';
-
 async function isPlantillaInmuebleCaracteristica(
   supabase: ReturnType<typeof serviceSupabase>,
   catalogTable: string,
   id: string,
 ): Promise<boolean> {
-  if (catalogTable !== SANYUS_CARACTERISTICAS_TABLE) return false;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from(catalogTable)
     .select('plantilla_inmueble')
     .eq('id', id)
     .single();
+  if (error) return false;
   return data?.plantilla_inmueble === true;
 }
 

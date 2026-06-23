@@ -52,6 +52,17 @@ const ingresosOverrides = ingresosOvRes.data ?? [];
 
 const areas = areasRes.data ?? [];
 const areaAssignments = aaRes.data ?? [];
+
+const { data: inmueblesActivos } = await supabase
+  .from(cfg.tables.activos)
+  .select("precio_compra, valor_estimado")
+  .eq("es_inmueble", true);
+
+const inmueblesStats = {
+  count: inmueblesActivos?.length ?? 0,
+  totalCompra: (inmueblesActivos ?? []).reduce((s, a) => s + (a.precio_compra ?? 0), 0),
+  totalEstimado: (inmueblesActivos ?? []).reduce((s, a) => s + (a.valor_estimado ?? 0), 0),
+};
 ---
 
 <Layout>
@@ -74,6 +85,7 @@ const areaAssignments = aaRes.data ?? [];
       mesActual={mesActual}
       areas={areas}
       areaAssignments={areaAssignments}
+      inmueblesStats={inmueblesStats}
     />
   </div>
   <Toaster client:load />

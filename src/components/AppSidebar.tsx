@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
-import { Building2, ChevronDown, FileStack, FileText, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { Building2, ChevronDown, FileStack, FileText, Home, LayoutDashboard, Package, Receipt, Star, Tag, TrendingDown, TrendingUp, Wallet, type LucideIcon } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +17,33 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  CASA_ACTIVO_TITULARES,
+  casaActivoTitularViewTitle,
+  type CasaActivoTitular,
+} from "@/lib/casaActivoTitular"
+
+type CasaNavItem = {
+  title: string
+  href: string
+  icon: LucideIcon
+  titularFilter?: CasaActivoTitular
+}
+
+const casaActivosItems: CasaNavItem[] = CASA_ACTIVO_TITULARES.map((titular) => ({
+  title: casaActivoTitularViewTitle(titular),
+  href: `/casa/activos?titular=${titular}`,
+  icon: Package,
+  titularFilter: titular,
+}))
+
+const casaItems: CasaNavItem[] = [
+  { title: "Control", href: "/casa/control", icon: LayoutDashboard },
+  { title: "Gastos", href: "/casa/gastos", icon: TrendingDown },
+  { title: "Ingresos", href: "/casa/ingresos", icon: TrendingUp },
+  ...casaActivosItems,
+  { title: "Categorías", href: "/casa/categorias", icon: Tag },
+]
 
 const navItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -28,14 +55,6 @@ const navItems = [
 
 const documentosItems = [
   { title: "Explorador", href: "/documentos", icon: FileStack },
-]
-
-const casaItems = [
-  { title: "Control", href: "/casa/control", icon: LayoutDashboard },
-  { title: "Gastos", href: "/casa/gastos", icon: TrendingDown },
-  { title: "Ingresos", href: "/casa/ingresos", icon: TrendingUp },
-  { title: "Activos", href: "/casa/activos", icon: Package },
-  { title: "Categorías", href: "/casa/categorias", icon: Tag },
 ]
 
 const sanyusItems = [
@@ -54,7 +73,21 @@ export interface FavoritoItem {
 
 interface AppSidebarProps {
   currentPath: string
+  currentSearch?: string
   favoritos?: FavoritoItem[]
+}
+
+function isCasaNavItemActive(
+  item: CasaNavItem,
+  currentPath: string,
+  currentSearch: string
+): boolean {
+  if (item.titularFilter) {
+    if (!currentPath.startsWith("/casa/activos")) return false
+    const params = new URLSearchParams(currentSearch)
+    return params.get("titular") === item.titularFilter
+  }
+  return currentPath.startsWith(item.href)
 }
 
 const STORAGE_KEY = "sidebar-open-groups"
@@ -74,7 +107,7 @@ function getInitialOpen(currentPath: string): Record<string, boolean> {
   return defaults
 }
 
-export function AppSidebar({ currentPath, favoritos = [] }: AppSidebarProps) {
+export function AppSidebar({ currentPath, currentSearch = "", favoritos = [] }: AppSidebarProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpen(currentPath))
 
   useEffect(() => {
@@ -194,7 +227,7 @@ export function AppSidebar({ currentPath, favoritos = [] }: AppSidebarProps) {
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
-                        isActive={currentPath.startsWith(item.href)}
+                        isActive={isCasaNavItemActive(item, currentPath, currentSearch)}
                         tooltip={item.title}
                       >
                         <a href={item.href}>

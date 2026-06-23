@@ -246,7 +246,7 @@ export default function BloqueControlDashboard({
         </Card>
       </div>
 
-      {blockId === "sanyus" && inmueblesStats && (
+      {inmueblesStats && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Inmuebles</CardTitle>
@@ -269,7 +269,7 @@ export default function BloqueControlDashboard({
                 )}
               </div>
               <a
-                href="/sanyus/activos?inmueble=1"
+                href={`/${blockId}/activos?inmueble=1`}
                 className="text-sm text-primary hover:underline"
               >
                 Ver listado

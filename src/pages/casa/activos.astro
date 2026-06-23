@@ -6,10 +6,14 @@ import { Toaster } from "../../components/ui/sonner";
 import BloqueActivosTable from "../../components/bloque/BloqueActivosTable";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { CASA_CONFIG } from "../../lib/bloqueConfig";
+import { isCasaActivoTitular, casaActivoTitularViewTitle, casaActivoTitularLabel } from "../../lib/casaActivoTitular";
 
 const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
 const catFilter = Astro.url.searchParams.get("cat");
+const titularParam = Astro.url.searchParams.get("titular");
+const titularFilter = isCasaActivoTitular(titularParam) ? titularParam : null;
+const pageTitle = titularFilter ? casaActivoTitularViewTitle(titularFilter) : "Activos";
 
 // Fetch all activos
 const { data: allActivos, error } = await supabase
@@ -52,14 +56,19 @@ const activosWithTags = activos.map((a: any) => ({
 }));
 
 const tagFilter = Astro.url.searchParams.get("tag");
+const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
 ---
 
 <Layout>
   <div class="space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> Activos</h1>
+      <h1 class="text-2xl font-semibold tracking-tight"><span class="text-muted-foreground font-normal">{cfg.label} ·</span> {pageTitle}</h1>
       <p class="text-sm text-muted-foreground">
-        Listado de activos y patrimonio
+        {titularFilter
+          ? titularFilter === "comun"
+            ? "Activos comunes para Carlos, Laura e Izan"
+            : `Activos de ${casaActivoTitularLabel(titularFilter)}`
+          : "Listado de activos y patrimonio"}
       </p>
     </div>
 
@@ -74,6 +83,8 @@ const tagFilter = Astro.url.searchParams.get("tag");
         initialCatFilter={catFilter}
         allTags={allTags}
         initialTagFilter={tagFilter}
+        initialTitularFilter={titularFilter}
+        initialInmuebleFilter={inmuebleFilter}
       />
     )}
   </div>

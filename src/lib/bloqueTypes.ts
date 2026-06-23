@@ -1,4 +1,5 @@
 // src/lib/bloqueTypes.ts
+import type { CasaActivoTitular } from "./casaActivoTitular";
 // Generic types and helpers for block sections (Casa, Sanyus, etc.)
 // Each block has Gastos, Ingresos, Activos with the same structure.
 
@@ -125,6 +126,8 @@ export interface BloqueActivo {
   notas: string;
   slug: string | null;
   es_inmueble?: boolean;
+  /** Solo Casa — titular del activo o común */
+  titular?: CasaActivoTitular;
   created_at: string;
   updated_at: string;
   categoria_nombre?: string;

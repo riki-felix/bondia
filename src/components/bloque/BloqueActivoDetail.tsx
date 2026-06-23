@@ -18,7 +18,12 @@ import { toast } from "@/components/ui/sonner";
 import { formatEuro } from "@/lib/moneyCalc";
 import { type BloqueActivo, type BloqueCategoria, type ActivoTag, type ActivoCaracteristica, type ActivoCaracteristicaValor } from "@/lib/bloqueTypes";
 import type { BloqueConfig } from "@/lib/bloqueConfig";
-import { bloqueHasActivoTags, bloqueHasActivoCaracteristicas, bloqueHasActivoInmuebles } from "@/lib/bloqueConfig";
+import { bloqueHasActivoTags, bloqueHasActivoCaracteristicas, bloqueHasActivoInmuebles, bloqueHasActivoTitular } from "@/lib/bloqueConfig";
+import {
+  CASA_ACTIVO_TITULAR_OPTIONS,
+  type CasaActivoTitular,
+  isCasaActivoTitular,
+} from "@/lib/casaActivoTitular";
 import BloqueActivoInmuebleSection from "./BloqueActivoInmuebleSection";
 import { INMUEBLE_PLANTILLA_SLUGS, INMUEBLE_PARTICIPACION_SLUGS, INMUEBLE_FIELD_META, type InmueblePlantillaSlug } from "@/lib/sanyusInmueblePlantilla";
 import { parseParticipacionInput } from "@/lib/participacion";
@@ -37,6 +42,7 @@ interface BloqueActivoDetailProps {
   allTags?: ActivoTag[];
   allCaracteristicas?: ActivoCaracteristica[];
   movimientos?: BloqueActivoMovimientosPayload | null;
+  defaultTitular?: CasaActivoTitular | null;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -48,13 +54,24 @@ export default function BloqueActivoDetail({
   allTags = [],
   allCaracteristicas = [],
   movimientos = null,
+  defaultTitular = null,
 }: BloqueActivoDetailProps) {
   const isNew = !activo;
   const hasTags = bloqueHasActivoTags(config);
   const hasCaracteristicas = bloqueHasActivoCaracteristicas(config);
   const hasInmuebles = bloqueHasActivoInmuebles(config);
+  const hasTitular = bloqueHasActivoTitular(config);
 
   const [esInmueble, setEsInmueble] = useState(() => Boolean(activo?.es_inmueble));
+
+  const initialTitular: CasaActivoTitular =
+    activo?.titular && isCasaActivoTitular(activo.titular)
+      ? activo.titular
+      : defaultTitular && isCasaActivoTitular(defaultTitular)
+        ? defaultTitular
+        : "carlos";
+
+  const [titular, setTitular] = useState<CasaActivoTitular>(initialTitular);
 
   const [form, setForm] = useState({
     nombre: activo?.nombre ?? "",
@@ -168,11 +185,12 @@ export default function BloqueActivoDetail({
       form.precio_compra !== (activo?.precio_compra != null ? String(activo.precio_compra) : "") ||
       form.valor_estimado !== (activo?.valor_estimado != null ? String(activo.valor_estimado) : "") ||
       form.notas !== (activo?.notas ?? "") ||
+      (hasTitular && titular !== (activo?.titular ?? "carlos")) ||
       (hasInmuebles && esInmueble !== (activo?.es_inmueble ?? false)) ||
       tagsChanged ||
       caracChanged
     );
-  }, [form, activo, isNew, selectedTagIds, caracValores, caracteristicasToSync, allCaracteristicas, hasTags, hasCaracteristicas, hasInmuebles, esInmueble, pendingDocuments]);
+  }, [form, activo, isNew, selectedTagIds, caracValores, caracteristicasToSync, allCaracteristicas, hasTags, hasCaracteristicas, hasInmuebles, hasTitular, titular, esInmueble, pendingDocuments]);
 
   const handleSave = useCallback(async () => {
     if (!form.nombre.trim()) {
@@ -205,6 +223,7 @@ export default function BloqueActivoDetail({
       };
 
       if (hasInmuebles) payload.es_inmueble = esInmueble;
+      if (hasTitular) payload.titular = titular;
 
       if (!isNew) payload.id = activo!.id;
 
@@ -410,6 +429,29 @@ export default function BloqueActivoDetail({
                 placeholder="Nombre del activo"
               />
             </div>
+
+            {hasTitular && (
+              <div className="space-y-2">
+                <Label htmlFor="titular">Titular</Label>
+                <Select
+                  value={titular}
+                  onValueChange={(v) => {
+                    if (isCasaActivoTitular(v)) setTitular(v);
+                  }}
+                >
+                  <SelectTrigger id="titular">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CASA_ACTIVO_TITULAR_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="categoria">Categoría</Label>
