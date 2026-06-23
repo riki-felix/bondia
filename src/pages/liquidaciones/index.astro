@@ -8,35 +8,28 @@ import { supabaseClient } from "../../lib/supabaseClient";
 
 const supabase = supabaseClient();
 
-// Fetch all settlements with joined property name
+// Fetch settlements linked to investment properties
 const { data: allSettlements, error } = await supabase
   .from("liquidaciones")
   .select(
-    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades(titulo, participacion_sanyus)"
+    "id, propiedad_id, fecha_liquidacion, numero_liquidacion, numero_operacion, beneficio_bruto, aportacion, retribucion, retencion, neto, efectivo, transferencia, fecha_transferencia, fecha_aportacion, liquidado, ejercicio, created_at, updated_at, propiedades!inner(titulo, participacion_sanyus, numero_operacion, tipo)"
   )
-  .order("numero_liquidacion", { ascending: true });
+  .eq("propiedades.tipo", "inversion")
+  .order("numero_operacion", {
+    ascending: true,
+    nullsFirst: false,
+    foreignTable: "propiedades",
+  });
 
 // Map the joined data
 const settlements = (allSettlements ?? []).map((r: any) => ({
   ...r,
   propiedad_titulo: r.propiedades?.titulo ?? "",
   propiedad_participacion_sanyus: r.propiedades?.participacion_sanyus ?? null,
+  propiedad_numero_operacion: r.propiedades?.numero_operacion ?? null,
 }));
 
-// Fetch investment properties for the property selector
-const { data: propiedades } = await supabase
-  .from("propiedades")
-  .select("id, titulo, participacion_sanyus")
-  .eq("tipo", "inversion")
-  .order("numero_operacion", { ascending: true });
-
-const properties = (propiedades ?? []).map((p: any) => ({
-  id: p.id,
-  titulo: p.titulo || "Sin título",
-  participacion_sanyus: p.participacion_sanyus ?? null,
-}));
-
-// Compute year range from settlements + properties
+// Compute year range from settlements
 const yearSet = new Set<number>();
 for (const s of settlements) {
   if (s.ejercicio != null) yearSet.add(s.ejercicio);
@@ -55,6 +48,16 @@ for (const p of propDates ?? []) {
   }
 }
 const years = Array.from(yearSet).sort((a, b) => b - a);
+
+const url = new URL(Astro.request.url);
+const yearParam = url.searchParams.get("year");
+const currentYear = new Date().getFullYear();
+const initialYear =
+  yearParam === "all"
+    ? null
+    : yearParam
+      ? Number(yearParam)
+      : currentYear;
 ---
 
 <Layout>
@@ -62,7 +65,7 @@ const years = Array.from(yearSet).sort((a, b) => b - a);
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Liquidaciones</h1>
       <p class="text-sm text-muted-foreground">
-        Gestión de liquidaciones por propiedad
+        Una liquidación por inversión, creada automáticamente al dar de alta la propiedad
       </p>
     </div>
 
@@ -72,8 +75,8 @@ const years = Array.from(yearSet).sort((a, b) => b - a);
       <LiquidacionesTable
         client:load
         initialData={settlements}
-        properties={properties}
         years={years}
+        initialYear={initialYear}
       />
     )}
   </div>

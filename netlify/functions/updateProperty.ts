@@ -325,29 +325,34 @@ export const handler: Handler = async (event) => {
 	  updates.suministro_gas = v;
 	}
 
-	// nº operación
+	// nº operación (ID visible en Inversiones; solo propiedad)
 	if (body.numero_operacion !== undefined) {
 	  updates.numero_operacion = toIntOrNull(body.numero_operacion);
 	}
 
-	// ejercicio (año fiscal)
+	// ejercicio (año fiscal) — la liquidación es la fuente de verdad; se refleja en propiedad
 	if (body.ejercicio !== undefined) {
-	  updates.ejercicio = toIntOrNull(body.ejercicio);
+	  const ej = toIntOrNull(body.ejercicio);
+	  updates.ejercicio = ej;
+	  await supabase.from('liquidaciones').update({ ejercicio: ej }).eq('propiedad_id', id);
 	}
 
 	// ingreso banco + fecha ingreso (independientes en update parcial)
 	if (body.ingreso_banco !== undefined) {
-	  updates.ingreso_banco = toMoneyOrNull(body.ingreso_banco);
+	  const ing = toMoneyOrNull(body.ingreso_banco);
+	  updates.ingreso_banco = ing;
+	  updates.pago = (Number(ing) || 0) > 0;
 	}
 	if (body.fecha_ingreso !== undefined) {
 	  updates.fecha_ingreso = toDateISO(body.fecha_ingreso);
 	}
 
-	// liquidación
+	// liquidación — sincroniza liquidado en la liquidación vinculada
 	if (body.liquidacion !== undefined) {
 	  const b = toBoolOrNull(body.liquidacion);
 	  if (b == null) return json({ error: 'liquidacion inválido' }, 400);
 	  updates.liquidacion = b;
+	  await supabase.from('liquidaciones').update({ liquidado: b }).eq('propiedad_id', id);
 	}
 
 	// ocupado

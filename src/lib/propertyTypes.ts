@@ -35,6 +35,7 @@ export interface Property {
     efectivo: number;
     fecha_transferencia: string | null;
     ejercicio: number | null;
+    liquidado: boolean;
   } | null;
 }
 
@@ -53,6 +54,15 @@ export const PAGO_OPTIONS = [
   { value: "true", label: "Realizado" },
   { value: "false", label: "Pendiente" },
 ] as const;
+
+/** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */
+export function derivePagoFromIngreso(
+  ingresoBanco: number | null | undefined,
+  liqTransferencia?: number | null
+): boolean {
+  if ((Number(liqTransferencia) || 0) > 0) return true;
+  return (Number(ingresoBanco) || 0) > 0;
+}
 
 export const OCUPADO_OPTIONS = [
   { value: "true", label: "Ocupado" },

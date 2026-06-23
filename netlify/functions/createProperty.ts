@@ -289,6 +289,7 @@ export const handler: Handler = async (event) => {
 	  payload.ingreso_banco = ingreso_banco;
 	  payload.fecha_ingreso = fecha_ingreso;
 	}
+	payload.pago = (Number(ingreso_banco) || 0) > 0;
 
 	if (liquidacionParsed != null) payload.liquidacion = liquidacionParsed;
 
@@ -326,6 +327,47 @@ export const handler: Handler = async (event) => {
 		{ error: error.message || 'insert_error', details: (error as any).details, code: (error as any).code },
 		500
 	  );
+	}
+
+	if (tipo === 'inversion') {
+	  const { data: maxRow } = await supabase
+	    .from('liquidaciones')
+	    .select('numero_liquidacion')
+	    .order('numero_liquidacion', { ascending: false })
+	    .limit(1);
+
+	  const numero_liquidacion = (maxRow?.[0]?.numero_liquidacion ?? 0) + 1;
+
+	  const { error: liqError } = await supabase.from('liquidaciones').insert({
+	    id: data.id,
+	    propiedad_id: data.id,
+	    fecha_liquidacion: null,
+	    numero_liquidacion,
+	    numero_operacion: null,
+	    beneficio_bruto: null,
+	    aportacion: 0,
+	    retribucion: 0,
+	    transferencia: 0,
+	    fecha_transferencia: null,
+	    fecha_aportacion: null,
+	    liquidado: false,
+	    ejercicio: ejercicio ?? null,
+	  });
+
+	  if (liqError) {
+	    console.error('[createProperty] liquidacion insert error:', liqError);
+	    await supabase.from('propiedades').delete().eq('id', data.id);
+	    return json({ error: liqError.message || 'liquidacion_insert_error' }, 500);
+	  }
+
+	  if (ejercicio != null || liquidacionParsed === true) {
+	    const propUpdates: Record<string, unknown> = {};
+	    if (ejercicio != null) propUpdates.ejercicio = ejercicio;
+	    if (liquidacionParsed != null) propUpdates.liquidacion = liquidacionParsed;
+	    if (Object.keys(propUpdates).length > 0) {
+	      await supabase.from('propiedades').update(propUpdates).eq('id', data.id);
+	    }
+	  }
 	}
 
 	return json(

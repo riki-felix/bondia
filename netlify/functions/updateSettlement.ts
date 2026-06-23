@@ -8,6 +8,7 @@ import {
   toMoneyOrNull,
   toDateOrNull,
   emptyOrNull,
+  derivePagoFromIngreso,
 } from './_shared';
 
 export const handler: Handler = async (event) => {
@@ -36,15 +37,11 @@ export const handler: Handler = async (event) => {
     const updates: Record<string, unknown> = {};
 
     if (body.propiedad_id !== undefined) {
-      const v = emptyOrNull(body.propiedad_id);
-      if (!v) return json({ error: 'propiedad_id inválido' }, 400);
-      updates.propiedad_id = v;
+      return json({ error: 'No se puede cambiar la propiedad de una liquidación' }, 400);
     }
 
     if (body.fecha_liquidacion !== undefined) {
-      const v = toDateOrNull(body.fecha_liquidacion);
-      if (!v) return json({ error: 'fecha_liquidacion inválida' }, 400);
-      updates.fecha_liquidacion = v;
+      updates.fecha_liquidacion = toDateOrNull(body.fecha_liquidacion);
     }
 
     if (body.numero_liquidacion !== undefined) {
@@ -87,11 +84,24 @@ export const handler: Handler = async (event) => {
       return json({ error: error.message }, 500);
     }
 
-    // Sync ejercicio to the property when liquidación is completed
-    if (data.liquidado && data.ejercicio != null && data.propiedad_id) {
+    // Metadatos de liquidación mandan sobre la propiedad vinculada (1:1).
+    if (data.propiedad_id) {
+      const { data: propRow } = await supabase
+        .from('propiedades')
+        .select('ingreso_banco')
+        .eq('id', data.propiedad_id)
+        .maybeSingle();
+
+      const propUpdates: Record<string, unknown> = {
+        liquidacion: data.liquidado === true,
+        pago: derivePagoFromIngreso(propRow?.ingreso_banco, data.transferencia),
+      };
+      if (data.ejercicio != null) {
+        propUpdates.ejercicio = data.ejercicio;
+      }
       await supabase
         .from('propiedades')
-        .update({ ejercicio: data.ejercicio })
+        .update(propUpdates)
         .eq('id', data.propiedad_id);
     }
 

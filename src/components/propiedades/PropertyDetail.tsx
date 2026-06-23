@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { uploadPropertyFeaturedImage } from "@/lib/propertyImageUpload";
-import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
+import { ESTADO_OPTIONS, OCUPADO_OPTIONS, derivePagoFromIngreso } from "@/lib/propertyTypes";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro } from "@/lib/moneyCalc";
 import { PropertyParticipacionSection } from "@/components/inversiones/PropertyParticipacionSection";
@@ -69,6 +69,7 @@ interface PropertyData {
 interface Settlement {
   id: string;
   numero_liquidacion: number;
+  numero_operacion: number | null;
   fecha_liquidacion: string;
   beneficio_bruto: number | null;
   aportacion: number;
@@ -559,7 +560,14 @@ export default function PropertyDetail({
             </div>
             <div>
               <span className="text-muted-foreground block text-xs uppercase">Pago</span>
-              <span className="font-medium">{property.pago ? "Realizado" : "Pendiente"}</span>
+              <span className="font-medium">
+                {derivePagoFromIngreso(
+                  property.ingreso_banco,
+                  settlements[0]?.transferencia
+                )
+                  ? "Realizado"
+                  : "Pendiente"}
+              </span>
             </div>
             <div>
               <span className="text-muted-foreground block text-xs uppercase">Ejercicio</span>
@@ -580,7 +588,8 @@ export default function PropertyDetail({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground uppercase">
-                    <th className="py-2 pr-4">Nº</th>
+                    <th className="py-2 pr-4">ID</th>
+                    <th className="py-2 pr-4">Nº OP</th>
                     <th className="py-2 pr-4">Fecha</th>
                     <th className="py-2 pr-4 text-right">Aportación</th>
                     <th className="py-2 pr-4 text-right">Bruto</th>
@@ -593,7 +602,12 @@ export default function PropertyDetail({
                 <tbody>
                   {settlements.map((s) => (
                     <tr key={s.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 tabular-nums">{s.numero_liquidacion}</td>
+                      <td className="py-2 pr-4 tabular-nums">
+                        {property!.numero_operacion ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 tabular-nums">
+                        {s.numero_operacion ?? "—"}
+                      </td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.aportacion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.beneficio_bruto)}</td>

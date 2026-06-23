@@ -17,30 +17,43 @@ const { data: allProperties, error } = await supabase
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
 
-// Liquidaciones liquidadas (overlay por propiedad)
+// Liquidaciones vinculadas 1:1 a cada inversión (mismo id que la propiedad)
 const { data: allLiq } = await supabase
   .from("liquidaciones")
-  .select("propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio")
-  .eq("liquidado", true);
+  .select(
+    "propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio, liquidado"
+  );
 
-// Todas las filas de liquidaciones (totales globales = /liquidaciones)
+const liqByProp = new Map<
+  string,
+  {
+    aportacion: number;
+    retribucion: number;
+    retencion: number;
+    transferencia: number;
+    efectivo: number;
+    fecha_transferencia: string | null;
+    ejercicio: number | null;
+    liquidado: boolean;
+  }
+>();
+for (const l of allLiq ?? []) {
+  liqByProp.set(l.propiedad_id, {
+    aportacion: Number(l.aportacion) || 0,
+    retribucion: Number(l.retribucion) || 0,
+    retencion: Number(l.retencion) || 0,
+    transferencia: Number(l.transferencia) || 0,
+    efectivo: Number(l.efectivo) || 0,
+    fecha_transferencia: l.fecha_transferencia ?? null,
+    ejercicio: l.ejercicio ?? null,
+    liquidado: l.liquidado === true,
+  });
+}
+
+// Totales globales de transferencias (= /liquidaciones)
 const { data: allLiqRows } = await supabase
   .from("liquidaciones")
   .select("transferencia, ejercicio");
-
-// Aggregate liquidaciones per property
-const liqByProp = new Map<string, { aportacion: number; retribucion: number; retencion: number; transferencia: number; efectivo: number; fecha_transferencia: string | null; ejercicio: number | null }>();
-for (const l of allLiq ?? []) {
-  const existing = liqByProp.get(l.propiedad_id) ?? { aportacion: 0, retribucion: 0, retencion: 0, transferencia: 0, efectivo: 0, fecha_transferencia: null, ejercicio: null };
-  existing.aportacion += Number(l.aportacion) || 0;
-  existing.retribucion += Number(l.retribucion) || 0;
-  existing.retencion += Number(l.retencion) || 0;
-  existing.transferencia += Number(l.transferencia) || 0;
-  existing.efectivo += Number(l.efectivo) || 0;
-  if (l.fecha_transferencia) existing.fecha_transferencia = l.fecha_transferencia;
-  if (l.ejercicio != null) existing.ejercicio = l.ejercicio;
-  liqByProp.set(l.propiedad_id, existing);
-}
 
 // Merge liquidación overlay into properties
 const properties: Property[] = (allProperties ?? []).map((p: any) => ({
@@ -51,10 +64,8 @@ const properties: Property[] = (allProperties ?? []).map((p: any) => ({
 // Extract unique years from ejercicio, fecha_ingreso + ejercicio from liquidaciones
 const yearSet = new Set<number>();
 properties.forEach((p) => {
-  // Property's own ejercicio takes priority
-  if (p.ejercicio != null) yearSet.add(p.ejercicio);
-  // Also include ejercicio from linked liquidación
   if (p.liq?.ejercicio != null) yearSet.add(p.liq.ejercicio);
+  else if (p.ejercicio != null) yearSet.add(p.ejercicio);
   // Fallback to fecha_ingreso/created_at
   const dateStr = p.fecha_ingreso || p.created_at;
   if (dateStr) {

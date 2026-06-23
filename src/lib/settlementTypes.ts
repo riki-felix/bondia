@@ -4,7 +4,7 @@
 export interface Settlement {
   id: string;
   propiedad_id: string;
-  fecha_liquidacion: string;
+  fecha_liquidacion: string | null;
   numero_liquidacion: number;
   numero_operacion: number | null;
   beneficio_bruto: number | null;

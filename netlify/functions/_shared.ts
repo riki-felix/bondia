@@ -87,6 +87,15 @@ export function toMoneyOrNull(v: any): number | null {
   return Number(n.toFixed(2));
 }
 
+/** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */
+export function derivePagoFromIngreso(
+  ingresoBanco: unknown,
+  liqTransferencia?: unknown
+): boolean {
+  if ((Number(liqTransferencia) || 0) > 0) return true;
+  return (Number(ingresoBanco) || 0) > 0;
+}
+
 export function toDateOrNull(v: any): string | null {
   const s = emptyOrNull(v);
   if (!s) return null;

@@ -32,8 +32,8 @@ import {
   type Property,
   PROPERTY_SELECT,
   ESTADO_OPTIONS,
-  PAGO_OPTIONS,
   OCUPADO_OPTIONS,
+  derivePagoFromIngreso,
 } from "@/lib/propertyTypes";
 import { Plus, Archive, Trash2, Pencil, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,11 @@ import {
   sumTransferenciasLiquidaciones,
   type IngresoBancoLiquidacionRow,
 } from "@/lib/ingresosBancoAggregate";
+import {
+  fetchInversionesWithLiquidaciones,
+  propertyEjercicio,
+  propertyIsLiquidada,
+} from "@/lib/fetchInversionesWithLiquidaciones";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -89,7 +94,7 @@ export default function InversionesTable({
   const isDraft = (r: Property) => r.estado === "borrador";
 
   const liquidadasCount = useMemo(
-    () => rows.filter((r) => r.liquidacion === true).length,
+    () => rows.filter((r) => propertyIsLiquidada(r)).length,
     [rows]
   );
 
@@ -103,17 +108,15 @@ export default function InversionesTable({
 
     // Liquidadas filter
     if (showLiquidadas) {
-      result = result.filter((r) => r.liquidacion === true);
+      result = result.filter((r) => propertyIsLiquidada(r));
     }
 
-    // Year filter
+    // Year filter (ejercicio manda desde liquidación)
     if (yearFilter !== "all") {
       const y = Number(yearFilter);
       result = result.filter((r) => {
-        // Property's own ejercicio takes priority
-        if (r.ejercicio != null) return r.ejercicio === y;
-        // Then liq ejercicio
-        if (r.liq?.ejercicio != null) return r.liq.ejercicio === y;
+        const ej = propertyEjercicio(r);
+        if (ej != null) return ej === y;
         // Fallback to fecha_ingreso/created_at
         const dateStr = r.fecha_ingreso || r.created_at;
         if (!dateStr) return false;
@@ -173,11 +176,13 @@ export default function InversionesTable({
           }
 
           if (field === "ingreso_banco") {
+            const ingreso = toNum(value);
             const calc = recalcPropertyEfectivo({
               retribucion: toNum(updated.retribucion),
-              ingreso_banco: toNum(value),
+              ingreso_banco: ingreso,
             });
             Object.assign(updated, calc);
+            updated.pago = derivePagoFromIngreso(ingreso);
           }
 
           if (field === "jasp_10_percent") {
@@ -201,6 +206,10 @@ export default function InversionesTable({
       } else if (field === "jasp_10_percent") {
         payload.jasp_10_percent = value;
         payload.jasp_manual = true;
+      } else if (field === "ingreso_banco") {
+        const ingreso = value == null || value === "" ? null : toNum(value);
+        payload.ingreso_banco = ingreso;
+        payload.pago = derivePagoFromIngreso(ingreso);
       } else {
         payload[field] = value;
       }
@@ -257,16 +266,13 @@ export default function InversionesTable({
 
   // ── Reload after creation ──
   const reloadData = useCallback(async () => {
-    const supabase = getSupabase();
-    const { data: fresh } = await supabase
-      .from("propiedades")
-      .select(
-        PROPERTY_SELECT
-      )
-      .eq("tipo", "inversion")
-      .order("numero_operacion", { ascending: true });
-
-    if (fresh) setRows(fresh as Property[]);
+    try {
+      const fresh = await fetchInversionesWithLiquidaciones(getSupabase());
+      setRows(fresh);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al recargar";
+      toast.error(message);
+    }
   }, []);
 
   // ── Delete property ──
@@ -340,7 +346,6 @@ export default function InversionesTable({
               <TableHead className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]">NOMBRE</TableHead>
               <TableHead className="w-[110px]">ESTADO</TableHead>
               <TableHead className="w-[120px]">FECHA INICIO</TableHead>
-              <TableHead className="w-[100px]">PAGO</TableHead>
               <TableHead className="w-[120px] text-right">
                 APORTACIÓN
               </TableHead>
@@ -375,7 +380,7 @@ export default function InversionesTable({
               <TableCell className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-background" />
               <TableCell />
               <TableCell className="sticky left-[50px] z-30 bg-background shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]" />
-              <TableCell colSpan={3} />
+              <TableCell colSpan={2} />
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
@@ -394,7 +399,7 @@ export default function InversionesTable({
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.jasp_10_percent)}
               </TableCell>
-              <TableCell colSpan={7} />
+              <TableCell colSpan={6} />
             </TableRow>
           </TableHeader>
 
@@ -402,7 +407,7 @@ export default function InversionesTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={19}
+                  colSpan={18}
                   className="text-center text-muted-foreground py-8"
                 >
                   No hay propiedades para mostrar.
@@ -410,7 +415,8 @@ export default function InversionesTable({
               </TableRow>
             ) : (
               filteredRows.map((row, idx) => {
-                const isLiquidada = row.liquidacion === true;
+                const isLiquidada = propertyIsLiquidada(row);
+                const displayEjercicio = propertyEjercicio(row);
                 // Use liquidación values only when the property is actually marked as liquidated.
                 const displayAportacion = isLiquidada && row.liq ? row.liq.aportacion : row.aportacion;
                 const displayRetribucion = isLiquidada && row.liq ? row.liq.retribucion : row.retribucion;
@@ -449,14 +455,9 @@ export default function InversionesTable({
                     )}
                   </TableCell>
 
-                  {/* AÑO (ejercicio) */}
-                  <TableCell className="text-sm tabular-nums">
-                    <EditableCell
-                      value={row.liq?.ejercicio ?? row.ejercicio}
-                      type="select"
-                      options={ejercicioOptions}
-                      onSave={(v) => saveField(row.id, "ejercicio", v ? Number(v) : null)}
-                    />
+                  {/* AÑO (ejercicio desde liquidación) */}
+                  <TableCell className="text-sm tabular-nums text-muted-foreground">
+                    {displayEjercicio ?? "—"}
                   </TableCell>
 
                   {/* NOMBRE */}
@@ -493,22 +494,6 @@ export default function InversionesTable({
                       type="date"
                       onSave={(v) =>
                         saveField(row.id, "created_at", v)
-                      }
-                    />
-                  </TableCell>
-
-                  {/* PAGO */}
-                  <TableCell>
-                    <EditableCell
-                      value={row.pago ? "true" : "false"}
-                      type="select"
-                      options={[...PAGO_OPTIONS]}
-                      onSave={(v) =>
-                        saveField(
-                          row.id,
-                          "pago",
-                          v === "true"
-                        )
                       }
                     />
                   </TableCell>
@@ -677,12 +662,12 @@ export default function InversionesTable({
                     />
                   </TableCell>
 
-                  {/* LIQUIDADA */}
+                  {/* LIQUIDADA (solo lectura; se edita en Liquidaciones) */}
                   <TableCell className="text-center">
                     {isLiquidada ? (
                       <Badge variant="success" className="text-xs">Sí</Badge>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <Badge variant="destructive" className="text-xs">No</Badge>
                     )}
                   </TableCell>
 
