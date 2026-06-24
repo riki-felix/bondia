@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { EyeOff, Eye, Settings } from "lucide-react"
+import { EyeOff, Eye, Settings, BookOpen } from "lucide-react"
 import { AppSidebar, type FavoritoItem } from "./AppSidebar"
 
 interface SidebarLayoutProps {
@@ -43,9 +43,18 @@ export function SidebarLayout({ currentPath, currentSearch = "", favoritos = [],
           </span>
           <span className="font-semibold text-lg tracking-tight md:hidden">Bondia</span>
           <div className="ml-auto flex items-center gap-1">
+            <a href="/diario" title="Diario">
+              <Button
+                variant={currentPath === "/diario" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+              >
+                <BookOpen className="h-4 w-4" />
+              </Button>
+            </a>
             <a href="/ajustes" title="Ajustes">
               <Button
-                variant="ghost"
+                variant={currentPath === "/ajustes" ? "secondary" : "ghost"}
                 size="icon"
                 className="h-8 w-8"
               >

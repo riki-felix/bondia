@@ -961,10 +961,11 @@ export async function handleCreateFeatureTask(body: any) {
 
   const descripcion = emptyOrNull(body.descripcion) ?? '';
   const progreso = parseProgress(body.progreso);
+  const completed_at = progreso >= 100 ? new Date().toISOString() : null;
 
   const { data, error } = await supabase
     .from('feature_tasks')
-    .insert({ titulo, descripcion, progreso })
+    .insert({ titulo, descripcion, progreso, completed_at })
     .select('*')
     .single();
 
@@ -996,6 +997,26 @@ export async function handleUpdateFeatureTask(body: any) {
   }
 
   if (Object.keys(updates).length === 0) return json({ ok: true, id });
+
+  const { data: current, error: fetchErr } = await supabase
+    .from('feature_tasks')
+    .select('progreso, completed_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchErr) return json({ error: fetchErr.message }, 500);
+  if (!current) return json({ error: 'Tarea no encontrada' }, 404);
+
+  if (updates.progreso !== undefined) {
+    const nextProgress = updates.progreso as number;
+    if (nextProgress >= 100) {
+      if (!current.completed_at) {
+        updates.completed_at = new Date().toISOString();
+      }
+    } else {
+      updates.completed_at = null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('feature_tasks')

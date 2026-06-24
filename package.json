@@ -3,8 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
+    "dev": "netlify dev --target-port 4321",
+    "start": "netlify dev --target-port 4321",
+    "dev:astro": "astro dev",
     "dev:netlify": "netlify dev --target-port 4321",
     "check": "astro check",
     "prebuild": "node scripts/guard-build.mjs",
