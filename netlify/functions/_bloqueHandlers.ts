@@ -188,7 +188,10 @@ async function resolveInmueblesCategoriaId(
   if (!data?.length) return null;
   const found = data.find(
     (c: { slug: string; nombre: string }) =>
-      c.slug === 'inmuebles' || c.nombre.toLowerCase() === 'inmuebles',
+      c.slug === 'inmuebles' ||
+      c.slug === 'inmueble' ||
+      c.nombre.toLowerCase() === 'inmuebles' ||
+      c.nombre.toLowerCase() === 'inmueble',
   );
   return found?.id ?? null;
 }
@@ -204,7 +207,7 @@ export async function handleCreateActivo(table: string, body: any) {
   const esInmueble = supportsActivoInmueble(table) && body.es_inmueble === true;
 
   let categoriaId = emptyOrNull(body.categoria_id);
-  if (esInmueble && !categoriaId) {
+  if (esInmueble) {
     const categTable = activosCategTableForActivos(table);
     if (categTable) {
       categoriaId = await resolveInmueblesCategoriaId(supabase, categTable);
@@ -251,7 +254,40 @@ export async function handleUpdateActivo(table: string, body: any) {
   const updates: Record<string, unknown> = {};
 
   if (body.nombre !== undefined) updates.nombre = emptyOrNull(body.nombre) ?? '';
-  if (body.categoria_id !== undefined) updates.categoria_id = emptyOrNull(body.categoria_id);
+
+  const categTable = activosCategTableForActivos(table);
+  let inmueblesCategoriaId: string | null = null;
+  if (categTable) {
+    inmueblesCategoriaId = await resolveInmueblesCategoriaId(supabase, categTable);
+  }
+
+  const { data: currentRow } = await supabase
+    .from(table)
+    .select('es_inmueble, categoria_id')
+    .eq('id', id)
+    .single();
+
+  const willBeInmueble =
+    body.es_inmueble !== undefined ? body.es_inmueble === true : currentRow?.es_inmueble === true;
+
+  if (body.categoria_id !== undefined) {
+    const newCat = emptyOrNull(body.categoria_id);
+    if (
+      willBeInmueble &&
+      inmueblesCategoriaId &&
+      newCat !== inmueblesCategoriaId
+    ) {
+      return json(
+        {
+          error:
+            'La categoría de un inmueble no se puede cambiar. Desmarca «Inmueble» en la ficha primero.',
+        },
+        400,
+      );
+    }
+    updates.categoria_id = newCat;
+  }
+
   if (body.fecha_compra !== undefined) updates.fecha_compra = toDateOrNull(body.fecha_compra);
   if (body.precio_compra !== undefined) updates.precio_compra = toMoneyOrNull(body.precio_compra);
   if (body.valor_estimado !== undefined) {
@@ -270,20 +306,11 @@ export async function handleUpdateActivo(table: string, body: any) {
   if (supportsActivoInmueble(table) && body.es_inmueble !== undefined) {
     const esInmueble = body.es_inmueble === true;
     updates.es_inmueble = esInmueble;
-    if (esInmueble && body.categoria_id === undefined) {
-      const { data: current } = await supabase
-        .from(table)
-        .select('categoria_id')
-        .eq('id', id)
-        .single();
-      if (!current?.categoria_id) {
-        const categTable = activosCategTableForActivos(table);
-        if (categTable) {
-          const inmueblesId = await resolveInmueblesCategoriaId(supabase, categTable);
-          if (inmueblesId) updates.categoria_id = inmueblesId;
-        }
-      }
+    if (esInmueble && inmueblesCategoriaId) {
+      updates.categoria_id = inmueblesCategoriaId;
     }
+  } else if (willBeInmueble && inmueblesCategoriaId) {
+    updates.categoria_id = inmueblesCategoriaId;
   }
 
   if (Object.keys(updates).length === 0) return json({ ok: true, id });

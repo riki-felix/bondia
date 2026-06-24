@@ -12,7 +12,20 @@ import {
   type DocumentEntitySort,
   type DocumentTreeSectionSummary,
   type DocumentCategoriaOption,
+  ESCRITURA_FOLDER_SLUG,
 } from "./documentTypes";
+
+export { ESCRITURA_FOLDER_SLUG };
+
+export interface ListDocumentsOptions {
+  folderSlug?: string;
+  excludeFolderSlug?: string;
+}
+
+export interface UploadDocumentOptions {
+  displayName?: string;
+  folderSlug?: string;
+}
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
   const res = await fetch(url, {
@@ -30,12 +43,15 @@ async function postJson<T>(url: string, body: Record<string, unknown>): Promise<
 export async function listDocuments(
   bloque: DocumentBloque,
   entityType: DocumentEntityType,
-  entityId: string
+  entityId: string,
+  options?: ListDocumentsOptions
 ): Promise<Documento[]> {
   const data = await postJson<{ documents: Documento[] }>(DOCUMENT_API.list, {
     bloque,
     entityType,
     entityId,
+    folderSlug: options?.folderSlug,
+    excludeFolderSlug: options?.excludeFolderSlug,
   });
   return data.documents ?? [];
 }
@@ -44,7 +60,8 @@ export async function uploadDocument(
   bloque: DocumentBloque,
   entityType: DocumentEntityType,
   entityId: string,
-  file: File
+  file: File,
+  options?: UploadDocumentOptions
 ): Promise<Documento> {
   if (!ALLOWED_DOCUMENT_MIMES.has(file.type) && !file.name.match(/\.(pdf|jpe?g)$/i)) {
     throw new Error("Solo se permiten PDF o JPG");
@@ -62,8 +79,18 @@ export async function uploadDocument(
     entityId,
     base64,
     mimeType,
-    displayName: file.name,
+    displayName: options?.displayName?.trim() || file.name,
+    folderSlug: options?.folderSlug,
   });
+}
+
+export async function updateDocumentDisplayName(
+  id: string,
+  displayName: string
+): Promise<Documento> {
+  const trimmed = displayName.trim();
+  if (!trimmed) throw new Error("El título no puede estar vacío");
+  return postJson<Documento>(DOCUMENT_API.update, { id, displayName: trimmed });
 }
 
 export async function reorderDocuments(

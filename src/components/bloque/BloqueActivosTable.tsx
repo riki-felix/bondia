@@ -15,9 +15,16 @@ import {
   type CasaActivoTitular,
   isCasaActivoTitular,
 } from "@/lib/casaActivoTitular";
-import { Plus, Trash2, Pencil, Building2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import BloqueCategoryDonut from "./BloqueCategoryDonut";
+import {
+  findInmueblesCategoriaId,
+  isActivoInmueble,
+  isInmueblesCategoria,
+  matchesActivosCatFilter,
+  resolveActivosCatFilter,
+} from "@/lib/sanyusInmueblePlantilla";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -28,7 +35,6 @@ interface BloqueActivosTableProps {
   initialCatFilter?: string | null;
   allTags?: ActivoTag[];
   initialTagFilter?: string | string[] | null;
-  initialInmuebleFilter?: boolean;
   initialTitularFilter?: CasaActivoTitular | null;
 }
 
@@ -41,30 +47,64 @@ export default function BloqueActivosTable({
   initialCatFilter = null,
   allTags = [],
   initialTagFilter = null,
-  initialInmuebleFilter = false,
   initialTitularFilter = null,
 }: BloqueActivosTableProps) {
   const hasInmuebles = bloqueHasActivoInmuebles(config);
   const hasTitular = bloqueHasActivoTitular(config);
+  const inmueblesCategoriaId = useMemo(
+    () => findInmueblesCategoriaId(categorias),
+    [categorias]
+  );
+  const resolvedInitialCat = useMemo(
+    () => resolveActivosCatFilter(initialCatFilter, categorias),
+    [initialCatFilter, categorias]
+  );
   const [rows, setRows] = useState<BloqueActivo[]>(initialData);
-  const [activeCat, setActiveCat] = useState<string | null>(initialCatFilter);
-  const [activeInmuebleOnly, setActiveInmuebleOnly] = useState(initialInmuebleFilter);
+  const [activeCat, setActiveCat] = useState<string | null>(resolvedInitialCat);
   const [activeTitular, setActiveTitular] = useState<CasaActivoTitular | null>(
     initialTitularFilter
   );
+  const showTitularColumn = hasTitular && activeTitular === "comun";
   const [activeTags, setActiveTags] = useState<string[]>(() => {
     if (!initialTagFilter) return [];
     return Array.isArray(initialTagFilter) ? initialTagFilter : [initialTagFilter];
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const rowsBeforeTagFilter = useMemo(() => {
+  const rowsBeforeCatFilter = useMemo(() => {
     let result = rows;
-    if (activeCat) result = result.filter((r) => r.categoria_id === activeCat);
-    if (activeInmuebleOnly) result = result.filter((r) => r.es_inmueble === true);
     if (activeTitular) result = result.filter((r) => r.titular === activeTitular);
     return result;
-  }, [rows, activeCat, activeInmuebleOnly, activeTitular]);
+  }, [rows, activeTitular]);
+
+  const visibleCategorias = useMemo(() => {
+    const catIds = new Set<string>();
+    let hasUncategorized = false;
+    for (const row of rowsBeforeCatFilter) {
+      if (isActivoInmueble(row, categorias)) {
+        if (inmueblesCategoriaId) catIds.add(inmueblesCategoriaId);
+      } else if (row.categoria_id) {
+        catIds.add(row.categoria_id);
+      } else {
+        hasUncategorized = true;
+      }
+    }
+    const items: { id: string; nombre: string }[] = [];
+    for (const cat of categorias) {
+      if (catIds.has(cat.id)) items.push({ id: cat.id, nombre: cat.nombre });
+    }
+    if (hasUncategorized) {
+      items.push({ id: "__none__", nombre: "Sin categoría" });
+    }
+    return items;
+  }, [categorias, rowsBeforeCatFilter, inmueblesCategoriaId]);
+
+  const rowsBeforeTagFilter = useMemo(() => {
+    if (!activeCat) return rowsBeforeCatFilter;
+    return rowsBeforeCatFilter.filter((r) =>
+      matchesActivosCatFilter(r, activeCat, categorias)
+    );
+  }, [rowsBeforeCatFilter, activeCat, categorias]);
 
   const visibleTags = useMemo(() => {
     const tagIds = new Set<string>();
@@ -82,6 +122,14 @@ export default function BloqueActivosTable({
     });
   }, [visibleTags]);
 
+  useEffect(() => {
+    if (!activeCat) return;
+    const valid =
+      activeCat === "__none__" ||
+      visibleCategorias.some((c) => c.id === activeCat);
+    if (!valid) setActiveCat(null);
+  }, [activeCat, visibleCategorias]);
+
   const filteredRows = useMemo(() => {
     let result = rowsBeforeTagFilter;
     if (activeTags.length > 0)
@@ -97,21 +145,33 @@ export default function BloqueActivosTable({
     []
   );
 
-  const toggleInmuebleFilter = useCallback(() => {
-    setActiveInmuebleOnly((prev) => {
-      const next = !prev;
+  const toggleCatFilter = useCallback((catId: string) => {
+    setActiveCat((prev) => {
+      const next = prev === catId ? null : catId;
       const url = new URL(window.location.href);
-      if (next) url.searchParams.set("inmueble", "1");
-      else url.searchParams.delete("inmueble");
+      url.searchParams.delete("inmueble");
+      if (next) {
+        let catParam = next;
+        if (inmueblesCategoriaId && next === inmueblesCategoriaId) {
+          catParam = "inmuebles";
+        } else if (next === "__none__") {
+          catParam = "__none__";
+        }
+        url.searchParams.set("cat", catParam);
+      } else {
+        url.searchParams.delete("cat");
+      }
       window.history.replaceState({}, "", url.toString());
       return next;
     });
-  }, []);
+  }, [inmueblesCategoriaId]);
 
   const categoriaOptions = useMemo(
     () => [
       { value: "__none__", label: "Sin categoría" },
-      ...categorias.map((c) => ({ value: c.id, label: c.nombre })),
+      ...categorias
+        .filter((c) => !isInmueblesCategoria(c))
+        .map((c) => ({ value: c.id, label: c.nombre })),
     ],
     [categorias]
   );
@@ -191,30 +251,36 @@ export default function BloqueActivosTable({
   }, [config.routes.activoNuevo, hasTitular, activeTitular]);
 
   const tableColCount =
-    6 + (allTags.length > 0 ? 1 : 0) + (hasTitular ? 1 : 0);
+    6 + (allTags.length > 0 ? 1 : 0) + (showTitularColumn ? 1 : 0);
 
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Button size="sm" variant="outline" asChild>
-          <a href={nuevoActivoHref}>
-            <Plus className="h-4 w-4 mr-1" /> Añadir activo
-          </a>
-        </Button>
-        {hasInmuebles && (
-          <button
-            type="button"
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity border ${
-              activeInmuebleOnly
-                ? "bg-primary/10 border-primary text-primary"
-                : "border-border text-muted-foreground"
-            }`}
-            onClick={toggleInmuebleFilter}
-          >
-            <Building2 className="h-3 w-3" />
-            Solo inmuebles
-          </button>
+        {visibleCategorias.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {visibleCategorias.map((cat) => (
+              <Button
+                key={cat.id}
+                size="sm"
+                variant={activeCat === cat.id ? "default" : "outline"}
+                className="h-7 text-xs px-2"
+                onClick={() => toggleCatFilter(cat.id)}
+              >
+                {cat.nombre}
+              </Button>
+            ))}
+            {activeCat && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs px-2"
+                onClick={() => toggleCatFilter(activeCat)}
+              >
+                ✕
+              </Button>
+            )}
+          </div>
         )}
         {visibleTags.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap">
@@ -250,6 +316,14 @@ export default function BloqueActivosTable({
             {totalEstimado > 0 && <> · Estimado: <strong>{formatEuro(totalEstimado)}</strong></>}
           </span>
         )}
+        <div className="ml-auto shrink-0">
+          <Button asChild>
+            <a href={nuevoActivoHref}>
+              <Plus className="h-4 w-4" />
+              Añadir activo
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* ── Donut ── */}
@@ -267,7 +341,7 @@ export default function BloqueActivosTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[250px]">Nombre</TableHead>
-              {hasTitular && <TableHead className="w-[120px]">Titular</TableHead>}
+              {showTitularColumn && <TableHead className="w-[120px]">Titular</TableHead>}
               <TableHead className="w-[180px]">Categoría</TableHead>
               {allTags.length > 0 && <TableHead className="w-[150px]">Tags</TableHead>}
               <TableHead className="w-[150px]">Fecha compra</TableHead>
@@ -290,20 +364,13 @@ export default function BloqueActivosTable({
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="p-1">
-                    <div className="flex items-center gap-1.5">
-                      <EditableCell
-                        value={row.nombre}
-                        type="text"
-                        onSave={(v) => updateField(row.id, "nombre", v)}
-                      />
-                      {row.es_inmueble && (
-                        <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          Inmueble
-                        </span>
-                      )}
-                    </div>
+                    <EditableCell
+                      value={row.nombre}
+                      type="text"
+                      onSave={(v) => updateField(row.id, "nombre", v)}
+                    />
                   </TableCell>
-                  {hasTitular && (
+                  {showTitularColumn && (
                     <TableCell className="p-1">
                       <EditableCell
                         value={row.titular ?? "carlos"}
@@ -317,18 +384,26 @@ export default function BloqueActivosTable({
                     </TableCell>
                   )}
                   <TableCell className="p-1">
-                    <EditableCell
-                      value={row.categoria_id ?? "__none__"}
-                      type="select"
-                      options={categoriaOptions}
-                      onSave={(v) =>
-                        updateField(
-                          row.id,
-                          "categoria_id",
-                          v === "__none__" ? null : v
-                        )
-                      }
-                    />
+                    {isActivoInmueble(row, categorias) ? (
+                      <span className="text-sm px-2 text-muted-foreground">
+                        {row.categoria_nombre ||
+                          categorias.find((c) => c.id === inmueblesCategoriaId)?.nombre ||
+                          "Inmueble"}
+                      </span>
+                    ) : (
+                      <EditableCell
+                        value={row.categoria_id ?? "__none__"}
+                        type="select"
+                        options={categoriaOptions}
+                        onSave={(v) =>
+                          updateField(
+                            row.id,
+                            "categoria_id",
+                            v === "__none__" ? null : v
+                          )
+                        }
+                      />
+                    )}
                   </TableCell>
                   {allTags.length > 0 && (
                     <TableCell className="p-1">

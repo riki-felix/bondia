@@ -269,7 +269,7 @@ export default function BloqueControlDashboard({
                 )}
               </div>
               <a
-                href={`/${blockId}/activos?inmueble=1`}
+                href={`/${blockId}/activos?cat=inmuebles`}
                 className="text-sm text-primary hover:underline"
               >
                 Ver listado

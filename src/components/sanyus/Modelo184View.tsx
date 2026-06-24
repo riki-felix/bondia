@@ -420,7 +420,7 @@ export default function Modelo184View({
               {resumen.inmueblesMarcadosCount === 0 ? (
                 <>
                   Marca activos como inmueble en{" "}
-                  <a href="/sanyus/activos?inmueble=1" className="underline">
+                  <a href="/sanyus/activos?cat=inmuebles" className="underline">
                     Activos
                   </a>
                   .

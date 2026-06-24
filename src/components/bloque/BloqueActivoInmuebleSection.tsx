@@ -12,19 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ActivoCaracteristica, BloqueCategoria } from "@/lib/bloqueTypes";
+import type { ActivoCaracteristica } from "@/lib/bloqueTypes";
 import {
+  INMUEBLE_ESTADO_VENDIDO,
   INMUEBLE_FIELD_GROUPS,
   INMUEBLE_FIELD_META,
-  findInmueblesCategoriaId,
   type InmueblePlantillaSlug,
 } from "@/lib/sanyusInmueblePlantilla";
 
 interface Props {
   esInmueble: boolean;
   onEsInmuebleChange: (value: boolean) => void;
-  onCategoriaAutoAssign: (categoriaId: string) => void;
-  categorias: BloqueCategoria[];
   plantillaCaracteristicas: ActivoCaracteristica[];
   caracValores: Record<string, string>;
   setCaracValores: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -35,6 +33,16 @@ function slugToCaracteristicaId(
   slug: InmueblePlantillaSlug,
 ): string | undefined {
   return plantilla.find((c) => c.slug === slug)?.id;
+}
+
+function getFieldValue(
+  slug: InmueblePlantillaSlug,
+  plantilla: ActivoCaracteristica[],
+  caracValores: Record<string, string>,
+): string {
+  const caracId = slugToCaracteristicaId(plantilla, slug);
+  const valueKey = caracId ?? slug;
+  return caracValores[valueKey] ?? (caracId ? caracValores[caracId] ?? "" : "");
 }
 
 function InmuebleFieldInput({
@@ -112,26 +120,43 @@ function InmuebleFieldInput({
   );
 }
 
+function groupGridClass(title: string): string {
+  if (title === "Identificación") return "grid grid-cols-1 sm:grid-cols-2 gap-4";
+  if (title === "Características") return "grid grid-cols-1 sm:grid-cols-3 gap-4";
+  if (title === "Participación") return "grid grid-cols-1 sm:grid-cols-3 gap-4";
+  return "grid grid-cols-1 sm:grid-cols-2 gap-4";
+}
+
 export default function BloqueActivoInmuebleSection({
   esInmueble,
   onEsInmuebleChange,
-  onCategoriaAutoAssign,
-  categorias,
   plantillaCaracteristicas,
   caracValores,
   setCaracValores,
 }: Props) {
   const handleToggle = (checked: boolean) => {
-    const next = checked === true;
-    onEsInmuebleChange(next);
-    if (next) {
-      const inmueblesId = findInmueblesCategoriaId(categorias);
-      if (inmueblesId) onCategoriaAutoAssign(inmueblesId);
-    }
+    onEsInmuebleChange(checked === true);
   };
 
   const setValor = (caracId: string, val: string) => {
     setCaracValores((prev) => ({ ...prev, [caracId]: val }));
+  };
+
+  const estadoValor = getFieldValue("estado", plantillaCaracteristicas, caracValores);
+  const isVendido = estadoValor === INMUEBLE_ESTADO_VENDIDO;
+
+  const renderField = (slug: InmueblePlantillaSlug) => {
+    const caracId = slugToCaracteristicaId(plantillaCaracteristicas, slug);
+    const valueKey = caracId ?? slug;
+    return (
+      <InmuebleFieldInput
+        key={slug}
+        slug={slug}
+        caracId={valueKey}
+        value={getFieldValue(slug, plantillaCaracteristicas, caracValores)}
+        onChange={setValor}
+      />
+    );
   };
 
   return (
@@ -150,11 +175,27 @@ export default function BloqueActivoInmuebleSection({
 
       {esInmueble &&
         INMUEBLE_FIELD_GROUPS.map((group) => {
-          const fields = group.slugs.map((slug) => {
-            const caracId = slugToCaracteristicaId(plantillaCaracteristicas, slug);
-            const valueKey = caracId ?? slug;
-            return { slug, caracId, valueKey };
-          });
+          if (group.title === "Estado") {
+            return (
+              <Card key={group.title}>
+                <CardHeader>
+                  <CardTitle className="text-base">{group.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      {renderField("estado")}
+                      {isVendido && renderField("precio_venta")}
+                    </div>
+                    <div className="space-y-4">
+                      {renderField("ocupado")}
+                      {isVendido && renderField("fecha_venta")}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
 
           return (
             <Card key={group.title}>
@@ -162,28 +203,8 @@ export default function BloqueActivoInmuebleSection({
                 <CardTitle className="text-base">{group.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div
-                  className={
-                    group.title === "Participación"
-                      ? "grid grid-cols-1 sm:grid-cols-3 gap-4"
-                      : "grid grid-cols-1 sm:grid-cols-2 gap-4"
-                  }
-                >
-                  {fields.map(({ slug, caracId, valueKey }) => {
-                    const meta = INMUEBLE_FIELD_META[slug];
-                    const colClass =
-                      meta.colSpan === 2 ? "sm:col-span-2" : meta.colSpan === 3 ? "sm:col-span-2" : "";
-                    return (
-                      <div key={slug} className={colClass}>
-                        <InmuebleFieldInput
-                          slug={slug}
-                          caracId={valueKey}
-                          value={caracValores[valueKey] ?? (caracId ? caracValores[caracId] ?? "" : "")}
-                          onChange={setValor}
-                        />
-                      </div>
-                    );
-                  })}
+                <div className={groupGridClass(group.title)}>
+                  {group.slugs.map((slug) => renderField(slug))}
                 </div>
               </CardContent>
             </Card>

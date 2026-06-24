@@ -169,15 +169,16 @@ function folderSlugFromRow(cfg: DocumentEntityConfig, row: Record<string, unknow
 async function nextSortOrder(
   supabase: ReturnType<typeof serviceSupabase>,
   entityType: DocumentEntityType,
-  entityId: string
+  entityId: string,
+  folderSlug?: string
 ): Promise<number> {
-  const { data } = await supabase
+  let query = supabase
     .from('documentos')
     .select('sort_order')
     .eq('entity_type', entityType)
-    .eq('entity_id', entityId)
-    .order('sort_order', { ascending: false })
-    .limit(1);
+    .eq('entity_id', entityId);
+  if (folderSlug) query = query.eq('folder_slug', folderSlug);
+  const { data } = await query.order('sort_order', { ascending: false }).limit(1);
   const max = data?.[0]?.sort_order ?? 0;
   return max + 10;
 }
@@ -210,12 +211,18 @@ export async function handleListDocuments(body: any) {
   if (!entityId) return json({ error: 'entityId requerido' }, 400);
 
   const supabase = serviceSupabase();
-  const { data, error } = await supabase
+  const folderSlug = emptyOrNull(body.folderSlug);
+  const excludeFolderSlug = emptyOrNull(body.excludeFolderSlug);
+
+  let query = supabase
     .from('documentos')
     .select('*')
     .eq('entity_type', entityType)
-    .eq('entity_id', entityId)
-    .order('sort_order', { ascending: true });
+    .eq('entity_id', entityId);
+  if (folderSlug) query = query.eq('folder_slug', folderSlug);
+  if (excludeFolderSlug) query = query.neq('folder_slug', excludeFolderSlug);
+
+  const { data, error } = await query.order('sort_order', { ascending: true });
 
   if (error) return json({ error: error.message }, 500);
   return json({ documents: data ?? [] });
@@ -249,10 +256,11 @@ export async function handleUploadDocument(body: any) {
   if ('error' in entityRes && entityRes.error) return entityRes.error;
   const row = entityRes.row!;
 
-  const folderSlug = folderSlugFromRow(cfg, row);
+  const folderSlugOverride = emptyOrNull(body.folderSlug);
+  const folderSlug = folderSlugOverride || folderSlugFromRow(cfg, row);
   const documentId = crypto.randomUUID();
   const storage_path = buildStoragePath(cfg, entityId, folderSlug, documentId, displayName, mimeType);
-  const sort_order = await nextSortOrder(supabase, entityType, entityId);
+  const sort_order = await nextSortOrder(supabase, entityType, entityId, folderSlugOverride || undefined);
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storage_path, buffer, {
     contentType: mimeType,
@@ -283,6 +291,26 @@ export async function handleUploadDocument(body: any) {
   }
 
   return json(data, 201);
+}
+
+export async function handleUpdateDocument(body: any) {
+  ensureConfig();
+  const id = emptyOrNull(body.id);
+  const displayName = emptyOrNull(body.displayName);
+  if (!id) return json({ error: 'id requerido' }, 400);
+  if (!displayName) return json({ error: 'displayName requerido' }, 400);
+
+  const supabase = serviceSupabase();
+  const { data, error } = await supabase
+    .from('documentos')
+    .update({ display_name: displayName })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) return json({ error: error.message }, 500);
+  if (!data) return json({ error: 'Documento no encontrado' }, 404);
+  return json(data);
 }
 
 export async function handleReorderDocuments(body: any) {

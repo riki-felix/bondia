@@ -9,7 +9,9 @@ import { SANYUS_CONFIG } from "../../lib/bloqueConfig";
 
 const cfg = SANYUS_CONFIG;
 const supabase = supabaseClient();
-const catFilter = Astro.url.searchParams.get("cat");
+const catParam = Astro.url.searchParams.get("cat");
+const inmuebleLegacy = Astro.url.searchParams.get("inmueble") === "1";
+const catFilter = catParam ?? (inmuebleLegacy ? "inmuebles" : null);
 
 const { data: allActivos, error } = await supabase
   .from(cfg.tables.activos)
@@ -48,7 +50,6 @@ const activosWithTags = activos.map((a: any) => ({
 }));
 
 const tagFilter = Astro.url.searchParams.get("tag");
-const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
 ---
 
 <Layout>
@@ -71,7 +72,6 @@ const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
         initialCatFilter={catFilter}
         allTags={allTags}
         initialTagFilter={tagFilter}
-        initialInmuebleFilter={inmuebleFilter}
       />
     )}
   </div>

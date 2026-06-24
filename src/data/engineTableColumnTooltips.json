@@ -1,0 +1,40 @@
+{
+  "inversiones": {
+    "id": "Número de operación",
+    "anio": "Ejercicio fiscal",
+    "nombre": "Nombre de la propiedad",
+    "estado": "Fase del ciclo de la inversión",
+    "fecha_inicio": "Fecha de inicio de la inversión",
+    "aportacion": "Capital aportado en esta operación.",
+    "retribucion": "Beneficio de Sanyus",
+    "retencion": "Retención fiscal calculada sobre la retribución",
+    "ingreso_banco": "Inreso de la liquidación",
+    "efectivo": "Parte de la liquidación cobrada en efectivo.",
+    "jasp": "20% de Abogado",
+    "transfe": "Indica si hay transferencia registrada en la liquidación vinculada.",
+    "fecha_compra": "Fecha de compra del inmueble.",
+    "fecha_venta": "Fecha de venta del inmueble.",
+    "ocupado": "Cómo está el piso",
+    "liquidada": "Si la liquidación vinculada está marcada como liquidada.",
+    "notas": "Notas internas sobre la inversión."
+  },
+  "liquidaciones": {
+    "id": "Número de operación de la inversión (desde la propiedad vinculada). Solo lectura.",
+    "numero_op": "Operación de JASP",
+    "propiedad": "Inversión a la que pertenece esta liquidación",
+    "fecha": "Fecha de liquidación de la operación.",
+    "aportacion": "Capital aportado en esta liquidación.",
+    "bruto": "Beneficio bruto antes de retenciones y reparto.",
+    "retribucion": "Retribución asignada a inversores según participaciones.",
+    "retencion": "19% impuestos",
+    "neto": "Retribución - retención.",
+    "efectivo": "Parte cobrada en efectivo.",
+    "transferencia": "Importe recibido por transferencia bancaria.",
+    "fecha_transfe": "Fecha en que se registró la transferencia bancaria.",
+    "fecha_aportacion": "Fecha en que se realizó la aportación de capital.",
+    "duracion": "Tiempo entre aportación y transferencia (días y meses aproximados).",
+    "beneficio": "(retribución ÷ aportación) ÷ meses × 100.",
+    "liquidada": "Indica si la operación está cerrada y liquidada.",
+    "ejercicio": "Año fiscal al que se imputa esta liquidación."
+  }
+}

@@ -49,6 +49,14 @@ import {
   propertyEjercicio,
   propertyIsLiquidada,
 } from "@/lib/fetchInversionesWithLiquidaciones";
+import { TableColumnHeader } from "@/components/ui/table-column-header";
+import {
+  getEngineColumnTooltip,
+  type InversionesColumnKey,
+} from "@/lib/engineTableColumnTooltips";
+
+const invTooltip = (column: InversionesColumnKey) =>
+  getEngineColumnTooltip("inversiones", column);
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -341,37 +349,91 @@ export default function InversionesTable({
         <Table>
           <TableHeader className="sticky top-0 z-20">
             <TableRow className="bg-muted">
-              <TableHead className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-muted">ID</TableHead>
-              <TableHead className="w-[70px]">AÑO</TableHead>
-              <TableHead className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]">NOMBRE</TableHead>
-              <TableHead className="w-[110px]">ESTADO</TableHead>
-              <TableHead className="w-[120px]">FECHA INICIO</TableHead>
-              <TableHead className="w-[120px] text-right">
-                APORTACIÓN
-              </TableHead>
-              <TableHead className="w-[120px] text-right">
-                RETRIBUCIÓN
-              </TableHead>
-              <TableHead className="w-[120px] text-right">
-                RETENCIÓN
-              </TableHead>
-              <TableHead className="w-[130px] text-right bg-yellow-50">
-                INGRESO BANCO
-              </TableHead>
-              <TableHead className="w-[110px] text-right">
-                EFECTIVO
-              </TableHead>
-              <TableHead className="w-[100px] text-right">
-                <span title="Automático: % JASP del bruto total en liquidaciones. Editable en línea; doble clic restaura automático.">
-                  JASP
-                </span>
-              </TableHead>
-              <TableHead className="w-[110px]">TRANSFE</TableHead>
-              <TableHead className="w-[120px]">FECHA COMPRA</TableHead>
-              <TableHead className="w-[120px]">FECHA VENTA</TableHead>
-              <TableHead className="w-[80px]">OCUPADO</TableHead>
-              <TableHead className="w-[90px]">LIQUIDADA</TableHead>
-              <TableHead className="min-w-[150px]">NOTAS</TableHead>
+              <TableColumnHeader
+                className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-muted"
+                label="ID"
+                tooltip={invTooltip("id")}
+              />
+              <TableColumnHeader
+                className="w-[70px]"
+                label="AÑO"
+                tooltip={invTooltip("anio")}
+              />
+              <TableColumnHeader
+                className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]"
+                label="NOMBRE"
+                tooltip={invTooltip("nombre")}
+              />
+              <TableColumnHeader
+                className="w-[110px]"
+                label="ESTADO"
+                tooltip={invTooltip("estado")}
+              />
+              <TableColumnHeader
+                className="w-[120px]"
+                label="FECHA INICIO"
+                tooltip={invTooltip("fecha_inicio")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="APORTACIÓN"
+                tooltip={invTooltip("aportacion")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="RETRIBUCIÓN"
+                tooltip={invTooltip("retribucion")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="RETENCIÓN"
+                tooltip={invTooltip("retencion")}
+              />
+              <TableColumnHeader
+                className="w-[130px] text-right bg-yellow-50"
+                label="INGRESO BANCO"
+                tooltip={invTooltip("ingreso_banco")}
+              />
+              <TableColumnHeader
+                className="w-[110px] text-right"
+                label="EFECTIVO"
+                tooltip={invTooltip("efectivo")}
+              />
+              <TableColumnHeader
+                className="w-[100px] text-right"
+                label="JASP"
+                tooltip={invTooltip("jasp")}
+              />
+              <TableColumnHeader
+                className="w-[110px]"
+                label="TRANSFE"
+                tooltip={invTooltip("transfe")}
+              />
+              <TableColumnHeader
+                className="w-[120px]"
+                label="FECHA COMPRA"
+                tooltip={invTooltip("fecha_compra")}
+              />
+              <TableColumnHeader
+                className="w-[120px]"
+                label="FECHA VENTA"
+                tooltip={invTooltip("fecha_venta")}
+              />
+              <TableColumnHeader
+                className="w-[80px]"
+                label="OCUPADO"
+                tooltip={invTooltip("ocupado")}
+              />
+              <TableColumnHeader
+                className="w-[90px]"
+                label="LIQUIDADA"
+                tooltip={invTooltip("liquidada")}
+              />
+              <TableColumnHeader
+                className="min-w-[150px]"
+                label="NOTAS"
+                tooltip={invTooltip("notas")}
+              />
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
 

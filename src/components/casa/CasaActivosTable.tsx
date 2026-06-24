@@ -103,15 +103,18 @@ export default function CasaActivosTable({
   return (
     <div className="space-y-4">
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" onClick={addRow}>
-          <Plus className="h-4 w-4 mr-1" /> Añadir activo
-        </Button>
+      <div className="flex items-center gap-3 flex-wrap">
         {rows.length > 0 && (
           <span className="text-sm text-muted-foreground">
             Total patrimonio: <strong>{formatEuro(totalPatrimonio)}</strong>
           </span>
         )}
+        <div className="ml-auto shrink-0">
+          <Button onClick={addRow}>
+            <Plus className="h-4 w-4" />
+            Añadir activo
+          </Button>
+        </div>
       </div>
 
       {/* ── Table ── */}

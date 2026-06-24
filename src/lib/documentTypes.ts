@@ -28,9 +28,21 @@ export const ALLOWED_DOCUMENT_MIMES = new Set([
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
+/** Carpeta única en storage para documentos de escritura de inmuebles */
+export const ESCRITURA_FOLDER_SLUG = "escritura";
+
+export interface PendingTitledDocument {
+  file: File;
+  title: string;
+}
+
+/** @deprecated Usar PendingTitledDocument */
+export type PendingEscrituraDocument = PendingTitledDocument;
+
 export const DOCUMENT_API = {
   list: "/.netlify/functions/listDocuments",
   upload: "/.netlify/functions/uploadDocument",
+  update: "/.netlify/functions/updateDocument",
   reorder: "/.netlify/functions/reorderDocuments",
   delete: "/.netlify/functions/deleteDocument",
   signedUrl: "/.netlify/functions/getDocumentSignedUrl",

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,9 +19,15 @@ import {
   getDocumentSignedUrl,
   listDocuments,
   reorderDocuments,
+  updateDocumentDisplayName,
   uploadDocument,
 } from "@/lib/documentApi";
-import type { DocumentBloque, DocumentEntityType, Documento } from "@/lib/documentTypes";
+import type {
+  DocumentBloque,
+  DocumentEntityType,
+  Documento,
+  PendingTitledDocument,
+} from "@/lib/documentTypes";
 import {
   ArrowDown,
   ArrowUp,
@@ -31,17 +39,26 @@ import {
   Upload,
 } from "lucide-react";
 
-interface EntityDocumentsPanelProps {
+export interface EntityDocumentsPanelProps {
   bloque: DocumentBloque;
   entityType: DocumentEntityType;
   entityId: string | null;
-  title?: string;
+  /** Título del bloque (card) */
+  panelTitle?: string;
   disabledMessage?: string;
   compact?: boolean;
-  /** Archivos en cola antes de crear la entidad */
-  pendingFiles?: File[];
-  onPendingFilesAdd?: (files: File[]) => void;
-  onPendingFileRemove?: (index: number) => void;
+  /** Solo listar/subir en esta carpeta */
+  folderSlug?: string;
+  /** Excluir documentos de otra carpeta al listar */
+  excludeFolderSlug?: string;
+  titleInputId?: string;
+  titlePlaceholder?: string;
+  emptyMessage?: string;
+  uploadSuccessMessage?: string;
+  pendingDocuments?: PendingTitledDocument[];
+  onPendingDocumentsAdd?: (items: PendingTitledDocument[]) => void;
+  onPendingDocumentRemove?: (index: number) => void;
+  onPendingDocumentTitleChange?: (index: number, title: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -54,12 +71,19 @@ export function EntityDocumentsPanel({
   bloque,
   entityType,
   entityId,
-  title = "Documentos",
+  panelTitle = "Documentos",
   disabledMessage = "Guarda la entidad para poder adjuntar documentos.",
   compact = false,
-  pendingFiles = [],
-  onPendingFilesAdd,
-  onPendingFileRemove,
+  folderSlug,
+  excludeFolderSlug,
+  titleInputId = "document-title",
+  titlePlaceholder = "Ej. Factura de compra",
+  emptyMessage = "Sin documentos adjuntos.",
+  uploadSuccessMessage = "Documento subido",
+  pendingDocuments = [],
+  onPendingDocumentsAdd,
+  onPendingDocumentRemove,
+  onPendingDocumentTitleChange,
 }: EntityDocumentsPanelProps) {
   const [documents, setDocuments] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,6 +91,9 @@ export function EntityDocumentsPanel({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewMime, setPreviewMime] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [titleDrafts, setTitleDrafts] = useState<Record<string, string>>({});
+  const [savingTitleId, setSavingTitleId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -76,14 +103,20 @@ export function EntityDocumentsPanel({
     }
     setLoading(true);
     try {
-      const docs = await listDocuments(bloque, entityType, entityId);
+      const docs = await listDocuments(bloque, entityType, entityId, {
+        folderSlug,
+        excludeFolderSlug,
+      });
       setDocuments(docs);
+      setTitleDrafts(
+        Object.fromEntries(docs.map((doc) => [doc.id, doc.display_name]))
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al cargar documentos");
     } finally {
       setLoading(false);
     }
-  }, [bloque, entityType, entityId]);
+  }, [bloque, entityType, entityId, folderSlug, excludeFolderSlug]);
 
   useEffect(() => {
     load();
@@ -93,8 +126,18 @@ export function EntityDocumentsPanel({
     const files = e.target.files;
     if (!files?.length) return;
 
-    if (!entityId && onPendingFilesAdd) {
-      onPendingFilesAdd(Array.from(files));
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle) {
+      toast.error("Indica un título antes de subir el documento");
+      e.target.value = "";
+      return;
+    }
+
+    const file = files[0];
+
+    if (!entityId && onPendingDocumentsAdd) {
+      onPendingDocumentsAdd([{ file, title: trimmedTitle }]);
+      setNewTitle("");
       e.target.value = "";
       return;
     }
@@ -102,16 +145,40 @@ export function EntityDocumentsPanel({
     if (!entityId) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
-        await uploadDocument(bloque, entityType, entityId, file);
-      }
-      toast.success(files.length > 1 ? "Documentos subidos" : "Documento subido");
+      await uploadDocument(bloque, entityType, entityId, file, {
+        displayName: trimmedTitle,
+        folderSlug,
+      });
+      toast.success(uploadSuccessMessage);
+      setNewTitle("");
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al subir");
     } finally {
       setUploading(false);
       e.target.value = "";
+    }
+  };
+
+  const saveTitle = async (doc: Documento) => {
+    const draft = (titleDrafts[doc.id] ?? "").trim();
+    if (!draft) {
+      toast.error("El título no puede estar vacío");
+      setTitleDrafts((prev) => ({ ...prev, [doc.id]: doc.display_name }));
+      return;
+    }
+    if (draft === doc.display_name) return;
+
+    setSavingTitleId(doc.id);
+    try {
+      await updateDocumentDisplayName(doc.id, draft);
+      toast.success("Título actualizado");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar título");
+      setTitleDrafts((prev) => ({ ...prev, [doc.id]: doc.display_name }));
+    } finally {
+      setSavingTitleId(null);
     }
   };
 
@@ -158,7 +225,7 @@ export function EntityDocumentsPanel({
     }
   };
 
-  const canUploadPending = !entityId && !!onPendingFilesAdd;
+  const canUploadPending = !entityId && !!onPendingDocumentsAdd;
 
   const content = (
     <>
@@ -166,60 +233,83 @@ export function EntityDocumentsPanel({
         <p className="text-sm text-muted-foreground">{disabledMessage}</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg"
-              multiple
-              className="sr-only"
-              disabled={uploading}
-              onChange={handleUpload}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {uploading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
+          <div className="space-y-3 mb-3">
+            <div className="space-y-1.5">
+              <Label htmlFor={titleInputId}>Título del documento</Label>
+              <Input
+                id={titleInputId}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder={titlePlaceholder}
+                disabled={uploading}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg"
+                className="sr-only"
+                disabled={uploading || !newTitle.trim()}
+                onChange={handleUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading || !newTitle.trim()}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                Subir PDF o JPG
+              </Button>
+              {canUploadPending && (
+                <span className="text-xs text-muted-foreground">
+                  Se guardarán al crear la entidad
+                </span>
               )}
-              Subir PDF o JPG
-            </Button>
-            {canUploadPending && (
-              <span className="text-xs text-muted-foreground">
-                Se guardarán al crear el activo
-              </span>
-            )}
+            </div>
           </div>
 
-          {canUploadPending && pendingFiles.length > 0 && (
+          {canUploadPending && pendingDocuments.length > 0 && (
             <ul className="space-y-2 mb-3">
-              {pendingFiles.map((file, index) => (
+              {pendingDocuments.map((item, index) => (
                 <li
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
+                  key={`${item.file.name}-${index}`}
+                  className="flex flex-col gap-2 rounded-md border border-dashed px-3 py-2 text-sm sm:flex-row sm:items-center"
                 >
-                  {file.type === "application/pdf" ? (
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="flex-1 truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {formatSize(file.size)}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {item.file.type === "application/pdf" ? (
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <Input
+                      value={item.title}
+                      onChange={(e) =>
+                        onPendingDocumentTitleChange?.(index, e.target.value)
+                      }
+                      className="h-8"
+                      placeholder="Título"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate sm:max-w-[120px]">
+                    {item.file.name}
                   </span>
-                  {onPendingFileRemove && (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {formatSize(item.file.size)}
+                  </span>
+                  {onPendingDocumentRemove && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-destructive shrink-0"
-                      onClick={() => onPendingFileRemove(index)}
+                      className="h-7 w-7 text-destructive shrink-0 self-end sm:self-auto"
+                      onClick={() => onPendingDocumentRemove(index)}
                       title="Quitar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -236,30 +326,42 @@ export function EntityDocumentsPanel({
               Cargando…
             </div>
           ) : entityId && documents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin documentos adjuntos.</p>
+            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
           ) : entityId && documents.length > 0 ? (
             <ul className="space-y-2">
               {documents.map((doc, index) => (
                 <li
                   key={doc.id}
-                  className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                  className="flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center"
                 >
-                  {doc.mime_type === "application/pdf" ? (
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <button
-                    type="button"
-                    className="flex-1 text-left truncate hover:underline"
-                    onClick={() => openPreview(doc)}
-                  >
-                    {doc.display_name}
-                  </button>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {doc.mime_type === "application/pdf" ? (
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <Input
+                      value={titleDrafts[doc.id] ?? doc.display_name}
+                      onChange={(e) =>
+                        setTitleDrafts((prev) => ({
+                          ...prev,
+                          [doc.id]: e.target.value,
+                        }))
+                      }
+                      onBlur={() => saveTitle(doc)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="h-8"
+                      disabled={savingTitleId === doc.id}
+                    />
+                  </div>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {formatSize(doc.size_bytes)}
                   </span>
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-auto">
                     <Button
                       type="button"
                       variant="ghost"
@@ -306,8 +408,8 @@ export function EntityDocumentsPanel({
                 </li>
               ))}
             </ul>
-          ) : canUploadPending && pendingFiles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin documentos adjuntos.</p>
+          ) : canUploadPending && pendingDocuments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
           ) : null}
         </>
       )}
@@ -353,7 +455,7 @@ export function EntityDocumentsPanel({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base">{panelTitle}</CardTitle>
       </CardHeader>
       <CardContent>{content}</CardContent>
     </Card>

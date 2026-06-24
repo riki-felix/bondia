@@ -27,6 +27,14 @@ import {
 } from "@/lib/syncPropiedadFromLiquidaciones";
 import { LiquidacionesSummary } from "./LiquidacionesSummary";
 import { sumTransferenciasLiquidaciones } from "@/lib/ingresosBancoAggregate";
+import { TableColumnHeader } from "@/components/ui/table-column-header";
+import {
+  getEngineColumnTooltip,
+  type LiquidacionesColumnKey,
+} from "@/lib/engineTableColumnTooltips";
+
+const liqTooltip = (column: LiquidacionesColumnKey) =>
+  getEngineColumnTooltip("liquidaciones", column);
 
 interface SettlementRow {
   id: string;
@@ -318,27 +326,91 @@ export default function LiquidacionesTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead className="w-[60px]">ID</TableHead>
-              <TableHead className="w-[60px]" title="Nº operación (referencia externa)">
-                Nº OP
-              </TableHead>
-              <TableHead className="min-w-[200px]">PROPIEDAD</TableHead>
-              <TableHead className="w-[130px]">FECHA</TableHead>
-              <TableHead className="w-[120px] text-right">APORTACIÓN</TableHead>
-              <TableHead className="w-[110px] text-right" title="Beneficio bruto">
-                BRUTO
-              </TableHead>
-              <TableHead className="w-[120px] text-right">RETRIBUCIÓN</TableHead>
-              <TableHead className="w-[120px] text-right">RETENCIÓN</TableHead>
-              <TableHead className="w-[120px] text-right">NETO</TableHead>
-              <TableHead className="w-[120px] text-right">EFECTIVO</TableHead>
-              <TableHead className="w-[130px] text-right">TRANSFERENCIA</TableHead>
-              <TableHead className="w-[130px]">FECHA TRANSFE</TableHead>
-              <TableHead className="w-[130px]">FECHA APORTACIÓN</TableHead>
-              <TableHead className="w-[130px] text-right">DURACIÓN</TableHead>
-              <TableHead className="w-[100px] text-right">BENEFICIO</TableHead>
-              <TableHead className="w-[90px] text-center">LIQUIDADA</TableHead>
-              <TableHead className="w-[90px]">EJERCICIO</TableHead>
+              <TableColumnHeader
+                className="w-[60px]"
+                label="ID"
+                tooltip={liqTooltip("id")}
+              />
+              <TableColumnHeader
+                className="w-[60px]"
+                label="Nº OP"
+                tooltip={liqTooltip("numero_op")}
+              />
+              <TableColumnHeader
+                className="min-w-[200px]"
+                label="PROPIEDAD"
+                tooltip={liqTooltip("propiedad")}
+              />
+              <TableColumnHeader
+                className="w-[130px]"
+                label="FECHA"
+                tooltip={liqTooltip("fecha")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="APORTACIÓN"
+                tooltip={liqTooltip("aportacion")}
+              />
+              <TableColumnHeader
+                className="w-[110px] text-right"
+                label="BRUTO"
+                tooltip={liqTooltip("bruto")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="RETRIBUCIÓN"
+                tooltip={liqTooltip("retribucion")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="RETENCIÓN"
+                tooltip={liqTooltip("retencion")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="NETO"
+                tooltip={liqTooltip("neto")}
+              />
+              <TableColumnHeader
+                className="w-[120px] text-right"
+                label="EFECTIVO"
+                tooltip={liqTooltip("efectivo")}
+              />
+              <TableColumnHeader
+                className="w-[130px] text-right"
+                label="TRANSFERENCIA"
+                tooltip={liqTooltip("transferencia")}
+              />
+              <TableColumnHeader
+                className="w-[130px]"
+                label="FECHA TRANSFE"
+                tooltip={liqTooltip("fecha_transfe")}
+              />
+              <TableColumnHeader
+                className="w-[130px]"
+                label="FECHA APORTACIÓN"
+                tooltip={liqTooltip("fecha_aportacion")}
+              />
+              <TableColumnHeader
+                className="w-[130px] text-right"
+                label="DURACIÓN"
+                tooltip={liqTooltip("duracion")}
+              />
+              <TableColumnHeader
+                className="w-[100px] text-right"
+                label="BENEFICIO"
+                tooltip={liqTooltip("beneficio")}
+              />
+              <TableColumnHeader
+                className="w-[90px] text-center"
+                label="LIQUIDADA"
+                tooltip={liqTooltip("liquidada")}
+              />
+              <TableColumnHeader
+                className="w-[90px]"
+                label="EJERCICIO"
+                tooltip={liqTooltip("ejercicio")}
+              />
             </TableRow>
 
             <TableRow className="bg-muted/20 font-semibold border-b-2">

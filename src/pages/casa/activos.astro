@@ -10,7 +10,9 @@ import { isCasaActivoTitular, casaActivoTitularViewTitle, casaActivoTitularLabel
 
 const cfg = CASA_CONFIG;
 const supabase = supabaseClient();
-const catFilter = Astro.url.searchParams.get("cat");
+const catParam = Astro.url.searchParams.get("cat");
+const inmuebleLegacy = Astro.url.searchParams.get("inmueble") === "1";
+const catFilter = catParam ?? (inmuebleLegacy ? "inmuebles" : null);
 const titularParam = Astro.url.searchParams.get("titular");
 const titularFilter = isCasaActivoTitular(titularParam) ? titularParam : null;
 const pageTitle = titularFilter ? casaActivoTitularViewTitle(titularFilter) : "Activos";
@@ -56,7 +58,6 @@ const activosWithTags = activos.map((a: any) => ({
 }));
 
 const tagFilter = Astro.url.searchParams.get("tag");
-const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
 ---
 
 <Layout>
@@ -84,7 +85,6 @@ const inmuebleFilter = Astro.url.searchParams.get("inmueble") === "1";
         allTags={allTags}
         initialTagFilter={tagFilter}
         initialTitularFilter={titularFilter}
-        initialInmuebleFilter={inmuebleFilter}
       />
     )}
   </div>
