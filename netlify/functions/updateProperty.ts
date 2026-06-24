@@ -124,10 +124,6 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function calcRetribucionFromBruto(bruto: number, pctSanyus: number): number {
-  return round2(bruto * (pctSanyus / 100));
-}
-
 function calcJaspFromBruto(bruto: number, pctJasp: number): number {
   return round2(bruto * (pctJasp / 100));
 }
@@ -142,21 +138,23 @@ async function recalcLiquidacionesYPropiedad(
 ) {
   const { data: liqs } = await supabase
     .from('liquidaciones')
-    .select('id, beneficio_bruto')
+    .select('id, retribucion')
     .eq('propiedad_id', propiedadId);
 
   let totalBruto = 0;
   let totalRetribucion = 0;
 
   for (const l of liqs ?? []) {
-    const bruto = Number(l.beneficio_bruto) || 0;
-    totalBruto += bruto;
-    if (bruto <= 0) continue;
-    const retribucion = calcRetribucionFromBruto(bruto, participacionSanyus);
+    const retribucion = Number(l.retribucion) || 0;
     totalRetribucion += retribucion;
+    const bruto =
+      retribucion > 0 && participacionSanyus > 0
+        ? round2((retribucion * 100) / participacionSanyus)
+        : 0;
+    totalBruto += bruto;
     await supabase
       .from('liquidaciones')
-      .update({ retribucion })
+      .update({ beneficio_bruto: bruto })
       .eq('id', l.id);
   }
 

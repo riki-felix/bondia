@@ -9,6 +9,8 @@ import {
   toDateOrNull,
   emptyOrNull,
   derivePagoFromIngreso,
+  calcBrutoFromRetribucion,
+  effectiveParticipacionSanyus,
 } from './_shared';
 
 export const handler: Handler = async (event) => {
@@ -54,9 +56,6 @@ export const handler: Handler = async (event) => {
       const n = body.numero_operacion != null ? Number(body.numero_operacion) : null;
       updates.numero_operacion = n != null && Number.isFinite(n) ? n : null;
     }
-    if (body.beneficio_bruto !== undefined) {
-      updates.beneficio_bruto = toMoneyOrNull(body.beneficio_bruto);
-    }
     if (body.aportacion !== undefined) updates.aportacion = toMoneyOrNull(body.aportacion) ?? 0;
     if (body.retribucion !== undefined) updates.retribucion = toMoneyOrNull(body.retribucion) ?? 0;
     if (body.transferencia !== undefined) updates.transferencia = toMoneyOrNull(body.transferencia) ?? 0;
@@ -70,6 +69,27 @@ export const handler: Handler = async (event) => {
 
     if (Object.keys(updates).length === 0) {
       return json({ ok: true, id });
+    }
+
+    if (updates.retribucion !== undefined) {
+      const { data: liqRow } = await supabase
+        .from('liquidaciones')
+        .select('propiedad_id')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (liqRow?.propiedad_id) {
+        const { data: propRow } = await supabase
+          .from('propiedades')
+          .select('participacion_sanyus')
+          .eq('id', liqRow.propiedad_id)
+          .maybeSingle();
+
+        const retribucion = Number(updates.retribucion) || 0;
+        const pct = effectiveParticipacionSanyus(propRow?.participacion_sanyus);
+        updates.beneficio_bruto =
+          retribucion > 0 ? calcBrutoFromRetribucion(retribucion, pct) : 0;
+      }
     }
 
     const { data, error } = await supabase

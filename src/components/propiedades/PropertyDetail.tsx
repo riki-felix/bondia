@@ -17,6 +17,7 @@ import { uploadPropertyFeaturedImage } from "@/lib/propertyImageUpload";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS, derivePagoFromIngreso } from "@/lib/propertyTypes";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro } from "@/lib/moneyCalc";
+import { deriveBrutoFromRetribucion } from "@/lib/syncPropiedadFromLiquidaciones";
 import { PropertyParticipacionSection } from "@/components/inversiones/PropertyParticipacionSection";
 import {
   DEFAULT_PARTICIPACION_BIENES_SANYUS_CB,
@@ -610,7 +611,14 @@ export default function PropertyDetail({
                       </td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.aportacion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.beneficio_bruto)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {formatEuro(
+                          deriveBrutoFromRetribucion({
+                            retribucion: s.retribucion,
+                            propiedad_participacion_sanyus: property?.participacion_sanyus,
+                          })
+                        )}
+                      </td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.retribucion)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.transferencia)}</td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>

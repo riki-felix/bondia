@@ -87,6 +87,25 @@ export function toMoneyOrNull(v: any): number | null {
   return Number(n.toFixed(2));
 }
 
+export const DEFAULT_PARTICIPACION_SANYUS = 40;
+
+export function effectiveParticipacionSanyus(value: number | null | undefined): number {
+  if (value != null && Number.isFinite(value)) return value;
+  return DEFAULT_PARTICIPACION_SANYUS;
+}
+
+export function roundMoney2(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const n = value >= 0 ? value + 1e-9 : value - 1e-9;
+  return Math.round(n * 100) / 100;
+}
+
+/** Bruto = ROUND(retribución × 100 / % Sanyus, 2) */
+export function calcBrutoFromRetribucion(retribucion: number, pctSanyus: number): number {
+  if (pctSanyus <= 0) return 0;
+  return roundMoney2((retribucion * 100) / pctSanyus);
+}
+
 /** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */
 export function derivePagoFromIngreso(
   ingresoBanco: unknown,

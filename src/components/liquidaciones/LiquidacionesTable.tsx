@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import { formatEuro, round2, toNum } from "@/lib/moneyCalc";
 import {
+  deriveBrutoFromRetribucion,
   deriveSettlementMoney,
   syncPropiedadFromLiquidaciones,
 } from "@/lib/syncPropiedadFromLiquidaciones";
@@ -180,7 +181,7 @@ export default function LiquidacionesTable({
       efectivo: 0,
     };
     for (const row of filteredRows) {
-      result.beneficio_bruto += toNum(row.beneficio_bruto);
+      result.beneficio_bruto += deriveBrutoFromRetribucion(row);
       result.aportacion += toNum(row.aportacion);
       const derived = deriveSettlementMoney(row);
       result.retribucion += derived.retribucion;
@@ -206,9 +207,8 @@ export default function LiquidacionesTable({
     (row: SettlementRow, field: string, value: unknown): SettlementRow => {
       const updated = { ...row, [field]: value };
 
-      if (field === "beneficio_bruto") {
-        updated.beneficio_bruto =
-          value == null || value === "" ? null : toNum(value);
+      if (field === "retribucion") {
+        updated.retribucion = toNum(value);
       }
 
       if (field === "numero_operacion") {
@@ -221,8 +221,8 @@ export default function LiquidacionesTable({
       }
 
       const derived = deriveSettlementMoney(updated);
+      updated.beneficio_bruto = deriveBrutoFromRetribucion(updated);
       Object.assign(updated, {
-        retribucion: derived.retribucion,
         retencion: derived.retencion,
         neto: derived.neto,
         efectivo: derived.efectivo,
@@ -243,12 +243,12 @@ export default function LiquidacionesTable({
 
       const payload: Record<string, unknown> = { id, [field]: value };
 
-      if (field === "beneficio_bruto") {
-        payload.beneficio_bruto = optimistic.beneficio_bruto;
+      if (field === "retribucion") {
         payload.retribucion = optimistic.retribucion;
+        payload.beneficio_bruto = optimistic.beneficio_bruto;
       }
 
-      const syncMoney = field === "beneficio_bruto";
+      const syncMoney = field === "retribucion";
 
       try {
         const res = await fetch("/.netlify/functions/updateSettlement", {
@@ -453,6 +453,7 @@ export default function LiquidacionesTable({
             ) : (
               filteredRows.map((row) => {
                 const money = deriveSettlementMoney(row);
+                const bruto = deriveBrutoFromRetribucion(row);
                 const duracion = calcDuracion(
                   row.fecha_aportacion,
                   row.fecha_transferencia
@@ -522,17 +523,17 @@ export default function LiquidacionesTable({
 
                     <TableCell>
                       <EditableCell
-                        value={row.beneficio_bruto}
-                        type="money"
-                        onSave={(v) => saveField(row.id, "beneficio_bruto", v)}
+                        value={bruto}
+                        type="readonly-money"
+                        onSave={() => {}}
                       />
                     </TableCell>
 
                     <TableCell>
                       <EditableCell
                         value={money.retribucion}
-                        type="readonly-money"
-                        onSave={() => {}}
+                        type="money"
+                        onSave={(v) => saveField(row.id, "retribucion", v)}
                       />
                     </TableCell>
 

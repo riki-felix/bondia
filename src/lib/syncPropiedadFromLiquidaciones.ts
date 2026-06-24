@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  calcBrutoFromRetribucion,
   calcEfectivoFromTransfer,
   calcJaspAutoFromBruto,
   calcNeto,
   calcRetencion,
-  calcRetribucionFromBruto,
   round2,
 } from "./moneyCalc";
 import {
@@ -12,14 +12,18 @@ import {
   effectiveParticipacionSanyus,
 } from "./participacion";
 
-/** Recalcula retribución de una liquidación desde su bruto y la participación de la propiedad */
-export function recalcLiquidacionFromBruto(
-  bruto: number,
-  participacionSanyus: number | null | undefined
-): number {
-  return calcRetribucionFromBruto(
-    bruto,
-    effectiveParticipacionSanyus(participacionSanyus)
+export interface SettlementBrutoInput {
+  retribucion: number;
+  propiedad_participacion_sanyus?: number | null;
+}
+
+/** Bruto derivado de retribución y % Sanyus de la propiedad */
+export function deriveBrutoFromRetribucion(row: SettlementBrutoInput): number {
+  const retribucion = round2(Number(row.retribucion) || 0);
+  if (retribucion <= 0) return 0;
+  return calcBrutoFromRetribucion(
+    retribucion,
+    effectiveParticipacionSanyus(row.propiedad_participacion_sanyus)
   );
 }
 
@@ -28,24 +32,15 @@ export interface SettlementMoneyDerived {
   retencion: number;
   neto: number;
   efectivo: number;
-  /** true si retribución sale de bruto × % Sanyus */
-  fromBruto: boolean;
 }
 
-/** Importes derivados: retribución desde bruto si hay bruto; si no, retribución almacenada */
+/** Importes derivados desde retribución almacenada (retención, neto, efectivo) */
 export function deriveSettlementMoney(row: {
-  beneficio_bruto: number | null;
   retribucion: number;
   transferencia: number;
-  propiedad_participacion_sanyus?: number | null;
 }): SettlementMoneyDerived {
-  const bruto = Number(row.beneficio_bruto) || 0;
+  const retribucion = round2(Number(row.retribucion) || 0);
   const transferencia = Number(row.transferencia) || 0;
-
-  const retribucion =
-    bruto > 0
-      ? recalcLiquidacionFromBruto(bruto, row.propiedad_participacion_sanyus)
-      : round2(Number(row.retribucion) || 0);
 
   const retencion = calcRetencion(retribucion);
   const neto = calcNeto(retribucion);
@@ -56,7 +51,6 @@ export function deriveSettlementMoney(row: {
     retencion,
     neto,
     efectivo,
-    fromBruto: bruto > 0,
   };
 }
 
@@ -68,7 +62,7 @@ export async function syncPropiedadFromLiquidaciones(
   const [{ data: liqs }, { data: prop }] = await Promise.all([
     supabase
       .from("liquidaciones")
-      .select("beneficio_bruto, retribucion")
+      .select("retribucion")
       .eq("propiedad_id", propiedadId),
     supabase
       .from("propiedades")
@@ -81,11 +75,14 @@ export async function syncPropiedadFromLiquidaciones(
 
   if (!prop) return;
 
+  const pctSanyus = effectiveParticipacionSanyus(prop.participacion_sanyus);
+
   let totalBruto = 0;
   let totalRetribucion = 0;
   for (const l of liqs ?? []) {
-    totalBruto += Number(l.beneficio_bruto) || 0;
-    totalRetribucion += Number(l.retribucion) || 0;
+    const retribucion = Number(l.retribucion) || 0;
+    totalRetribucion += retribucion;
+    totalBruto += calcBrutoFromRetribucion(retribucion, pctSanyus);
   }
 
   const updates: Record<string, unknown> = {
@@ -108,29 +105,34 @@ export async function syncPropiedadFromLiquidaciones(
   if (error) throw error;
 }
 
-/** Recalcula retribución de todas las liquidaciones con bruto y sincroniza la propiedad */
-export async function recalcLiquidacionesParticipacionPropiedad(
+/** Recalcula bruto de todas las liquidaciones al cambiar % Sanyus; retribución no cambia */
+export async function recalcLiquidacionesBrutoPropiedad(
   supabase: SupabaseClient,
   propiedadId: string,
   participacionSanyus: number | null | undefined
 ): Promise<void> {
+  const pct = effectiveParticipacionSanyus(participacionSanyus);
   const { data: liqs, error: listErr } = await supabase
     .from("liquidaciones")
-    .select("id, beneficio_bruto")
+    .select("id, retribucion")
     .eq("propiedad_id", propiedadId);
 
   if (listErr) throw listErr;
 
   for (const l of liqs ?? []) {
-    const bruto = Number(l.beneficio_bruto) || 0;
-    if (bruto <= 0) continue;
-    const retribucion = recalcLiquidacionFromBruto(bruto, participacionSanyus);
+    const retribucion = Number(l.retribucion) || 0;
+    const beneficio_bruto =
+      retribucion > 0 ? calcBrutoFromRetribucion(retribucion, pct) : 0;
     const { error } = await supabase
       .from("liquidaciones")
-      .update({ retribucion })
+      .update({ beneficio_bruto })
       .eq("id", l.id);
     if (error) throw error;
   }
 
   await syncPropiedadFromLiquidaciones(supabase, propiedadId);
 }
+
+/** @deprecated Usar recalcLiquidacionesBrutoPropiedad */
+export const recalcLiquidacionesParticipacionPropiedad =
+  recalcLiquidacionesBrutoPropiedad;

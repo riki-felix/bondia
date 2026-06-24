@@ -40,6 +40,15 @@ export function calcRetribucionFromBruto(
   return round2((bruto * pctSanyus) / 100);
 }
 
+/** Bruto = ROUND(retribución × 100 / % Sanyus, 2) — inversa de calcRetribucionFromBruto */
+export function calcBrutoFromRetribucion(
+  retribucion: number,
+  pctSanyus: number
+): number {
+  if (pctSanyus <= 0) return 0;
+  return round2((retribucion * 100) / pctSanyus);
+}
+
 /** JASP automático = bruto × % JASP de la ficha */
 export function calcJaspAutoFromBruto(bruto: number, pctJasp: number): number {
   return round2(bruto * (pctJasp / 100));
