@@ -24,17 +24,17 @@
     "propiedad": "Inversión a la que pertenece esta liquidación",
     "fecha": "Fecha de liquidación de la operación.",
     "aportacion": "Capital aportado en esta liquidación.",
-    "bruto": "Beneficio bruto calculado desde retribución y % Sanyus de la propiedad.",
-    "retribucion": "Beneficio Sanyus",
+    "bruto": "Beneficio Total bruto",
+    "retribucion": "Beneficio bruto Sanyus",
     "retencion": "19% impuestos",
     "neto": "Retribución - retención.",
     "efectivo": "Parte cobrada en efectivo.",
     "transferencia": "Importe recibido por transferencia bancaria.",
-    "fecha_transfe": "Fecha en que se registró la transferencia bancaria.",
-    "fecha_aportacion": "Fecha en que se realizó la aportación de capital.",
-    "duracion": "Tiempo entre aportación y transferencia (días y meses aproximados).",
+    "fecha_transfe": "Fecha de la transferencia bancaria.",
+    "fecha_aportacion": "Fecha de la aportación de capital.",
+    "duracion": "Tiempo entre aportación y transferencia",
     "beneficio": "(retribución ÷ aportación) ÷ meses × 100.",
-    "liquidada": "Indica si la operación está cerrada y liquidada.",
+    "liquidada": "Indica si la operación está liquidada.",
     "ejercicio": "Año fiscal al que se imputa esta liquidación."
   }
 }

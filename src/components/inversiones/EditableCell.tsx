@@ -136,7 +136,10 @@ export function EditableCell({
   // ── Readonly money (calculated fields) ──
   if (type === "readonly-money") {
     return (
-      <span data-money className={`text-right tabular-nums text-sm ${className}`}>
+      <span
+        data-money
+        className={`block w-full text-right tabular-nums text-sm ${className}`}
+      >
         {fmtMoney(value as number | null)}
       </span>
     );
@@ -217,8 +220,8 @@ export function EditableCell({
     return (
       <div
         data-money={type === "money" || undefined}
-        className={`cursor-pointer rounded px-1 py-0.5 hover:bg-muted/60 min-h-[28px] flex items-center ${
-          type === "money" ? "justify-end tabular-nums" : ""
+        className={`cursor-pointer rounded px-1 py-0.5 hover:bg-muted/60 min-h-[28px] w-full flex items-center ${
+          type === "money" ? "justify-end text-right tabular-nums" : ""
         } ${bgClass} ${className}`}
         onClick={() => {
           setDraft(
@@ -241,7 +244,10 @@ export function EditableCell({
     <Input
       ref={inputRef}
       type={type === "date" ? "date" : type === "money" ? "text" : "text"}
-      className={`h-7 text-sm ${type === "money" ? "text-right" : ""} ${bgClass} ${className}`}
+      data-money={type === "money" || undefined}
+      className={`h-7 w-full text-sm ${
+        type === "money" ? "text-right tabular-nums" : ""
+      } ${bgClass} ${className}`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}

@@ -624,7 +624,7 @@ export default function InversionesTable({
                       />
                     ) : (
                       <div
-                        className="min-w-[72px]"
+                        className="min-w-[72px] w-full"
                         title={
                           row.jasp_manual
                             ? "Valor manual — doble clic para volver al cálculo automático"

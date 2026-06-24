@@ -610,8 +610,8 @@ export default function PropertyDetail({
                         {s.numero_operacion ?? "—"}
                       </td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.aportacion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
+                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.aportacion)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums" data-money>
                         {formatEuro(
                           deriveBrutoFromRetribucion({
                             retribucion: s.retribucion,
@@ -619,8 +619,8 @@ export default function PropertyDetail({
                           })
                         )}
                       </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.retribucion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{formatEuro(s.transferencia)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.retribucion)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.transferencia)}</td>
                       <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>
                       <td className="py-2">
                         <Badge variant={s.liquidado ? "success" : "outline"} className="text-xs">

@@ -90,3 +90,11 @@
   pointer-events: none;
   transition: filter 0.2s ease;
 }
+
+/* Contabilidad / moneda: alineación derecha en tablas */
+table [data-money],
+td[data-money],
+th[data-money] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

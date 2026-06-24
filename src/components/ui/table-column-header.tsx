@@ -18,27 +18,31 @@ export function TableColumnHeader({
   tooltip,
   className,
 }: TableColumnHeaderProps) {
-  if (!tooltip) {
-    return <TableHead className={className}>{label}</TableHead>;
-  }
+  const rightAlign = className?.includes("text-right");
+
+  const labelNode = tooltip ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-block cursor-help border-b border-dotted border-muted-foreground/60",
+            "leading-tight"
+          )}
+        >
+          {label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-left">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    label
+  );
 
   return (
     <TableHead className={className}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className={cn(
-              "inline-block cursor-help border-b border-dotted border-muted-foreground/60",
-              "leading-tight"
-            )}
-          >
-            {label}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs text-left">
-          {tooltip}
-        </TooltipContent>
-      </Tooltip>
+      {rightAlign ? <div className="flex justify-end">{labelNode}</div> : labelNode}
     </TableHead>
   );
 }
