@@ -66,7 +66,7 @@ interface PropertyData {
   notas: string | null;
 }
 
-interface Settlement {
+export interface PropertyDetailSettlement {
   id: string;
   numero_liquidacion: number;
   numero_operacion: number | null;
@@ -84,7 +84,7 @@ interface Settlement {
 
 interface PropertyDetailProps {
   property?: PropertyData | null;
-  settlements?: Settlement[];
+  settlements?: PropertyDetailSettlement[];
   imageUrl?: string | null;
 }
 

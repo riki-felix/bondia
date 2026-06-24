@@ -3,7 +3,9 @@ export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
-import PropertyDetail from "../../components/propiedades/PropertyDetail";
+import PropertyDetail, {
+  type PropertyDetailSettlement,
+} from "../../components/propiedades/PropertyDetail";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { PROPERTY_IMAGES_BUCKET } from "../../lib/propertyStorage";
 
@@ -32,6 +34,24 @@ const { data: settlements } = await supabase
   .eq("propiedad_id", id)
   .order("numero_liquidacion", { ascending: true });
 
+const settlementsForDetail: PropertyDetailSettlement[] = (settlements ?? []).map(
+  (r: Record<string, unknown>) => ({
+    id: r.id as string,
+    numero_liquidacion: r.numero_liquidacion as number,
+    numero_operacion: (r.numero_operacion as number | null) ?? null,
+    fecha_liquidacion: (r.fecha_liquidacion as string) ?? "",
+    beneficio_bruto: r.beneficio_bruto as number | null,
+    aportacion: (r.aportacion as number) ?? 0,
+    retribucion: (r.retribucion as number) ?? 0,
+    retencion: (r.retencion as number) ?? 0,
+    transferencia: (r.transferencia as number) ?? 0,
+    efectivo: (r.efectivo as number) ?? 0,
+    fecha_transferencia: (r.fecha_transferencia as string | null) ?? null,
+    liquidado: (r.liquidado as boolean) ?? false,
+    ejercicio: (r.ejercicio as number | null) ?? null,
+  })
+);
+
 // Build image URL
 let imageUrl: string | null = null;
 if (property.foto_destacada_path) {
@@ -47,7 +67,7 @@ if (property.foto_destacada_path) {
     <PropertyDetail
       client:load
       property={property}
-      settlements={settlements ?? []}
+      settlements={settlementsForDetail}
       imageUrl={imageUrl}
     />
   </div>
