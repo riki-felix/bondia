@@ -27,7 +27,7 @@ if (error || !property) return Astro.redirect("/propiedades");
 const { data: settlements } = await supabase
   .from("liquidaciones")
   .select(
-    "id, numero_liquidacion, fecha_liquidacion, beneficio_bruto, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, liquidado, ejercicio"
+    "id, numero_liquidacion, numero_operacion, fecha_liquidacion, beneficio_bruto, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, liquidado, ejercicio"
   )
   .eq("propiedad_id", id)
   .order("numero_liquidacion", { ascending: true });
