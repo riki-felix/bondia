@@ -273,6 +273,25 @@ export const handler: Handler = async (event) => {
 	if (body.anio_construccion !== undefined) updates.anio_construccion = toYearOrNull(body.anio_construccion);
 	if (body.numero_catastro !== undefined) updates.numero_catastro = emptyOrNull(body.numero_catastro);
 	if (body.fecha_compra !== undefined) updates.fecha_compra = toDateISO(body.fecha_compra);
+	if (body.created_at !== undefined) {
+	  const d = toDateISO(body.created_at);
+	  updates.created_at = d ? `${d}T12:00:00.000Z` : null;
+	}
+	if (body.transfe !== undefined) {
+	  const d = toDateISO(body.transfe);
+	  updates.transfe = d ? `${d}T12:00:00.000Z` : null;
+	}
+	if (body.aportacion !== undefined) {
+	  updates.aportacion = toMoneyOrNull(body.aportacion) ?? 0;
+	}
+	if (body.jasp_10_percent !== undefined) {
+	  updates.jasp_10_percent = toMoneyOrNull(body.jasp_10_percent) ?? 0;
+	}
+	if (body.jasp_manual !== undefined) {
+	  const b = toBoolOrNull(body.jasp_manual);
+	  if (b == null) return json({ error: 'jasp_manual inválido' }, 400);
+	  updates.jasp_manual = b;
+	}
 
 	// ✅ MEDIA (esto es lo que te faltaba)
 	// Si llega undefined, NO toca el campo (no lo borra).
@@ -403,6 +422,13 @@ export const handler: Handler = async (event) => {
 	if (updates.titulo && updates.titulo !== current.titulo) {
 	  const base = slugifyEs(updates.titulo) || 'propiedad';
 	  updates.slug = await findNextUniqueSlug(supabase, base);
+	}
+
+	if (updates.aportacion !== undefined) {
+	  await supabase
+		.from('liquidaciones')
+		.update({ aportacion: updates.aportacion })
+		.eq('propiedad_id', id);
 	}
 
 	if (Object.keys(updates).length === 0) {

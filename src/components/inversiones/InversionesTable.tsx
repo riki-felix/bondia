@@ -230,28 +230,44 @@ export default function InversionesTable({
       // retencion/efectivo: columnas generadas en BD; no enviar
 
       try {
-        const supabase = getSupabase();
-        const { error } = await supabase
-          .from("propiedades")
-          .update(payload)
-          .eq("id", id);
+        const res = await fetch("/.netlify/functions/updateProperty", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...payload }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar");
 
-        if (error) throw new Error(error.message || error.code || "Error desconocido de Supabase");
+        if (data.estado !== undefined || data.numero_operacion !== undefined) {
+          setRows((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? {
+                    ...r,
+                    ...(data.estado !== undefined && { estado: data.estado }),
+                    ...(data.numero_operacion !== undefined && {
+                      numero_operacion: data.numero_operacion,
+                    }),
+                    ...(data.ingreso_banco !== undefined && {
+                      ingreso_banco: data.ingreso_banco,
+                    }),
+                  }
+                : r
+            )
+          );
+        }
 
         if (field === "__jasp_auto__") {
-          const row = rows.find((r) => r.id === id);
-          if (row) {
-            await syncPropiedadFromLiquidaciones(getSupabase(), id);
-            const { data: fresh } = await getSupabase()
-              .from("propiedades")
-              .select("jasp_10_percent, jasp_manual, retribucion, retencion, efectivo")
-              .eq("id", id)
-              .single();
-            if (fresh) {
-              setRows((prev) =>
-                prev.map((r) => (r.id === id ? { ...r, ...fresh } : r))
-              );
-            }
+          await syncPropiedadFromLiquidaciones(getSupabase(), id);
+          const { data: fresh } = await getSupabase()
+            .from("propiedades")
+            .select("jasp_10_percent, jasp_manual, retribucion, retencion, efectivo")
+            .eq("id", id)
+            .single();
+          if (fresh) {
+            setRows((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, ...fresh } : r))
+            );
           }
         }
       } catch (err: unknown) {
