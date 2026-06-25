@@ -1,5 +1,5 @@
 // netlify/functions/_shared.ts
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -113,6 +113,59 @@ export function derivePagoFromIngreso(
 ): boolean {
   if ((Number(liqTransferencia) || 0) > 0) return true;
   return (Number(ingresoBanco) || 0) > 0;
+}
+
+export interface EnsureLiquidacionOptions {
+  ejercicio?: number | null;
+  liquidado?: boolean;
+  aportacion?: number;
+  retribucion?: number;
+  transferencia?: number;
+}
+
+/** Crea la liquidación 1:1 de una inversión si aún no existe (id = propiedad_id). */
+export async function ensureLiquidacionForInversion(
+  supabase: SupabaseClient,
+  propiedadId: string,
+  options: EnsureLiquidacionOptions = {}
+): Promise<{ created: boolean; error?: string }> {
+  const { data: existing, error: getErr } = await supabase
+    .from('liquidaciones')
+    .select('id')
+    .eq('propiedad_id', propiedadId)
+    .maybeSingle();
+
+  if (getErr) return { created: false, error: getErr.message };
+  if (existing) return { created: false };
+
+  const { data: maxRow, error: maxErr } = await supabase
+    .from('liquidaciones')
+    .select('numero_liquidacion')
+    .order('numero_liquidacion', { ascending: false })
+    .limit(1);
+
+  if (maxErr) return { created: false, error: maxErr.message };
+
+  const numero_liquidacion = (maxRow?.[0]?.numero_liquidacion ?? 0) + 1;
+
+  const { error: insertErr } = await supabase.from('liquidaciones').insert({
+    id: propiedadId,
+    propiedad_id: propiedadId,
+    fecha_liquidacion: null,
+    numero_liquidacion,
+    numero_operacion: null,
+    beneficio_bruto: 0,
+    aportacion: options.aportacion ?? 0,
+    retribucion: options.retribucion ?? 0,
+    transferencia: options.transferencia ?? 0,
+    fecha_transferencia: null,
+    fecha_aportacion: null,
+    liquidado: options.liquidado ?? false,
+    ejercicio: options.ejercicio ?? null,
+  });
+
+  if (insertErr) return { created: false, error: insertErr.message };
+  return { created: true };
 }
 
 export function toDateOrNull(v: any): string | null {

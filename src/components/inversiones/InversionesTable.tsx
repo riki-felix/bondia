@@ -35,7 +35,7 @@ import {
   OCUPADO_OPTIONS,
   derivePagoFromIngreso,
 } from "@/lib/propertyTypes";
-import { Plus, Archive, Trash2, Pencil, CheckCircle } from "lucide-react";
+import { Plus, Archive, Trash2, Pencil, CheckCircle, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -82,6 +82,7 @@ export default function InversionesTable({
   const [editId, setEditId] = useState<string | null>(null);
   const [onlyActive, setOnlyActive] = useState(false);
   const [showLiquidadas, setShowLiquidadas] = useState(false);
+  const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [yearFilter, setYearFilter] = useState<string>(
     initialYear != null ? String(initialYear) : "all"
@@ -106,6 +107,11 @@ export default function InversionesTable({
     [rows]
   );
 
+  const sinLiquidadasCount = useMemo(
+    () => rows.filter((r) => !propertyIsLiquidada(r)).length,
+    [rows]
+  );
+
   const filteredRows = useMemo(() => {
     let result = rows;
 
@@ -114,9 +120,11 @@ export default function InversionesTable({
       result = result.filter((r) => !isDraft(r));
     }
 
-    // Liquidadas filter
+    // Liquidadas filter (mutuamente excluyentes)
     if (showLiquidadas) {
       result = result.filter((r) => propertyIsLiquidada(r));
+    } else if (showSinLiquidacion) {
+      result = result.filter((r) => !propertyIsLiquidada(r));
     }
 
     // Year filter (ejercicio manda desde liquidación)
@@ -145,7 +153,7 @@ export default function InversionesTable({
     }
 
     return result;
-  }, [rows, yearFilter, search, onlyActive, showLiquidadas]);
+  }, [rows, yearFilter, search, onlyActive, showLiquidadas, showSinLiquidacion]);
 
   // ── Totals (borradores never count) ──
   const totals = useMemo(() => {
@@ -347,10 +355,30 @@ export default function InversionesTable({
         <Button
           size="sm"
           variant={showLiquidadas ? "default" : "outline"}
-          onClick={() => setShowLiquidadas((v) => !v)}
+          onClick={() => {
+            setShowLiquidadas((v) => {
+              const next = !v;
+              if (next) setShowSinLiquidacion(false);
+              return next;
+            });
+          }}
         >
           <CheckCircle className="h-4 w-4 mr-1" />
           Con Liquidación{liquidadasCount > 0 ? ` (${liquidadasCount})` : ""}
+        </Button>
+        <Button
+          size="sm"
+          variant={showSinLiquidacion ? "default" : "outline"}
+          onClick={() => {
+            setShowSinLiquidacion((v) => {
+              const next = !v;
+              if (next) setShowLiquidadas(false);
+              return next;
+            });
+          }}
+        >
+          <Circle className="h-4 w-4 mr-1" />
+          Sin liquidación{sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
         </Button>
         <div className="ml-auto">
           <Button size="sm" onClick={() => { setEditId(null); setDialogOpen(true); }}>

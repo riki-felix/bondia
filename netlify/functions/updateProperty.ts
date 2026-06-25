@@ -1,6 +1,7 @@
 // netlify/functions/updateProperty.ts
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { ensureLiquidacionForInversion } from './_shared';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -439,12 +440,23 @@ export const handler: Handler = async (event) => {
 	  .from('propiedades')
 	  .update(updates)
 	  .eq('id', id)
-	  .select('id, slug, numero_operacion, ingreso_banco, fecha_ingreso, liquidacion, estado, foto_destacada_path, plano_path')
+	  .select('id, slug, tipo, numero_operacion, ingreso_banco, fecha_ingreso, liquidacion, estado, foto_destacada_path, plano_path')
 	  .single();
 
 	if (error) {
 	  console.error('[updateProperty] supabase error:', error, { id, updates });
 	  return json({ error: error.message, code: (error as any).code, details: (error as any).details }, 500);
+	}
+
+	if (data.tipo === 'inversion') {
+	  const { error: liqErr } = await ensureLiquidacionForInversion(supabase, id, {
+	    ejercicio: updates.ejercicio ?? null,
+	    liquidado: updates.liquidacion ?? undefined,
+	  });
+	  if (liqErr) {
+	    console.error('[updateProperty] ensure liquidacion:', liqErr);
+	    return json({ error: liqErr }, 500);
+	  }
 	}
 
 	if (needsRecalc) {

@@ -1,6 +1,7 @@
 // netlify/functions/createProperty.ts
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { ensureLiquidacionForInversion } from './_shared';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -334,34 +335,15 @@ export const handler: Handler = async (event) => {
 	}
 
 	if (tipo === 'inversion') {
-	  const { data: maxRow } = await supabase
-	    .from('liquidaciones')
-	    .select('numero_liquidacion')
-	    .order('numero_liquidacion', { ascending: false })
-	    .limit(1);
-
-	  const numero_liquidacion = (maxRow?.[0]?.numero_liquidacion ?? 0) + 1;
-
-	  const { error: liqError } = await supabase.from('liquidaciones').insert({
-	    id: data.id,
-	    propiedad_id: data.id,
-	    fecha_liquidacion: null,
-	    numero_liquidacion,
-	    numero_operacion: null,
-	    beneficio_bruto: null,
-	    aportacion: 0,
-	    retribucion: 0,
-	    transferencia: 0,
-	    fecha_transferencia: null,
-	    fecha_aportacion: null,
-	    liquidado: false,
+	  const { error: liqError } = await ensureLiquidacionForInversion(supabase, data.id, {
 	    ejercicio: ejercicio ?? null,
+	    liquidado: liquidacionParsed ?? false,
 	  });
 
 	  if (liqError) {
 	    console.error('[createProperty] liquidacion insert error:', liqError);
 	    await supabase.from('propiedades').delete().eq('id', data.id);
-	    return json({ error: liqError.message || 'liquidacion_insert_error' }, 500);
+	    return json({ error: liqError || 'liquidacion_insert_error' }, 500);
 	  }
 
 	  if (ejercicio != null || liquidacionParsed === true) {
