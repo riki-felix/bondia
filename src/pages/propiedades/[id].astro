@@ -18,7 +18,7 @@ const supabase = supabaseClient();
 const { data: property, error } = await supabase
   .from("propiedades")
   .select(
-    "id, titulo, origen, direccion, estado, ejercicio, created_at, liquidacion, ocupado, foto_destacada_path, precio_compra, precio_venta, superficie_m2, anio_construccion, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, numero_operacion, pago, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, notas, slug"
+    "id, titulo, origen, direccion, estado, ejercicio, created_at, liquidacion, ocupado, foto_destacada_path, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, numero_operacion, pago, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, notas, slug"
   )
   .eq("id", id)
   .single();

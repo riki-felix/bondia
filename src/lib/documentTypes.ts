@@ -19,15 +19,6 @@ export interface Documento {
 
 export const DOCUMENT_BUCKET = "bondia-documentos";
 
-export const ALLOWED_DOCUMENT_MIMES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/pjpeg",
-]);
-
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
-
 /** Carpeta única en storage para documentos de escritura de inmuebles */
 export const ESCRITURA_FOLDER_SLUG = "escritura";
 

@@ -37,6 +37,8 @@ const EMPTY_FORM = {
   precio_venta: "",
   precio_compra: "",
   superficie_m2: "",
+  superficie_registrada_m2: "",
+  superficie_real_m2: "",
   anio_construccion: "",
   estado: "borrador",
   ocupado: "false",
@@ -119,6 +121,10 @@ export function PropertyCreateDialog({
         if (form.precio_venta) payload.precio_venta = form.precio_venta;
         if (form.precio_compra) payload.precio_compra = form.precio_compra;
         if (form.superficie_m2) payload.superficie_m2 = form.superficie_m2;
+        if (form.superficie_registrada_m2) {
+          payload.superficie_registrada_m2 = form.superficie_registrada_m2;
+        }
+        if (form.superficie_real_m2) payload.superficie_real_m2 = form.superficie_real_m2;
         if (form.anio_construccion) payload.anio_construccion = form.anio_construccion;
         if (form.numero_catastro.trim())
           payload.numero_catastro = form.numero_catastro.trim();
@@ -271,14 +277,34 @@ export function PropertyCreateDialog({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
               Características
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="superficie_m2">Superficie (m²)</Label>
+                <Label htmlFor="superficie_m2">Superficie Catastral</Label>
                 <Input
                   id="superficie_m2"
                   type="number"
                   value={form.superficie_m2}
                   onChange={set("superficie_m2")}
+                  placeholder="m²"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+                <Input
+                  id="superficie_registrada_m2"
+                  type="number"
+                  value={form.superficie_registrada_m2}
+                  onChange={set("superficie_registrada_m2")}
+                  placeholder="m²"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
+                <Input
+                  id="superficie_real_m2"
+                  type="number"
+                  value={form.superficie_real_m2}
+                  onChange={set("superficie_real_m2")}
                   placeholder="m²"
                 />
               </div>

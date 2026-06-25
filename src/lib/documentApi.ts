@@ -1,8 +1,6 @@
 // src/lib/documentApi.ts
 import {
   DOCUMENT_API,
-  ALLOWED_DOCUMENT_MIMES,
-  MAX_DOCUMENT_BYTES,
   type Documento,
   type DocumentBloque,
   type DocumentEntityType,
@@ -63,16 +61,8 @@ export async function uploadDocument(
   file: File,
   options?: UploadDocumentOptions
 ): Promise<Documento> {
-  if (!ALLOWED_DOCUMENT_MIMES.has(file.type) && !file.name.match(/\.(pdf|jpe?g)$/i)) {
-    throw new Error("Solo se permiten PDF o JPG");
-  }
-  if (file.size > MAX_DOCUMENT_BYTES) {
-    throw new Error("Archivo demasiado grande (máx 10 MB)");
-  }
   const base64 = await fileToBase64(file);
-  const mimeType =
-    file.type ||
-    (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+  const mimeType = file.type || "application/octet-stream";
   return postJson<Documento>(DOCUMENT_API.upload, {
     bloque,
     entityType,

@@ -15,6 +15,8 @@ export const INMUEBLE_PLANTILLA_SLUGS = [
   "direccion",
   "precio_venta",
   "superficie_m2",
+  "superficie_registrada_m2",
+  "superficie_real_m2",
   "anio_construccion",
   "numero_catastro",
   "estado",
@@ -43,7 +45,17 @@ export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMet
   origen: { slug: "origen", label: "Origen", type: "text", colSpan: 1 },
   direccion: { slug: "direccion", label: "Dirección", type: "text", colSpan: 1 },
   precio_venta: { slug: "precio_venta", label: "Precio venta (€)", type: "number", step: "0.01" },
-  superficie_m2: { slug: "superficie_m2", label: "Superficie (m²)", type: "number" },
+  superficie_m2: { slug: "superficie_m2", label: "Superficie Catastral", type: "number" },
+  superficie_registrada_m2: {
+    slug: "superficie_registrada_m2",
+    label: "Superficie registrada en m²",
+    type: "number",
+  },
+  superficie_real_m2: {
+    slug: "superficie_real_m2",
+    label: "Superficie real en m²",
+    type: "number",
+  },
   anio_construccion: {
     slug: "anio_construccion",
     label: "Año construcción",
@@ -95,7 +107,16 @@ export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMet
 /** Secciones del formulario inmueble (orden y agrupación) */
 export const INMUEBLE_FIELD_GROUPS: { title: string; slugs: InmueblePlantillaSlug[] }[] = [
   { title: "Identificación", slugs: ["origen", "direccion"] },
-  { title: "Características", slugs: ["superficie_m2", "anio_construccion", "numero_catastro"] },
+  {
+    title: "Características",
+    slugs: [
+      "superficie_m2",
+      "superficie_registrada_m2",
+      "superficie_real_m2",
+      "anio_construccion",
+      "numero_catastro",
+    ],
+  },
   { title: "Estado", slugs: ["estado", "ocupado"] },
   { title: "Participación", slugs: ["participacion_carlos", "participacion_laura", "participacion_izan"] },
 ];

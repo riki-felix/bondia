@@ -248,7 +248,6 @@ export function EntityDocumentsPanel({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg"
                 className="sr-only"
                 disabled={uploading || !newTitle.trim()}
                 onChange={handleUpload}
@@ -265,7 +264,7 @@ export function EntityDocumentsPanel({
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                Subir PDF o JPG
+                Subir documento
               </Button>
               {canUploadPending && (
                 <span className="text-xs text-muted-foreground">

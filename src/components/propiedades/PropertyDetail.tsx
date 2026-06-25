@@ -47,6 +47,8 @@ interface PropertyData {
   precio_compra: number | null;
   precio_venta: number | null;
   superficie_m2: number | null;
+  superficie_registrada_m2: number | null;
+  superficie_real_m2: number | null;
   anio_construccion: number | null;
   numero_catastro: string | null;
   fecha_ingreso: string | null;
@@ -146,6 +148,12 @@ export default function PropertyDetail({
     precio_compra: property?.precio_compra != null ? String(property.precio_compra) : "",
     precio_venta: property?.precio_venta != null ? String(property.precio_venta) : "",
     superficie_m2: property?.superficie_m2 != null ? String(property.superficie_m2) : "",
+    superficie_registrada_m2:
+      property?.superficie_registrada_m2 != null
+        ? String(property.superficie_registrada_m2)
+        : "",
+    superficie_real_m2:
+      property?.superficie_real_m2 != null ? String(property.superficie_real_m2) : "",
     anio_construccion: property?.anio_construccion != null ? String(property.anio_construccion) : "",
     numero_catastro: property?.numero_catastro ?? "",
     fecha_ingreso: property?.fecha_ingreso ? String(property.fecha_ingreso).substring(0, 10) : "",
@@ -220,6 +228,8 @@ export default function PropertyDetail({
         precio_compra: form.precio_compra || null,
         precio_venta: form.precio_venta || null,
         superficie_m2: form.superficie_m2 || null,
+        superficie_registrada_m2: form.superficie_registrada_m2 || null,
+        superficie_real_m2: form.superficie_real_m2 || null,
         anio_construccion: form.anio_construccion || null,
         numero_catastro: form.numero_catastro.trim() || null,
         fecha_ingreso: form.fecha_ingreso || null,
@@ -405,10 +415,28 @@ export default function PropertyDetail({
           <CardTitle className="text-base">Características</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="superficie_m2">Superficie (m²)</Label>
+              <Label htmlFor="superficie_m2">Superficie Catastral</Label>
               <Input id="superficie_m2" type="number" value={form.superficie_m2} onChange={set("superficie_m2")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+              <Input
+                id="superficie_registrada_m2"
+                type="number"
+                value={form.superficie_registrada_m2}
+                onChange={set("superficie_registrada_m2")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
+              <Input
+                id="superficie_real_m2"
+                type="number"
+                value={form.superficie_real_m2}
+                onChange={set("superficie_real_m2")}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="anio_construccion">Año construcción</Label>

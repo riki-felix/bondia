@@ -50,6 +50,8 @@ const EMPTY_FORM = {
   precio_venta: "",
   precio_compra: "",
   superficie_m2: "",
+  superficie_registrada_m2: "",
+  superficie_real_m2: "",
   anio_construccion: "",
   estado: "sin_estado",
   ocupado: "false",
@@ -90,7 +92,7 @@ export function PropertyDialog({
       const { data, error } = await supabase
         .from("propiedades")
         .select(
-          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
+          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
         )
         .eq("id", editId)
         .single();
@@ -110,6 +112,10 @@ export function PropertyDialog({
         precio_compra: data.precio_compra != null ? String(data.precio_compra) : "",
         precio_venta: data.precio_venta != null ? String(data.precio_venta) : "",
         superficie_m2: data.superficie_m2 != null ? String(data.superficie_m2) : "",
+        superficie_registrada_m2:
+          data.superficie_registrada_m2 != null ? String(data.superficie_registrada_m2) : "",
+        superficie_real_m2:
+          data.superficie_real_m2 != null ? String(data.superficie_real_m2) : "",
         anio_construccion: data.anio_construccion != null ? String(data.anio_construccion) : "",
         estado: data.estado || "sin_estado",
         ocupado: data.ocupado ? "true" : "false",
@@ -218,6 +224,8 @@ export function PropertyDialog({
           precio_venta: form.precio_venta || null,
           precio_compra: form.precio_compra || null,
           superficie_m2: form.superficie_m2 || null,
+          superficie_registrada_m2: form.superficie_registrada_m2 || null,
+          superficie_real_m2: form.superficie_real_m2 || null,
           anio_construccion: form.anio_construccion || null,
           numero_catastro: form.numero_catastro.trim() || null,
           fecha_ingreso: form.fecha_ingreso || null,
@@ -393,14 +401,34 @@ export function PropertyDialog({
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                 Características
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="superficie_m2">Superficie (m²)</Label>
+                  <Label htmlFor="superficie_m2">Superficie Catastral</Label>
                   <Input
                     id="superficie_m2"
                     type="number"
                     value={form.superficie_m2}
                     onChange={set("superficie_m2")}
+                    placeholder="m²"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+                  <Input
+                    id="superficie_registrada_m2"
+                    type="number"
+                    value={form.superficie_registrada_m2}
+                    onChange={set("superficie_registrada_m2")}
+                    placeholder="m²"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
+                  <Input
+                    id="superficie_real_m2"
+                    type="number"
+                    value={form.superficie_real_m2}
+                    onChange={set("superficie_real_m2")}
                     placeholder="m²"
                   />
                 </div>

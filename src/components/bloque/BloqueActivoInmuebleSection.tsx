@@ -122,7 +122,7 @@ function InmuebleFieldInput({
 
 function groupGridClass(title: string): string {
   if (title === "Identificación") return "grid grid-cols-1 sm:grid-cols-2 gap-4";
-  if (title === "Características") return "grid grid-cols-1 sm:grid-cols-3 gap-4";
+  if (title === "Características") return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
   if (title === "Participación") return "grid grid-cols-1 sm:grid-cols-3 gap-4";
   return "grid grid-cols-1 sm:grid-cols-2 gap-4";
 }

@@ -92,15 +92,7 @@ function getDocumentEntityConfig(
 }
 
 const BUCKET = 'bondia-documentos';
-const MAX_BYTES = 10 * 1024 * 1024;
 const SIGNED_URL_TTL = 60 * 60; // 1 hora
-
-const ALLOWED_MIMES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/jpg',
-  'image/pjpeg',
-]);
 
 const ENTITY_TYPES = new Set<DocumentEntityType>(['propiedad', 'activo', 'gasto', 'ingreso']);
 const BLOQUES = new Set<DocumentBloque>(['engine', 'casa', 'sanyus']);
@@ -112,7 +104,11 @@ function sanitizeFileName(name: string): string {
 
 function extFromMime(mime: string): string {
   if (mime === 'application/pdf') return 'pdf';
-  return 'jpg';
+  if (mime.startsWith('image/')) {
+    const sub = mime.split('/')[1]?.replace('jpeg', 'jpg').replace('pjpeg', 'jpg');
+    return sub || 'img';
+  }
+  return 'bin';
 }
 
 export function buildStoragePath(
@@ -238,17 +234,11 @@ export async function handleUploadDocument(body: any) {
   if (!entityId) return json({ error: 'entityId requerido' }, 400);
 
   const base64 = body.base64;
-  const mimeType = (body.mimeType || '').toLowerCase();
+  const mimeType = (body.mimeType || 'application/octet-stream').toLowerCase();
   const displayName = emptyOrNull(body.displayName) || 'documento';
   if (!base64) return json({ error: 'base64 requerido' }, 400);
-  if (!ALLOWED_MIMES.has(mimeType)) {
-    return json({ error: 'Tipo de archivo no permitido (PDF o JPG)' }, 400);
-  }
 
   const buffer = Buffer.from(base64, 'base64');
-  if (buffer.length > MAX_BYTES) {
-    return json({ error: `Archivo demasiado grande (máx ${MAX_BYTES / 1024 / 1024} MB)` }, 400);
-  }
   if (buffer.length === 0) return json({ error: 'Archivo vacío' }, 400);
 
   const supabase = serviceSupabase();
