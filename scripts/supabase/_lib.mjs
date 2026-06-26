@@ -114,6 +114,18 @@ export function listLocalMigrations() {
     }));
 }
 
+const ARCHIVE_DIR = path.join(MIGRATIONS_DIR, "_archive");
+
+/** Migraciones históricas (no participan en db:status ni db:apply). */
+export function listArchivedMigrations() {
+  const dir = path.join(ARCHIVE_DIR, "applied-manually");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+}
+
 export function migrationNameFromFile(filename) {
   return filename.replace(/\.sql$/, "");
 }

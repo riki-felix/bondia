@@ -7,6 +7,7 @@ import {
   requireAuth,
   supabaseApi,
   listLocalMigrations,
+  listArchivedMigrations,
   migrationNameFromFile,
 } from "./_lib.mjs";
 
@@ -23,6 +24,7 @@ const appliedNames = new Set(
 );
 
 const local = listLocalMigrations();
+const archived = listArchivedMigrations();
 const pending = [];
 
 for (const m of local) {
@@ -34,7 +36,11 @@ for (const m of local) {
 }
 
 console.log(`Proyecto: ${ref}\n`);
-console.log(`Local: ${local.length}  |  Remoto: ${applied.length} aplicadas\n`);
+console.log(
+  `Local: ${local.length}  |  Remoto: ${applied.length} aplicadas` +
+    (archived.length > 0 ? `  |  Archivo: ${archived.length}` : "") +
+    "\n"
+);
 
 if (pending.length === 0) {
   console.log("✓ No hay migraciones locales pendientes de aplicar.");
@@ -57,6 +63,12 @@ const orphanRemote = applied
 if (orphanRemote.length > 0) {
   console.log(`\nℹ Solo en remoto (${orphanRemote.length}) — histórico o aplicadas fuera del repo:`);
   for (const n of orphanRemote) console.log(`  • ${n}`);
+}
+
+if (archived.length > 0) {
+  console.log(
+    `\n📁 Archivadas (${archived.length}) en supabase/migrations/_archive/applied-manually/ — ya en BD, no aplicar`
+  );
 }
 
 process.exit(pending.length > 0 ? 2 : 0);

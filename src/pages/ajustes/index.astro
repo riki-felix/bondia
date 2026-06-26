@@ -4,6 +4,7 @@ export const prerender = false;
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
 import MetodosPagoManager from "../../components/ajustes/MetodosPagoManager";
+import ObjetivosSection from "../../components/ajustes/ObjetivosSection";
 import { supabaseClient } from "../../lib/supabaseClient";
 
 const supabase = supabaseClient();
@@ -12,6 +13,11 @@ const { data: metodosPago } = await supabase
   .from("metodos_pago")
   .select("*")
   .order("created_at", { ascending: true });
+
+const { data: objetivos } = await supabase
+  .from("bondia_objetivos")
+  .select("id, etiqueta, valor")
+  .order("id", { ascending: true });
 ---
 
 <Layout>
@@ -26,6 +32,11 @@ const { data: metodosPago } = await supabase
     <MetodosPagoManager
       client:load
       initialData={metodosPago ?? []}
+    />
+
+    <ObjetivosSection
+      client:load
+      initialData={objetivos ?? []}
     />
   </div>
   <Toaster client:load />

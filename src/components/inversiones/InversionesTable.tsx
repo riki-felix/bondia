@@ -33,7 +33,7 @@ import {
   OCUPADO_OPTIONS,
   derivePagoFromIngreso,
 } from "@/lib/propertyTypes";
-import { Plus, Archive, Trash2, Pencil, CheckCircle, Circle } from "lucide-react";
+import { Plus, Trash2, Pencil, CheckCircle, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -46,6 +46,8 @@ import {
   inversionDisplayMoney,
   sumInversionDisplayMoney,
 } from "@/lib/inversionesDisplayMoney";
+import { computeInversionesSummaryStats } from "@/lib/inversionesSummaryStats";
+import { InversionesSummary } from "./InversionesSummary";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
 import {
   getEngineColumnTooltip,
@@ -61,6 +63,7 @@ interface InversionesTableProps {
   initialData: Property[];
   years: number[];
   initialYear: number | null;
+  objetivoBeneficioMedio: number | null;
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -69,12 +72,12 @@ export default function InversionesTable({
   initialData,
   years,
   initialYear,
+  objetivoBeneficioMedio,
 }: InversionesTableProps) {
   const [rows, setRows] = useState<Property[]>(initialData);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [onlyActive, setOnlyActive] = useState(false);
   const [showLiquidadas, setShowLiquidadas] = useState(false);
   const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -109,11 +112,6 @@ export default function InversionesTable({
   const filteredRows = useMemo(() => {
     let result = rows;
 
-    // Solo activos: hide borradores when filter is on
-    if (onlyActive) {
-      result = result.filter((r) => !isDraft(r));
-    }
-
     // Liquidadas filter (mutuamente excluyentes)
     if (showLiquidadas) {
       result = result.filter((r) => propertyIsLiquidada(r));
@@ -147,7 +145,35 @@ export default function InversionesTable({
     }
 
     return result;
-  }, [rows, yearFilter, search, onlyActive, showLiquidadas, showSinLiquidacion]);
+  }, [rows, yearFilter, search, showLiquidadas, showSinLiquidacion]);
+
+  const viewFilteredRows = useMemo(() => {
+    let result = rows;
+
+    if (showLiquidadas) {
+      result = result.filter((r) => propertyIsLiquidada(r));
+    } else if (showSinLiquidacion) {
+      result = result.filter((r) => !propertyIsLiquidada(r));
+    }
+
+    if (yearFilter !== "all") {
+      const y = Number(yearFilter);
+      result = result.filter((r) => {
+        const ej = propertyEjercicio(r);
+        if (ej != null) return ej === y;
+        const dateStr = r.fecha_ingreso || r.created_at;
+        if (!dateStr) return false;
+        return new Date(dateStr).getFullYear() === y;
+      });
+    }
+
+    return result;
+  }, [rows, yearFilter, showLiquidadas, showSinLiquidacion]);
+
+  const summaryStats = useMemo(
+    () => computeInversionesSummaryStats(viewFilteredRows),
+    [viewFilteredRows]
+  );
 
   // ── Totals (borradores no cuentan; mismos importes que las filas visibles) ──
   const totals = useMemo(() => {
@@ -300,73 +326,90 @@ export default function InversionesTable({
   }, [deleteTarget]);
 
   return (
-    <div className="space-y-4">
-      {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          placeholder="Buscar por título, estado, notas…"
-          className="max-w-xs h-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Select value={yearFilter} onValueChange={setYearFilter}>
-          <SelectTrigger className="w-[120px] h-9">
-            <SelectValue placeholder="Año" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {years.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          variant={onlyActive ? "default" : "outline"}
-          onClick={() => setOnlyActive((v) => !v)}
-        >
-          <Archive className="h-4 w-4 mr-1" />
-          Solo activos
-        </Button>
-        <Button
-          size="sm"
-          variant={showLiquidadas ? "default" : "outline"}
-          onClick={() => {
-            setShowLiquidadas((v) => {
-              const next = !v;
-              if (next) setShowSinLiquidacion(false);
-              return next;
-            });
-          }}
-        >
-          <CheckCircle className="h-4 w-4 mr-1" />
-          Con Liquidación{liquidadasCount > 0 ? ` (${liquidadasCount})` : ""}
-        </Button>
-        <Button
-          size="sm"
-          variant={showSinLiquidacion ? "default" : "outline"}
-          onClick={() => {
-            setShowSinLiquidacion((v) => {
-              const next = !v;
-              if (next) setShowLiquidadas(false);
-              return next;
-            });
-          }}
-        >
-          <Circle className="h-4 w-4 mr-1" />
-          Sin liquidación{sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
-        </Button>
-        <div className="ml-auto">
-          <Button size="sm" onClick={() => { setEditId(null); setDialogOpen(true); }}>
+    <div className="space-y-6">
+      {/* Fila 1: título + acciones */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Inversiones</h1>
+        <div className="flex flex-nowrap items-center gap-3 shrink-0">
+          <Input
+            placeholder="Buscar por título, estado, notas…"
+            className="w-56 sm:w-64 h-9 shrink-0"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button
+            size="sm"
+            className="shrink-0 whitespace-nowrap"
+            onClick={() => {
+              setEditId(null);
+              setDialogOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4 mr-1" />
             Nueva propiedad
           </Button>
         </div>
       </div>
 
-      {/* ── Table ── */}
+      {/* Fila 2: widgets (vista activa, sin búsqueda) */}
+      <InversionesSummary
+        stats={summaryStats}
+        objetivoBeneficioMedio={objetivoBeneficioMedio}
+      />
+
+      {/* Fila 3: vistas */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Vistas
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={yearFilter} onValueChange={setYearFilter}>
+            <SelectTrigger className="w-[120px] h-9">
+              <SelectValue placeholder="Año" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant={showLiquidadas ? "default" : "outline"}
+            onClick={() => {
+              setShowLiquidadas((v) => {
+                const next = !v;
+                if (next) setShowSinLiquidacion(false);
+                return next;
+              });
+            }}
+          >
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Con Liquidación
+            {liquidadasCount > 0 ? ` (${liquidadasCount})` : ""}
+          </Button>
+          <Button
+            size="sm"
+            variant={showSinLiquidacion ? "default" : "outline"}
+            onClick={() => {
+              setShowSinLiquidacion((v) => {
+                const next = !v;
+                if (next) setShowLiquidadas(false);
+                return next;
+              });
+            }}
+          >
+            <Circle className="h-4 w-4 mr-1" />
+            Sin liquidación
+            {sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabla */}
       <div className="rounded-lg border overflow-auto max-h-[80vh] [&_[data-slot=table-wrapper]]:overflow-visible">
         <Table>
           <TableHeader className="sticky top-0 z-20">

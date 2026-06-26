@@ -1,16 +1,18 @@
 // src/lib/money.ts
 // Formato español: miles con punto, decimales con coma, siempre 2 céntimos al mostrar.
 
-const ES_MONEY = new Intl.NumberFormat("es-ES", {
+const ES_MONEY_OPTS = {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
+  useGrouping: "always" as const,
+};
+
+const ES_MONEY = new Intl.NumberFormat("es-ES", ES_MONEY_OPTS);
 
 const ES_MONEY_CURRENCY = new Intl.NumberFormat("es-ES", {
+  ...ES_MONEY_OPTS,
   style: "currency",
   currency: "EUR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
 });
 
 /** Redondeo a céntimos (alineado con ROUND(..., 2) en PostgreSQL NUMERIC) */

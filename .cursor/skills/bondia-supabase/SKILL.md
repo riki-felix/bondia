@@ -73,19 +73,24 @@ supabase link --project-ref $(cat supabase/.project-ref)
 
 ## Enfoque de esquema
 
-PostgreSQL en Supabase. **Sin ORM**: tipos manuales en `src/lib/*.ts`, migraciones en `supabase/migrations/`.
+PostgreSQL en Supabase. **Sin ORM**: tipos manuales en `src/lib/*.ts`, migraciones activas en `supabase/migrations/` (solo `.sql` en la raíz).
 
-Archivos `step*.sql`: evolución histórica liquidaciones/propiedades (proyectos nuevos: aplicar en orden lógico).
+### Archivo histórico
+
+Migraciones ya aplicadas manualmente en prod viven en `supabase/migrations/_archive/applied-manually/`.
+**No** usar con `db:apply`. `npm run db:status` las ignora y muestra el recuento archivado.
+
+Ver `_archive/README.md`. Para bootstrap de BD nueva: backup (`npm run db:backup`) o revisar archivo + historial remoto.
 
 ## Dominios y migraciones de referencia
 
-| Dominio | Migración ejemplo |
-|---------|-------------------|
-| Casa | `20260331000000_create_casa.sql` |
-| Sanyus | `20260402000000_create_sanyus.sql` |
-| Liquidaciones | `20260311000000_create_liquidaciones.sql` |
+| Dominio | Migración ejemplo (archivo histórico) |
+|---------|--------------------------------------|
+| Casa | `_archive/.../20260331000000_create_casa.sql` |
+| Sanyus | `_archive/.../20260402000000_create_sanyus.sql` |
+| Liquidaciones | `_archive/.../20260311000000_create_liquidaciones.sql` |
 | RLS anon | `20260603120000_restore_bondia_anon_rls.sql` |
-| Liquidación 1:1 | `20260608120000_liquidaciones_propiedad_1to1.sql` |
+| Objetivos | `20260616120000_bondia_objetivos.sql` |
 
 Ver `reference.md` para diagrama de relaciones.
 
