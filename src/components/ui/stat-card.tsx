@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { YearOverYearIndicator } from "@/components/informes/YearOverYearIndicator";
 
 interface StatCardProps {
   label: string;
@@ -6,6 +7,7 @@ interface StatCardProps {
   description?: string;
   variant?: "default" | "highlight" | "muted";
   className?: string;
+  yearComparisonPct?: number | null;
 }
 
 export function StatCard({
@@ -14,6 +16,7 @@ export function StatCard({
   description,
   variant = "default",
   className,
+  yearComparisonPct,
 }: StatCardProps) {
   return (
     <div
@@ -28,7 +31,14 @@ export function StatCard({
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
         {label}
       </p>
-      <p data-money className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <p data-money className="text-2xl font-semibold tabular-nums">
+          {value}
+        </p>
+        {yearComparisonPct != null && (
+          <YearOverYearIndicator pct={yearComparisonPct} />
+        )}
+      </div>
       {description && (
         <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       )}

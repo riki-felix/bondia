@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""@deprecated Usa generar_precios_desde_excel.py (compra + venta)."""
-import pandas as pd
+"""
+Extrae precio_compra y precio_venta desde HC CB & SANYUS CB.xls.
+
+Patrones por hoja de propiedad:
+- precio_compra: importe a la izquierda de «PISO» en «APORTACIÓN SANYUS» × 2 (es el 50% del precio real).
+- precio_venta: importe en la celda inmediatamente debajo de «VENTA» (misma columna).
+"""
 import re
 import unicodedata
 from pathlib import Path
 from typing import Optional
 
-# ============= CONFIG =============
+import pandas as pd
 
 EXCEL_PATH = "HC CB & SANYUS CB.xls"
+COMPRA_SANYUS_FACTOR = 2
 
 PROPIEDADES = [
 	{"id": "4b98ab74-3ed3-4a9a-853d-c7a4917bffd3", "titulo": "Abedul 6"},
@@ -77,11 +83,17 @@ def strip_accents(s: str) -> str:
 	)
 
 
+def normalize_label(s: str) -> str:
+	if not s:
+		return ""
+	s = str(s).upper().replace("L'H", "LH")
+	return strip_accents(s).strip()
+
+
 def normalize_title(s: str) -> str:
 	if not s:
 		return ""
-	s = str(s)
-	s = s.upper().replace("L'H", "LH")
+	s = str(s).upper().replace("L'H", "LH")
 	m = re.match(r"^([A-ZÀ-Ü\.\s]+?\d+)", s)
 	base = m.group(1) if m else s
 	base = base.strip()
@@ -92,9 +104,20 @@ def normalize_title(s: str) -> str:
 PROP_MAP = {normalize_title(p["titulo"]): p for p in PROPIEDADES}
 
 
+def cell_str(df: pd.DataFrame, row: int, col: int) -> str:
+	if row >= df.shape[0] or col >= df.shape[1]:
+		return ""
+	value = df.iat[row, col]
+	if value is None or (isinstance(value, float) and pd.isna(value)):
+		return ""
+	return str(value).strip()
+
+
 def parse_euro(value) -> Optional[float]:
-	if value is None:
+	if value is None or (isinstance(value, float) and pd.isna(value)):
 		return None
+	if isinstance(value, (int, float)):
+		return float(value)
 	v = str(value).strip()
 	if not v:
 		return None
@@ -107,23 +130,41 @@ def parse_euro(value) -> Optional[float]:
 		return None
 
 
-def find_sale_in_sheet(df: pd.DataFrame) -> Optional[float]:
-	col_idx = 6  # G
-	if df.shape[1] <= col_idx:
+def find_compra_in_sheet(df: pd.DataFrame) -> Optional[float]:
+	"""Importe a la izquierda de PISO en el bloque APORTACIÓN SANYUS."""
+	header_pos: Optional[tuple[int, int]] = None
+	for row in range(df.shape[0]):
+		for col in range(df.shape[1]):
+			if normalize_label(cell_str(df, row, col)) == "APORTACION SANYUS":
+				header_pos = (row, col)
+				break
+		if header_pos:
+			break
+	if not header_pos:
 		return None
 
-	for row_idx in range(df.shape[0]):
-		cell = df.iat[row_idx, col_idx]
-		cell_str = "" if pd.isna(cell) else str(cell).strip().upper()
+	header_row, header_col = header_pos
+	for row in range(header_row, min(header_row + 25, df.shape[0])):
+		for col in range(max(0, header_col - 1), min(df.shape[1], header_col + 4)):
+			if normalize_label(cell_str(df, row, col)) != "PISO":
+				continue
+			amount = parse_euro(df.iat[row, col - 1] if col > 0 else None)
+			if amount is not None:
+				return amount
+	return None
 
-		if cell_str == "VENTA":
-			for r in range(row_idx + 1, df.shape[0]):
-				below = df.iat[r, col_idx]
-				if pd.isna(below):
-					continue
-				amount = parse_euro(below)
-				if amount is not None:
-					return amount
+
+def find_venta_in_sheet(df: pd.DataFrame) -> Optional[float]:
+	"""Importe en la celda debajo de VENTA (misma columna)."""
+	for row in range(df.shape[0]):
+		for col in range(df.shape[1]):
+			if normalize_label(cell_str(df, row, col)) != "VENTA":
+				continue
+			if row + 1 >= df.shape[0]:
+				continue
+			amount = parse_euro(df.iat[row + 1, col])
+			if amount is not None and amount > 0:
+				return amount
 	return None
 
 
@@ -134,13 +175,10 @@ def main():
 		return
 
 	xls = pd.ExcelFile(excel_path)
-	sheet_names = xls.sheet_names
-
 	resultados = []
 
-	for sheet in sheet_names[:-2]:
+	for sheet in xls.sheet_names[:-2]:
 		df = pd.read_excel(xls, sheet_name=sheet, header=None)
-
 		if df.empty:
 			continue
 
@@ -153,34 +191,55 @@ def main():
 			print(f"-- AVISO: Hoja '{sheet}' propiedad '{prop_name_raw}' no mapea")
 			continue
 
-		venta = find_sale_in_sheet(df)
+		compra_raw = find_compra_in_sheet(df)
+		venta = find_venta_in_sheet(df)
+		compra = None if compra_raw is None else round(compra_raw * COMPRA_SANYUS_FACTOR, 2)
+
+		if compra is None:
+			print(f"-- AVISO: Hoja '{sheet}' ({prop_info['titulo']}) sin precio compra")
 		if venta is None:
-			print(f"-- AVISO: Hoja '{sheet}' ({prop_info['titulo']}) sin VENTA")
+			print(f"-- AVISO: Hoja '{sheet}' ({prop_info['titulo']}) sin precio venta")
+		if compra is None and venta is None:
 			continue
 
 		resultados.append({
 			"prop_id": prop_info["id"],
 			"prop_titulo": prop_info["titulo"],
+			"compra": compra,
 			"venta": venta,
 			"sheet": sheet,
 			"prop_name_raw": prop_name_raw,
 		})
 
-	print("-- Generado automáticamente desde HC CB & SANYUS CB.xlsx\n")
+	print("-- Generado automáticamente desde HC CB & SANYUS CB.xls\n")
 
 	for r in resultados:
 		prop_id = r["prop_id"]
 		titulo = r["prop_titulo"]
+		compra = r["compra"]
 		venta = r["venta"]
 		sheet = r["sheet"]
 		raw = r["prop_name_raw"]
 
-		print(f"-- Hoja: {sheet} | Excel: {raw} | Propiedad: {titulo} | Venta: {venta:.2f} €")
-		print(f"update public.propiedades")
-		print(f"set precio_venta = {venta:.2f}")
+		compra_txt = f"{compra:.2f}" if compra is not None else "NULL"
+		venta_txt = f"{venta:.2f}" if venta is not None else "NULL"
+		print(
+			f"-- Hoja: {sheet} | Excel: {raw} | Propiedad: {titulo} | "
+			f"Compra: {compra_txt} € | Venta: {venta_txt} €"
+		)
+		print("update public.propiedades")
+		sets = []
+		if compra is not None:
+			sets.append(f"precio_compra = {compra:.2f}")
+		if venta is not None:
+			sets.append(f"precio_venta = {venta:.2f}")
+		print("set " + ", ".join(sets))
 		print(f"where id = '{prop_id}';\n")
 
-	print(f"-- Total propiedades con precio de venta detectado: {len(resultados)}")
+	con_compra = sum(1 for r in resultados if r["compra"] is not None)
+	con_venta = sum(1 for r in resultados if r["venta"] is not None)
+	print(f"-- Total con precio compra: {con_compra}")
+	print(f"-- Total con precio venta: {con_venta}")
 
 
 if __name__ == "__main__":

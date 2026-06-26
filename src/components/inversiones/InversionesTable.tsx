@@ -33,7 +33,7 @@ import {
   OCUPADO_OPTIONS,
   derivePagoFromIngreso,
 } from "@/lib/propertyTypes";
-import { Plus, Trash2, Pencil, CheckCircle, Circle } from "lucide-react";
+import { Plus, Trash2, Pencil, CheckCircle, Circle, Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -46,8 +46,6 @@ import {
   inversionDisplayMoney,
   sumInversionDisplayMoney,
 } from "@/lib/inversionesDisplayMoney";
-import { computeInversionesSummaryStats } from "@/lib/inversionesSummaryStats";
-import { InversionesSummary } from "./InversionesSummary";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
 import {
   getEngineColumnTooltip,
@@ -63,7 +61,6 @@ interface InversionesTableProps {
   initialData: Property[];
   years: number[];
   initialYear: number | null;
-  objetivoBeneficioMedio: number | null;
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -72,7 +69,6 @@ export default function InversionesTable({
   initialData,
   years,
   initialYear,
-  objetivoBeneficioMedio,
 }: InversionesTableProps) {
   const [rows, setRows] = useState<Property[]>(initialData);
   const [search, setSearch] = useState("");
@@ -146,34 +142,6 @@ export default function InversionesTable({
 
     return result;
   }, [rows, yearFilter, search, showLiquidadas, showSinLiquidacion]);
-
-  const viewFilteredRows = useMemo(() => {
-    let result = rows;
-
-    if (showLiquidadas) {
-      result = result.filter((r) => propertyIsLiquidada(r));
-    } else if (showSinLiquidacion) {
-      result = result.filter((r) => !propertyIsLiquidada(r));
-    }
-
-    if (yearFilter !== "all") {
-      const y = Number(yearFilter);
-      result = result.filter((r) => {
-        const ej = propertyEjercicio(r);
-        if (ej != null) return ej === y;
-        const dateStr = r.fecha_ingreso || r.created_at;
-        if (!dateStr) return false;
-        return new Date(dateStr).getFullYear() === y;
-      });
-    }
-
-    return result;
-  }, [rows, yearFilter, showLiquidadas, showSinLiquidacion]);
-
-  const summaryStats = useMemo(
-    () => computeInversionesSummaryStats(viewFilteredRows),
-    [viewFilteredRows]
-  );
 
   // ── Totals (borradores no cuentan; mismos importes que las filas visibles) ──
   const totals = useMemo(() => {
@@ -329,7 +297,10 @@ export default function InversionesTable({
     <div className="space-y-6">
       {/* Fila 1: título + acciones */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Inversiones</h1>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight">Inversiones</h1>
+        </div>
         <div className="flex flex-nowrap items-center gap-3 shrink-0">
           <Input
             placeholder="Buscar por título, estado, notas…"
@@ -351,19 +322,8 @@ export default function InversionesTable({
         </div>
       </div>
 
-      {/* Fila 2: widgets (vista activa, sin búsqueda) */}
-      <InversionesSummary
-        stats={summaryStats}
-        objetivoBeneficioMedio={objetivoBeneficioMedio}
-      />
-
-      {/* Fila 3: vistas */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Vistas
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={yearFilter} onValueChange={setYearFilter}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={yearFilter} onValueChange={setYearFilter}>
             <SelectTrigger className="w-[120px] h-9">
               <SelectValue placeholder="Año" />
             </SelectTrigger>
@@ -406,7 +366,6 @@ export default function InversionesTable({
             Sin liquidación
             {sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
           </Button>
-        </div>
       </div>
 
       {/* Tabla */}

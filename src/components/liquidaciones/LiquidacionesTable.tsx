@@ -17,15 +17,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { formatEuro, toNum } from "@/lib/moneyCalc";
+import { CheckCircle, Circle, Receipt } from "lucide-react";
 import { sumLiquidacionesTotals } from "@/lib/liquidacionesTotals";
 import {
   deriveBrutoFromRetribucion,
   deriveSettlementMoney,
 } from "@/lib/syncPropiedadFromLiquidaciones";
-import { LiquidacionesSummary } from "./LiquidacionesSummary";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
 import {
   getEngineColumnTooltip,
@@ -128,8 +129,20 @@ export default function LiquidacionesTable({
 }: LiquidacionesTableProps) {
   const [rows, setRows] = useState<SettlementRow[]>(initialData);
   const [search, setSearch] = useState("");
-  const [ejercicioFilter, setEjercicioFilter] = useState<string>(
+  const [showLiquidadas, setShowLiquidadas] = useState(false);
+  const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
+  const [yearFilter, setYearFilter] = useState<string>(
     initialYear != null ? String(initialYear) : "all"
+  );
+
+  const liquidadasCount = useMemo(
+    () => rows.filter((r) => r.liquidado).length,
+    [rows]
+  );
+
+  const sinLiquidadasCount = useMemo(
+    () => rows.filter((r) => !r.liquidado).length,
+    [rows]
   );
 
   const ejercicioOptions = useMemo(() => {
@@ -145,8 +158,14 @@ export default function LiquidacionesTable({
   const filteredRows = useMemo(() => {
     let result = rows;
 
-    if (ejercicioFilter !== "all") {
-      result = result.filter((r) => String(r.ejercicio) === ejercicioFilter);
+    if (showLiquidadas) {
+      result = result.filter((r) => r.liquidado);
+    } else if (showSinLiquidacion) {
+      result = result.filter((r) => !r.liquidado);
+    }
+
+    if (yearFilter !== "all") {
+      result = result.filter((r) => String(r.ejercicio) === yearFilter);
     }
 
     if (search.trim()) {
@@ -167,7 +186,7 @@ export default function LiquidacionesTable({
       if (nb == null) return -1;
       return na - nb;
     });
-  }, [rows, ejercicioFilter, search]);
+  }, [rows, yearFilter, search, showLiquidadas, showSinLiquidacion]);
 
   const totals = useMemo(
     () => sumLiquidacionesTotals(filteredRows),
@@ -255,44 +274,72 @@ export default function LiquidacionesTable({
   );
 
   return (
-    <div className="space-y-4">
-      <LiquidacionesSummary
-        totalTransferencia={totals.transferencia}
-        totalEfectivo={totals.efectivo}
-        totalAportacion={totals.aportacion}
-      />
-
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Receipt className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight">Liquidaciones</h1>
+        </div>
         <Input
           placeholder="Buscar por propiedad o número…"
-          className="max-w-xs h-9"
+          className="w-56 sm:w-64 h-9 shrink-0"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Select value={ejercicioFilter} onValueChange={setEjercicioFilter}>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={yearFilter} onValueChange={setYearFilter}>
           <SelectTrigger className="w-[120px] h-9">
-            <SelectValue placeholder="Ejercicio" />
+            <SelectValue placeholder="Año" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {ejercicioOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <p className="text-sm text-muted-foreground ml-auto">
-          Cada liquidación se crea al añadir una inversión.
-        </p>
+        <Button
+          size="sm"
+          variant={showLiquidadas ? "default" : "outline"}
+          onClick={() => {
+            setShowLiquidadas((v) => {
+              const next = !v;
+              if (next) setShowSinLiquidacion(false);
+              return next;
+            });
+          }}
+        >
+          <CheckCircle className="h-4 w-4 mr-1" />
+          Con Liquidación
+          {liquidadasCount > 0 ? ` (${liquidadasCount})` : ""}
+        </Button>
+        <Button
+          size="sm"
+          variant={showSinLiquidacion ? "default" : "outline"}
+          onClick={() => {
+            setShowSinLiquidacion((v) => {
+              const next = !v;
+              if (next) setShowLiquidadas(false);
+              return next;
+            });
+          }}
+        >
+          <Circle className="h-4 w-4 mr-1" />
+          Sin liquidación
+          {sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
+        </Button>
       </div>
 
-      <div className="rounded-lg border overflow-auto">
+      <div className="rounded-lg border overflow-auto max-h-[80vh] [&_[data-slot=table-wrapper]]:overflow-visible">
         <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40">
+          <TableHeader className="sticky top-0 z-20">
+            <TableRow className="bg-muted">
               <TableColumnHeader
-                className="w-[60px]"
+                className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-muted"
                 label="ID"
                 tooltip={liqTooltip("id")}
               />
@@ -302,7 +349,7 @@ export default function LiquidacionesTable({
                 tooltip={liqTooltip("numero_op")}
               />
               <TableColumnHeader
-                className="min-w-[200px]"
+                className="min-w-[200px] sticky left-[50px] z-30 bg-muted shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]"
                 label="PROPIEDAD"
                 tooltip={liqTooltip("propiedad")}
               />
@@ -378,8 +425,11 @@ export default function LiquidacionesTable({
               />
             </TableRow>
 
-            <TableRow className="bg-muted/20 font-semibold border-b-2">
-              <TableCell colSpan={4} />
+            <TableRow className="bg-background font-semibold border-b-2">
+              <TableCell className="min-w-[50px] max-w-[50px] sticky left-0 z-30 bg-background" />
+              <TableCell />
+              <TableCell className="sticky left-[50px] z-30 bg-background shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]" />
+              <TableCell />
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
@@ -417,6 +467,7 @@ export default function LiquidacionesTable({
               </TableRow>
             ) : (
               filteredRows.map((row) => {
+                const isLiquidada = row.liquidado;
                 const money = deriveSettlementMoney(row);
                 const bruto = deriveBrutoFromRetribucion(row);
                 const duracion = calcDuracion(
@@ -431,8 +482,15 @@ export default function LiquidacionesTable({
                 const idInversion = row.propiedad_numero_operacion;
 
                 return (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm font-medium tabular-nums text-muted-foreground">
+                  <TableRow
+                    key={row.id}
+                    className={isLiquidada ? "bg-green-50/40" : ""}
+                  >
+                    <TableCell
+                      className={`text-sm font-medium tabular-nums min-w-[50px] max-w-[50px] sticky left-0 z-10 ${
+                        isLiquidada ? "bg-green-50" : "bg-background"
+                      }`}
+                    >
                       {idInversion ?? "—"}
                     </TableCell>
 
@@ -457,7 +515,11 @@ export default function LiquidacionesTable({
                       />
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell
+                      className={`sticky left-[50px] z-10 shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)] ${
+                        isLiquidada ? "bg-green-50" : "bg-background"
+                      }`}
+                    >
                       <a
                         href={`/propiedades/${row.propiedad_id}`}
                         className="text-sm font-medium hover:underline"

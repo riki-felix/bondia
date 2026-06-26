@@ -3,25 +3,29 @@ export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
-import InversionesTable from "../../components/inversiones/InversionesTable";
+import InformesDashboard from "../../components/informes/InformesDashboard";
 import { supabaseClient } from "../../lib/supabaseClient";
-import type { Property } from "../../lib/propertyTypes";
+import type { InformesProperty } from "../../lib/informesStats";
+import { maxInformesUpdatedAt } from "../../lib/informesStats";
 import { PROPERTY_SELECT } from "../../lib/propertyTypes";
+import {
+  OBJETIVO_BENEFICIO_MEDIO_OPERACION,
+  objetivoValorFromRow,
+  type Objetivo,
+} from "../../lib/objetivos";
 
 const supabase = supabaseClient();
 
-// Fetch all investment properties
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select(PROPERTY_SELECT)
+  .select(`${PROPERTY_SELECT}, precio_compra, precio_venta, updated_at`)
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
 
-// Liquidaciones vinculadas 1:1 a cada inversión (mismo id que la propiedad)
 const { data: allLiq } = await supabase
   .from("liquidaciones")
   .select(
-    "propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio, liquidado"
+    "propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio, liquidado, updated_at"
   );
 
 const liqByProp = new Map<
@@ -50,36 +54,28 @@ for (const l of allLiq ?? []) {
   });
 }
 
-// Merge liquidación overlay into properties
-const properties: Property[] = (allProperties ?? []).map((p: any) => ({
+const properties: InformesProperty[] = (allProperties ?? []).map((p: any) => ({
   ...p,
+  precio_compra: p.precio_compra ?? null,
+  precio_venta: p.precio_venta ?? null,
   liq: liqByProp.get(p.id) ?? null,
-})) as Property[];
+})) as InformesProperty[];
 
-// Extract unique years from ejercicio, fecha_ingreso + ejercicio from liquidaciones
-const yearSet = new Set<number>();
-properties.forEach((p) => {
-  if (p.liq?.ejercicio != null) yearSet.add(p.liq.ejercicio);
-  else if (p.ejercicio != null) yearSet.add(p.ejercicio);
-  // Fallback to fecha_ingreso/created_at
-  const dateStr = p.fecha_ingreso || p.created_at;
-  if (dateStr) {
-    const d = new Date(dateStr);
-    if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
-  }
-});
-const years = Array.from(yearSet).sort((a, b) => b - a);
+const { data: objetivosRows } = await supabase
+  .from("bondia_objetivos")
+  .select("id, etiqueta, valor")
+  .eq("id", OBJETIVO_BENEFICIO_MEDIO_OPERACION)
+  .maybeSingle();
 
-// Initial year from query param
-const url = new URL(Astro.request.url);
-const yearParam = url.searchParams.get("year");
-const currentYear = new Date().getFullYear();
-const initialYear =
-  yearParam === "all"
-    ? null
-    : yearParam
-      ? Number(yearParam)
-      : currentYear;
+const objetivoBeneficioMedio = objetivoValorFromRow(
+  objetivosRows ? [objetivosRows as Objetivo] : [],
+  OBJETIVO_BENEFICIO_MEDIO_OPERACION
+);
+
+const lastUpdatedAt = maxInformesUpdatedAt(
+  allProperties ?? [],
+  allLiq ?? []
+);
 ---
 
 <Layout>
@@ -87,11 +83,11 @@ const initialYear =
     {error ? (
       <p class="text-destructive">Error: {error.message}</p>
     ) : (
-      <InversionesTable
+      <InformesDashboard
         client:load
         initialData={properties}
-        years={years}
-        initialYear={initialYear}
+        lastUpdatedAt={lastUpdatedAt}
+        objetivoBeneficioMedio={objetivoBeneficioMedio}
       />
     )}
   </div>
