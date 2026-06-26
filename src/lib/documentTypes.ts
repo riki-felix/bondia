@@ -22,6 +22,9 @@ export const DOCUMENT_BUCKET = "bondia-documentos";
 /** Carpeta única en storage para documentos de escritura de inmuebles */
 export const ESCRITURA_FOLDER_SLUG = "escritura";
 
+/** Un solo PDF master de liquidación por propiedad */
+export const MASTER_LIQUIDACION_FOLDER_SLUG = "master-liquidacion";
+
 export interface PendingTitledDocument {
   file: File;
   title: string;

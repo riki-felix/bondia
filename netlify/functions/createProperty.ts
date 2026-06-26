@@ -2,6 +2,7 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { ensureLiquidacionForInversion } from './_shared';
+import { normalizeDireccionPostal } from './_normalizeDireccion';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -161,7 +162,7 @@ export const handler: Handler = async (event) => {
 	const tipo = (typeof body?.tipo === 'string') ? body.tipo.trim().toLowerCase() : null;
 	if (!tipo || !TIPO.has(tipo)) return json({ error: 'tipo requerido (inversion|activo)' }, 400);
 
-	const direccion = emptyToNull(body?.direccion);
+	const direccion = normalizeDireccionPostal(emptyToNull(body?.direccion));
 	const origen = emptyToNull(body?.origen);
 	const superficie_m2 = toIntOrNull(body?.superficie_m2);
 	const superficie_registrada_m2 = toIntOrNull(body?.superficie_registrada_m2);

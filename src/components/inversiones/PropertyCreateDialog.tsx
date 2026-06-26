@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,9 @@ import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/propertyStorage";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
+import { moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 import { ImagePlus, Loader2 } from "lucide-react";
+import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
 
 interface PropertyCreateDialogProps {
   open: boolean;
@@ -118,8 +121,10 @@ export function PropertyCreateDialog({
 
         if (form.origen.trim()) payload.origen = form.origen.trim();
         if (form.direccion.trim()) payload.direccion = form.direccion.trim();
-        if (form.precio_venta) payload.precio_venta = form.precio_venta;
-        if (form.precio_compra) payload.precio_compra = form.precio_compra;
+        const precioCompra = moneyFieldToNumberOrNull(form.precio_compra);
+        const precioVenta = moneyFieldToNumberOrNull(form.precio_venta);
+        if (precioVenta != null) payload.precio_venta = precioVenta;
+        if (precioCompra != null) payload.precio_compra = precioCompra;
         if (form.superficie_m2) payload.superficie_m2 = form.superficie_m2;
         if (form.superficie_registrada_m2) {
           payload.superficie_registrada_m2 = form.superficie_registrada_m2;
@@ -207,12 +212,12 @@ export function PropertyCreateDialog({
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="titulo">Nombre *</Label>
+                <Label htmlFor="titulo">Nombre operativo *</Label>
                 <Input
                   id="titulo"
                   value={form.titulo}
                   onChange={set("titulo")}
-                  placeholder="Nombre de la propiedad"
+                  placeholder="Ej. FONT 16 3º 2ª L'H"
                   required
                 />
               </div>
@@ -225,15 +230,12 @@ export function PropertyCreateDialog({
                   placeholder="Fuente u origen de la inversión"
                 />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="direccion">Dirección</Label>
-                <Input
-                  id="direccion"
-                  value={form.direccion}
-                  onChange={set("direccion")}
-                  placeholder="Calle, número, ciudad"
-                />
-              </div>
+              <AddressAutocomplete
+                id="direccion"
+                value={form.direccion}
+                onChange={(v) => setForm((prev) => ({ ...prev, direccion: v }))}
+                className="sm:col-span-2"
+              />
             </div>
           </div>
 
@@ -247,24 +249,20 @@ export function PropertyCreateDialog({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="precio_compra">Precio compra (€)</Label>
-                <Input
+                <MoneyInput
                   id="precio_compra"
-                  type="number"
-                  step="0.01"
                   value={form.precio_compra}
-                  onChange={set("precio_compra")}
-                  placeholder="0.00"
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
+                  placeholder="0,00 €"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="precio_venta">Precio venta (€)</Label>
-                <Input
+                <MoneyInput
                   id="precio_venta"
-                  type="number"
-                  step="0.01"
                   value={form.precio_venta}
-                  onChange={set("precio_venta")}
-                  placeholder="0.00"
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, precio_venta: v }))}
+                  placeholder="0,00 €"
                 />
               </div>
             </div>

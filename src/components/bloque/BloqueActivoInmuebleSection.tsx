@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ActivoCaracteristica } from "@/lib/bloqueTypes";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   INMUEBLE_ESTADO_VENDIDO,
   INMUEBLE_FIELD_GROUPS,
@@ -75,6 +76,20 @@ function InmuebleFieldInput({
             ))}
           </SelectContent>
         </Select>
+      </div>
+    );
+  }
+
+  if (meta.type === "money") {
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={inputId}>{meta.label}</Label>
+        <MoneyInput
+          id={inputId}
+          value={value}
+          onValueChange={(v) => onChange(caracId, v)}
+          placeholder="0,00 €"
+        />
       </div>
     );
   }

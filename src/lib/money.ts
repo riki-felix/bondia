@@ -129,3 +129,18 @@ export function normalizeMoneyText(value: string): string {
   if (parsed === null) return trimmed;
   return formatMoneyEdit(parsed);
 }
+
+/** Valor numérico → texto para input de formulario (vacío si no hay dato) */
+export function moneyFieldFromNumber(
+  value: number | null | undefined
+): string {
+  if (value == null) return "";
+  return formatMoneyEdit(value);
+}
+
+/** Texto de input → número redondeado a 2 decimales; null si vacío o inválido */
+export function moneyFieldToNumberOrNull(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return parseMoneyInput(normalizeMoneyText(trimmed));
+}

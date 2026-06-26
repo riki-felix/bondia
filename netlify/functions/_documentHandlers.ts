@@ -92,6 +92,7 @@ function getDocumentEntityConfig(
 }
 
 const BUCKET = 'bondia-documentos';
+const MASTER_LIQUIDACION_FOLDER_SLUG = 'master-liquidacion';
 const SIGNED_URL_TTL = 60 * 60; // 1 hora
 
 const ENTITY_TYPES = new Set<DocumentEntityType>(['propiedad', 'activo', 'gasto', 'ingreso']);
@@ -111,6 +112,14 @@ function extFromMime(mime: string): string {
   return 'bin';
 }
 
+function storageFileBaseName(displayName: string): string {
+  const withoutExt = displayName.replace(/\.[^.]+$/, '');
+  const slug = slugifyEs(withoutExt);
+  if (slug) return slug.slice(0, 120);
+  const fallback = sanitizeFileName(withoutExt);
+  return slugifyEs(fallback) || 'documento';
+}
+
 export function buildStoragePath(
   cfg: DocumentEntityConfig,
   entityId: string,
@@ -122,7 +131,7 @@ export function buildStoragePath(
   const ext = displayName.includes('.')
     ? displayName.split('.').pop()?.toLowerCase() || extFromMime(mimeType)
     : extFromMime(mimeType);
-  const safeName = sanitizeFileName(displayName.replace(/\.[^.]+$/, ''));
+  const safeName = storageFileBaseName(displayName);
   return `${cfg.bloque}/${cfg.pathSegment}/${entityId}/${folderSlug}/${documentId}-${safeName}.${ext}`;
 }
 
@@ -198,6 +207,31 @@ export async function deleteDocumentsForEntity(
   }
 }
 
+async function deleteDocumentsInFolder(
+  supabase: ReturnType<typeof serviceSupabase>,
+  entityType: DocumentEntityType,
+  entityId: string,
+  folderSlug: string
+) {
+  const { data: docs } = await supabase
+    .from('documentos')
+    .select('id, storage_path')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .eq('folder_slug', folderSlug);
+
+  if (!docs?.length) return;
+
+  const paths = docs.map((d) => d.storage_path);
+  await supabase.storage.from(BUCKET).remove(paths);
+  await supabase
+    .from('documentos')
+    .delete()
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .eq('folder_slug', folderSlug);
+}
+
 export async function handleListDocuments(body: any) {
   ensureConfig();
   const resolved = resolveConfig(body);
@@ -248,6 +282,11 @@ export async function handleUploadDocument(body: any) {
 
   const folderSlugOverride = emptyOrNull(body.folderSlug);
   const folderSlug = folderSlugOverride || folderSlugFromRow(cfg, row);
+
+  if (folderSlug === MASTER_LIQUIDACION_FOLDER_SLUG) {
+    await deleteDocumentsInFolder(supabase, entityType, entityId, folderSlug);
+  }
+
   const documentId = crypto.randomUUID();
   const storage_path = buildStoragePath(cfg, entityId, folderSlug, documentId, displayName, mimeType);
   const sort_order = await nextSortOrder(supabase, entityType, entityId, folderSlugOverride || undefined);

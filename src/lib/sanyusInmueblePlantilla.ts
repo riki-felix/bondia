@@ -28,7 +28,7 @@ export const INMUEBLE_PLANTILLA_SLUGS = [
 
 export type InmueblePlantillaSlug = (typeof INMUEBLE_PLANTILLA_SLUGS)[number];
 
-export type InmuebleFieldType = "text" | "number" | "date" | "select" | "percent";
+export type InmuebleFieldType = "text" | "number" | "date" | "select" | "percent" | "money";
 
 export interface InmuebleFieldMeta {
   slug: InmueblePlantillaSlug;
@@ -44,7 +44,7 @@ export interface InmuebleFieldMeta {
 export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMeta> = {
   origen: { slug: "origen", label: "Origen", type: "text", colSpan: 1 },
   direccion: { slug: "direccion", label: "Dirección", type: "text", colSpan: 1 },
-  precio_venta: { slug: "precio_venta", label: "Precio venta (€)", type: "number", step: "0.01" },
+  precio_venta: { slug: "precio_venta", label: "Precio de venta", type: "money" },
   superficie_m2: { slug: "superficie_m2", label: "Superficie Catastral", type: "number" },
   superficie_registrada_m2: {
     slug: "superficie_registrada_m2",

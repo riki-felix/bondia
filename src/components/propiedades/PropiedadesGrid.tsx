@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Calendar, Clock, Plus } from "lucide-react";
+import { Building2, Calendar, CheckCircle, Circle, Clock, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateShort } from "@/lib/date";
 import { ESTADO_OPTIONS } from "@/lib/propertyTypes";
@@ -33,6 +33,7 @@ export interface PropertyCard {
 interface PropiedadesGridProps {
   initialData: PropertyCard[];
   years: number[];
+  initialYear?: number | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -101,25 +102,36 @@ function imageUrl(path: string): string {
 export default function PropiedadesGrid({
   initialData,
   years,
+  initialYear = null,
 }: PropiedadesGridProps) {
   const [search, setSearch] = useState("");
-  const [ejercicioFilter, setEjercicioFilter] = useState<string>("all");
+  const [yearFilter, setYearFilter] = useState<string>(
+    initialYear != null ? String(initialYear) : "all"
+  );
+  const [showLiquidadas, setShowLiquidadas] = useState(false);
+  const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
 
-  const ejercicioOptions = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const minYear = years.length > 0 ? Math.min(...years) : currentYear;
-    const opts: { value: string; label: string }[] = [];
-    for (let y = currentYear; y >= minYear; y--) {
-      opts.push({ value: String(y), label: String(y) });
-    }
-    return opts;
-  }, [years]);
+  const liquidadasCount = useMemo(
+    () => initialData.filter((p) => p.liquidacion).length,
+    [initialData]
+  );
+
+  const sinLiquidadasCount = useMemo(
+    () => initialData.filter((p) => !p.liquidacion).length,
+    [initialData]
+  );
 
   const filteredData = useMemo(() => {
     let result = initialData;
 
-    if (ejercicioFilter !== "all") {
-      const y = Number(ejercicioFilter);
+    if (showLiquidadas) {
+      result = result.filter((p) => p.liquidacion);
+    } else if (showSinLiquidacion) {
+      result = result.filter((p) => !p.liquidacion);
+    }
+
+    if (yearFilter !== "all") {
+      const y = Number(yearFilter);
       result = result.filter((p) => {
         if (p.ejercicio != null) return p.ejercicio === y;
         if (p.created_at) {
@@ -132,46 +144,79 @@ export default function PropiedadesGrid({
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (p) => p.titulo?.toLowerCase().includes(q)
-      );
+      result = result.filter((p) => p.titulo?.toLowerCase().includes(q));
     }
 
     return result;
-  }, [initialData, search, ejercicioFilter]);
+  }, [initialData, search, yearFilter, showLiquidadas, showSinLiquidacion]);
 
   return (
     <div className="space-y-6">
-      {/* ── Toolbar ── */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input
-          placeholder="Buscar propiedad…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="sm:max-w-xs"
-        />
-        <Button asChild size="sm">
-          <a href="/propiedades/nuevo">
-            <Plus className="h-4 w-4 mr-1" />
-            Nueva propiedad
-          </a>
-        </Button>
-        <Select
-          value={ejercicioFilter}
-          onValueChange={setEjercicioFilter}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Ejercicio" />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight">Propiedades</h1>
+        </div>
+        <div className="flex flex-nowrap items-center gap-3 shrink-0">
+          <Input
+            placeholder="Buscar por título…"
+            className="w-56 sm:w-64 h-9 shrink-0"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button asChild size="sm" className="shrink-0 whitespace-nowrap">
+            <a href="/propiedades/nuevo">
+              <Plus className="h-4 w-4 mr-1" />
+              Nueva propiedad
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={yearFilter} onValueChange={setYearFilter}>
+          <SelectTrigger className="w-[120px] h-9">
+            <SelectValue placeholder="Año" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {ejercicioOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Button
+          size="sm"
+          variant={showLiquidadas ? "default" : "outline"}
+          onClick={() => {
+            setShowLiquidadas((v) => {
+              const next = !v;
+              if (next) setShowSinLiquidacion(false);
+              return next;
+            });
+          }}
+        >
+          <CheckCircle className="h-4 w-4 mr-1" />
+          Con Liquidación
+          {liquidadasCount > 0 ? ` (${liquidadasCount})` : ""}
+        </Button>
+        <Button
+          size="sm"
+          variant={showSinLiquidacion ? "default" : "outline"}
+          onClick={() => {
+            setShowSinLiquidacion((v) => {
+              const next = !v;
+              if (next) setShowLiquidadas(false);
+              return next;
+            });
+          }}
+        >
+          <Circle className="h-4 w-4 mr-1" />
+          Sin liquidación
+          {sinLiquidadasCount > 0 ? ` (${sinLiquidadasCount})` : ""}
+        </Button>
       </div>
 
       {/* ── Grid ── */}

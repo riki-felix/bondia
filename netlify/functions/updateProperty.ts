@@ -2,6 +2,7 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { ensureLiquidacionForInversion } from './_shared';
+import { normalizeDireccionPostal } from './_normalizeDireccion';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -263,7 +264,9 @@ export const handler: Handler = async (event) => {
 
 	// básicos
 	if (body.titulo !== undefined) updates.titulo = emptyOrNull(body.titulo);
-	if (body.direccion !== undefined) updates.direccion = emptyOrNull(body.direccion);
+	if (body.direccion !== undefined) {
+	  updates.direccion = normalizeDireccionPostal(emptyOrNull(body.direccion));
+	}
 	if (body.origen !== undefined) updates.origen = emptyOrNull(body.origen);
 	if (body.notas !== undefined) updates.notas = emptyOrNull(body.notas);
 	if (body.superficie_m2 !== undefined) updates.superficie_m2 = toIntOrNull(body.superficie_m2);

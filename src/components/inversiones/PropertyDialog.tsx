@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,11 @@ import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
+import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { MasterLiquidacionDocumentsPanel } from "@/components/documents/MasterLiquidacionDocumentsPanel";
+import { MASTER_LIQUIDACION_FOLDER_SLUG } from "@/lib/documentTypes";
+import { moneyFieldFromNumber, moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/propertyStorage";
 import { PropertyParticipacionSection } from "./PropertyParticipacionSection";
 import {
@@ -109,8 +114,8 @@ export function PropertyDialog({
         titulo: data.titulo || "",
         origen: data.origen || "",
         direccion: data.direccion || "",
-        precio_compra: data.precio_compra != null ? String(data.precio_compra) : "",
-        precio_venta: data.precio_venta != null ? String(data.precio_venta) : "",
+        precio_compra: moneyFieldFromNumber(data.precio_compra),
+        precio_venta: moneyFieldFromNumber(data.precio_venta),
         superficie_m2: data.superficie_m2 != null ? String(data.superficie_m2) : "",
         superficie_registrada_m2:
           data.superficie_registrada_m2 != null ? String(data.superficie_registrada_m2) : "",
@@ -221,8 +226,8 @@ export function PropertyDialog({
           ocupado: form.ocupado === "true",
           origen: form.origen.trim() || null,
           direccion: form.direccion.trim() || null,
-          precio_venta: form.precio_venta || null,
-          precio_compra: form.precio_compra || null,
+          precio_venta: moneyFieldToNumberOrNull(form.precio_venta),
+          precio_compra: moneyFieldToNumberOrNull(form.precio_compra),
           superficie_m2: form.superficie_m2 || null,
           superficie_registrada_m2: form.superficie_registrada_m2 || null,
           superficie_real_m2: form.superficie_real_m2 || null,
@@ -331,12 +336,12 @@ export function PropertyDialog({
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="titulo">Nombre *</Label>
+                  <Label htmlFor="titulo">Nombre operativo *</Label>
                   <Input
                     id="titulo"
                     value={form.titulo}
                     onChange={set("titulo")}
-                    placeholder="Nombre de la propiedad"
+                    placeholder="Ej. FONT 16 3º 2ª L'H"
                     required
                   />
                 </div>
@@ -349,15 +354,12 @@ export function PropertyDialog({
                     placeholder="Fuente u origen de la inversión"
                   />
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="direccion">Dirección</Label>
-                  <Input
-                    id="direccion"
-                    value={form.direccion}
-                    onChange={set("direccion")}
-                    placeholder="Calle, número, ciudad"
-                  />
-                </div>
+                <AddressAutocomplete
+                  id="direccion"
+                  value={form.direccion}
+                  onChange={(v) => setForm((prev) => ({ ...prev, direccion: v }))}
+                  className="sm:col-span-2"
+                />
               </div>
             </div>
 
@@ -371,24 +373,20 @@ export function PropertyDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="precio_compra">Precio compra (€)</Label>
-                  <Input
+                  <MoneyInput
                     id="precio_compra"
-                    type="number"
-                    step="0.01"
                     value={form.precio_compra}
-                    onChange={set("precio_compra")}
-                    placeholder="0.00"
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
+                    placeholder="0,00 €"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="precio_venta">Precio venta (€)</Label>
-                  <Input
+                  <MoneyInput
                     id="precio_venta"
-                    type="number"
-                    step="0.01"
                     value={form.precio_venta}
-                    onChange={set("precio_venta")}
-                    placeholder="0.00"
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, precio_venta: v }))}
+                    placeholder="0,00 €"
                   />
                 </div>
               </div>
@@ -573,11 +571,19 @@ export function PropertyDialog({
             {isEdit && editId && (
               <>
                 <Separator />
+                <MasterLiquidacionDocumentsPanel
+                  bloque="engine"
+                  entityType="propiedad"
+                  entityId={editId}
+                  compact
+                  disabledMessage="Guarda la propiedad para adjuntar el master de liquidación."
+                />
                 <EntityDocumentsPanel
                   bloque="engine"
                   entityType="propiedad"
                   entityId={editId}
                   compact
+                  excludeFolderSlug={MASTER_LIQUIDACION_FOLDER_SLUG}
                   disabledMessage="Guarda la propiedad para adjuntar documentos."
                 />
               </>

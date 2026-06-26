@@ -55,6 +55,10 @@ export interface EntityDocumentsPanelProps {
   titlePlaceholder?: string;
   emptyMessage?: string;
   uploadSuccessMessage?: string;
+  /** Solo un documento en la carpeta (reemplaza al subir) */
+  singleDocument?: boolean;
+  fixedDisplayName?: string;
+  accept?: string;
   pendingDocuments?: PendingTitledDocument[];
   onPendingDocumentsAdd?: (items: PendingTitledDocument[]) => void;
   onPendingDocumentRemove?: (index: number) => void;
@@ -80,6 +84,9 @@ export function EntityDocumentsPanel({
   titlePlaceholder = "Ej. Factura de compra",
   emptyMessage = "Sin documentos adjuntos.",
   uploadSuccessMessage = "Documento subido",
+  singleDocument = false,
+  fixedDisplayName = "Master Liquidación",
+  accept,
   pendingDocuments = [],
   onPendingDocumentsAdd,
   onPendingDocumentRemove,
@@ -126,7 +133,7 @@ export function EntityDocumentsPanel({
     const files = e.target.files;
     if (!files?.length) return;
 
-    const trimmedTitle = newTitle.trim();
+    const trimmedTitle = singleDocument ? fixedDisplayName : newTitle.trim();
     if (!trimmedTitle) {
       toast.error("Indica un título antes de subir el documento");
       e.target.value = "";
@@ -134,6 +141,25 @@ export function EntityDocumentsPanel({
     }
 
     const file = files[0];
+
+    if (singleDocument && accept) {
+      const allowed = accept.split(",").map((s) => s.trim().toLowerCase());
+      const fileType = (file.type || "").toLowerCase();
+      const fileName = file.name.toLowerCase();
+      const matches =
+        allowed.some((a) => a.startsWith(".") && fileName.endsWith(a)) ||
+        allowed.some(
+          (a) =>
+            !a.startsWith(".") &&
+            (fileType === a ||
+              (!fileType && a === "application/pdf" && fileName.endsWith(".pdf")))
+        );
+      if (!matches) {
+        toast.error("Solo se permiten archivos PDF");
+        e.target.value = "";
+        return;
+      }
+    }
 
     if (!entityId && onPendingDocumentsAdd) {
       onPendingDocumentsAdd([{ file, title: trimmedTitle }]);
@@ -226,6 +252,14 @@ export function EntityDocumentsPanel({
   };
 
   const canUploadPending = !entityId && !!onPendingDocumentsAdd;
+  const canUpload =
+    !uploading && (singleDocument || !!newTitle.trim());
+  const uploadLabel =
+    singleDocument && (documents.length > 0 || pendingDocuments.length > 0)
+      ? "Reemplazar master"
+      : singleDocument
+        ? "Subir PDF"
+        : "Subir documento";
 
   const content = (
     <>
@@ -234,29 +268,32 @@ export function EntityDocumentsPanel({
       ) : (
         <>
           <div className="space-y-3 mb-3">
-            <div className="space-y-1.5">
-              <Label htmlFor={titleInputId}>Título del documento</Label>
-              <Input
-                id={titleInputId}
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder={titlePlaceholder}
-                disabled={uploading}
-              />
-            </div>
+            {!singleDocument && (
+              <div className="space-y-1.5">
+                <Label htmlFor={titleInputId}>Título del documento</Label>
+                <Input
+                  id={titleInputId}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder={titlePlaceholder}
+                  disabled={uploading}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
                 className="sr-only"
-                disabled={uploading || !newTitle.trim()}
+                accept={accept}
+                disabled={!canUpload}
                 onChange={handleUpload}
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={uploading || !newTitle.trim()}
+                disabled={!canUpload}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {uploading ? (
@@ -264,7 +301,7 @@ export function EntityDocumentsPanel({
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                Subir documento
+                {uploadLabel}
               </Button>
               {canUploadPending && (
                 <span className="text-xs text-muted-foreground">
@@ -287,14 +324,18 @@ export function EntityDocumentsPanel({
                     ) : (
                       <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    <Input
-                      value={item.title}
-                      onChange={(e) =>
-                        onPendingDocumentTitleChange?.(index, e.target.value)
-                      }
-                      className="h-8"
-                      placeholder="Título"
-                    />
+                    {singleDocument ? (
+                      <span className="font-medium truncate">{item.title}</span>
+                    ) : (
+                      <Input
+                        value={item.title}
+                        onChange={(e) =>
+                          onPendingDocumentTitleChange?.(index, e.target.value)
+                        }
+                        className="h-8"
+                        placeholder="Título"
+                      />
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground truncate sm:max-w-[120px]">
                     {item.file.name}
@@ -339,50 +380,58 @@ export function EntityDocumentsPanel({
                     ) : (
                       <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    <Input
-                      value={titleDrafts[doc.id] ?? doc.display_name}
-                      onChange={(e) =>
-                        setTitleDrafts((prev) => ({
-                          ...prev,
-                          [doc.id]: e.target.value,
-                        }))
-                      }
-                      onBlur={() => saveTitle(doc)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.currentTarget.blur();
+                    {singleDocument ? (
+                      <span className="font-medium truncate">{doc.display_name}</span>
+                    ) : (
+                      <Input
+                        value={titleDrafts[doc.id] ?? doc.display_name}
+                        onChange={(e) =>
+                          setTitleDrafts((prev) => ({
+                            ...prev,
+                            [doc.id]: e.target.value,
+                          }))
                         }
-                      }}
-                      className="h-8"
-                      disabled={savingTitleId === doc.id}
-                    />
+                        onBlur={() => saveTitle(doc)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="h-8"
+                        disabled={savingTitleId === doc.id}
+                      />
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {formatSize(doc.size_bytes)}
                   </span>
                   <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-auto">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      disabled={index === 0}
-                      onClick={() => move(index, -1)}
-                      title="Subir en la lista"
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      disabled={index === documents.length - 1}
-                      onClick={() => move(index, 1)}
-                      title="Bajar en la lista"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </Button>
+                    {!singleDocument && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={index === 0}
+                          onClick={() => move(index, -1)}
+                          title="Subir en la lista"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={index === documents.length - 1}
+                          onClick={() => move(index, 1)}
+                          title="Bajar en la lista"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"

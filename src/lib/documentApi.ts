@@ -11,9 +11,10 @@ import {
   type DocumentTreeSectionSummary,
   type DocumentCategoriaOption,
   ESCRITURA_FOLDER_SLUG,
+  MASTER_LIQUIDACION_FOLDER_SLUG,
 } from "./documentTypes";
 
-export { ESCRITURA_FOLDER_SLUG };
+export { ESCRITURA_FOLDER_SLUG, MASTER_LIQUIDACION_FOLDER_SLUG };
 
 export interface ListDocumentsOptions {
   folderSlug?: string;

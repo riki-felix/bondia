@@ -35,6 +35,7 @@
     "duracion": "Tiempo entre aportación y transferencia",
     "beneficio": "(retribución ÷ aportación) ÷ meses × 100.",
     "liquidada": "Indica si la operación está liquidada.",
-    "ejercicio": "Año fiscal al que se imputa esta liquidación."
+    "ejercicio": "Año fiscal al que se imputa esta liquidación.",
+    "master_liquidacion": "PDF master de liquidación de la propiedad vinculada."
   }
 }

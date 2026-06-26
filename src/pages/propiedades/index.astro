@@ -56,18 +56,19 @@ for (const p of properties) {
 }
 const years = Array.from(yearSet).sort((a, b) => b - a);
 
-const propertyCount = properties.filter((p) => p.estado !== "borrador").length;
+const url = new URL(Astro.request.url);
+const yearParam = url.searchParams.get("year");
+const currentYear = new Date().getFullYear();
+const initialYear =
+  yearParam === "all"
+    ? null
+    : yearParam
+      ? Number(yearParam)
+      : currentYear;
 ---
 
 <Layout>
   <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight">{propertyCount} Propiedades</h1>
-      <p class="text-sm text-muted-foreground">
-        Vista general de propiedades de inversión
-      </p>
-    </div>
-
     {error ? (
       <p class="text-destructive">Error: {error.message}</p>
     ) : (
@@ -75,6 +76,7 @@ const propertyCount = properties.filter((p) => p.estado !== "borrador").length;
         client:load
         initialData={properties}
         years={years}
+        initialYear={initialYear}
       />
     )}
   </div>

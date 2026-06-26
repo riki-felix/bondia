@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { formatEuro, toNum } from "@/lib/moneyCalc";
-import { CheckCircle, Circle, Receipt } from "lucide-react";
+import { CheckCircle, Circle, FileText, Loader2, Receipt } from "lucide-react";
+import { getDocumentSignedUrl } from "@/lib/documentApi";
 import { sumLiquidacionesTotals } from "@/lib/liquidacionesTotals";
 import {
   deriveBrutoFromRetribucion,
@@ -73,6 +74,45 @@ interface LiquidacionesTableProps {
   initialData: SettlementRow[];
   years: number[];
   initialYear: number | null;
+  masterDocumentByPropiedadId?: Record<string, string>;
+}
+
+function MasterPdfButton({ documentId }: { documentId?: string }) {
+  const [loading, setLoading] = useState(false);
+
+  if (!documentId) {
+    return <span className="text-muted-foreground text-xs">—</span>;
+  }
+
+  const open = async () => {
+    setLoading(true);
+    try {
+      const { url } = await getDocumentSignedUrl(documentId);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo abrir el PDF");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7"
+      title="Abrir master de liquidación"
+      disabled={loading}
+      onClick={open}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <FileText className="h-4 w-4 text-primary" />
+      )}
+    </Button>
+  );
 }
 
 function calcDuracion(
@@ -126,6 +166,7 @@ export default function LiquidacionesTable({
   initialData,
   years,
   initialYear,
+  masterDocumentByPropiedadId = {},
 }: LiquidacionesTableProps) {
   const [rows, setRows] = useState<SettlementRow[]>(initialData);
   const [search, setSearch] = useState("");
@@ -354,6 +395,11 @@ export default function LiquidacionesTable({
                 tooltip={liqTooltip("propiedad")}
               />
               <TableColumnHeader
+                className="w-[44px] text-center"
+                label=""
+                tooltip={liqTooltip("master_liquidacion")}
+              />
+              <TableColumnHeader
                 className="w-[130px]"
                 label="FECHA"
                 tooltip={liqTooltip("fecha")}
@@ -430,6 +476,7 @@ export default function LiquidacionesTable({
               <TableCell />
               <TableCell className="sticky left-[50px] z-30 bg-background shadow-[4px_0_4px_-4px_rgba(0,0,0,0.15)]" />
               <TableCell />
+              <TableCell />
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.aportacion)}
               </TableCell>
@@ -459,7 +506,7 @@ export default function LiquidacionesTable({
             {filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={17}
+                  colSpan={18}
                   className="text-center text-muted-foreground py-8"
                 >
                   No hay liquidaciones para mostrar.
@@ -526,6 +573,12 @@ export default function LiquidacionesTable({
                       >
                         {row.propiedad_titulo || "Sin título"}
                       </a>
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <MasterPdfButton
+                        documentId={masterDocumentByPropiedadId[row.propiedad_id]}
+                      />
                     </TableCell>
 
                     <TableCell>

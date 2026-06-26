@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -34,6 +35,7 @@ import { ESCRITURA_FOLDER_SLUG, type PendingTitledDocument } from "@/lib/documen
 import { BloqueActivoMovimientos } from "./BloqueActivoMovimientos";
 import type { BloqueActivoMovimientosPayload } from "@/lib/fetchActivoMovimientos";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
+import { moneyFieldFromNumber, moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 
 // ─── Props ───────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ export default function BloqueActivoDetail({
     nombre: activo?.nombre ?? "",
     categoria_id: activo?.categoria_id ?? "",
     fecha_compra: activo?.fecha_compra ?? "",
-    precio_compra: activo?.precio_compra != null ? String(activo.precio_compra) : "",
+    precio_compra: moneyFieldFromNumber(activo?.precio_compra),
     valor_estimado: activo?.valor_estimado != null ? String(activo.valor_estimado) : "",
     notas: activo?.notas ?? "",
   });
@@ -230,7 +232,7 @@ export default function BloqueActivoDetail({
       form.nombre !== (activo?.nombre ?? "") ||
       form.categoria_id !== (activo?.categoria_id ?? "") ||
       form.fecha_compra !== (activo?.fecha_compra ?? "") ||
-      form.precio_compra !== (activo?.precio_compra != null ? String(activo.precio_compra) : "") ||
+      form.precio_compra !== moneyFieldFromNumber(activo?.precio_compra) ||
       form.valor_estimado !== (activo?.valor_estimado != null ? String(activo.valor_estimado) : "") ||
       form.notas !== (activo?.notas ?? "") ||
       (hasTitular && titular !== (activo?.titular ?? "carlos")) ||
@@ -265,7 +267,7 @@ export default function BloqueActivoDetail({
         nombre: form.nombre.trim(),
         categoria_id: form.categoria_id || null,
         fecha_compra: form.fecha_compra || null,
-        precio_compra: form.precio_compra ? Number(form.precio_compra) : null,
+        precio_compra: moneyFieldToNumberOrNull(form.precio_compra),
         valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
         notas: form.notas,
       };
@@ -685,13 +687,10 @@ export default function BloqueActivoDetail({
                 ) : (
                   <div className="space-y-2">
                     <Label htmlFor="precio_compra">Precio de compra</Label>
-                    <Input
+                    <MoneyInput
                       id="precio_compra"
-                      type="number"
-                      step="0.01"
-                      min="0"
                       value={form.precio_compra}
-                      onChange={set("precio_compra")}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
                       placeholder="0,00 €"
                     />
                   </div>
@@ -701,13 +700,10 @@ export default function BloqueActivoDetail({
                 {hasInmuebles && esInmueble && fechaIngresoCarac && (
                   <div className="space-y-2">
                     <Label htmlFor="precio_compra">Precio de compra</Label>
-                    <Input
+                    <MoneyInput
                       id="precio_compra"
-                      type="number"
-                      step="0.01"
-                      min="0"
                       value={form.precio_compra}
-                      onChange={set("precio_compra")}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
                       placeholder="0,00 €"
                     />
                   </div>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -15,8 +16,9 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { uploadPropertyFeaturedImage } from "@/lib/propertyImageUpload";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS, derivePagoFromIngreso } from "@/lib/propertyTypes";
+import { INMUEBLE_ESTADO_VENDIDO } from "@/lib/sanyusInmueblePlantilla";
 import { formatDateShort } from "@/lib/date";
-import { formatEuro } from "@/lib/moneyCalc";
+import { formatEuro, moneyFieldFromNumber, moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 import { deriveBrutoFromRetribucion } from "@/lib/syncPropiedadFromLiquidaciones";
 import { PropertyParticipacionSection } from "@/components/inversiones/PropertyParticipacionSection";
 import {
@@ -28,8 +30,11 @@ import {
   validateBienesSanyusCb,
   validateParticipacionPair,
 } from "@/lib/participacion";
-import { ArrowLeft, Building2, Calendar, Clock, ImagePlus, Loader2, Save } from "lucide-react";
+import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
+import { MasterLiquidacionDocumentsPanel } from "@/components/documents/MasterLiquidacionDocumentsPanel";
+import { MASTER_LIQUIDACION_FOLDER_SLUG } from "@/lib/documentTypes";
+import { ArrowLeft, Calendar, Clock, ImageIcon, Loader2, Save, Trash2, Upload } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -145,8 +150,8 @@ export default function PropertyDetail({
     direccion: property?.direccion ?? "",
     estado: property?.estado ?? "borrador",
     ocupado: property?.ocupado ? "true" : "false",
-    precio_compra: property?.precio_compra != null ? String(property.precio_compra) : "",
-    precio_venta: property?.precio_venta != null ? String(property.precio_venta) : "",
+    precio_compra: moneyFieldFromNumber(property?.precio_compra),
+    precio_venta: moneyFieldFromNumber(property?.precio_venta),
     superficie_m2: property?.superficie_m2 != null ? String(property.superficie_m2) : "",
     superficie_registrada_m2:
       property?.superficie_registrada_m2 != null
@@ -172,24 +177,88 @@ export default function PropertyDetail({
       property?.participacion_bienes_sanyus_cb
     ),
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initialImageUrl);
+  const [pendingFoto, setPendingFoto] = useState<{
+    base64: string;
+    mimeType: string;
+    preview: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  const handleImageChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadFoto = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      setImageFile(file);
+
+      if (!file.type.startsWith("image/")) {
+        toast.error("Solo se permiten imágenes");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("La imagen no puede superar 5 MB");
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.split(",")[1];
+
+      if (isCreate) {
+        setPendingFoto({ base64, mimeType: file.type, preview: dataUrl });
+        setImagePreview(dataUrl);
+        e.target.value = "";
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const { publicUrl } = await uploadPropertyFeaturedImage(property!.id, file);
+        setImagePreview(publicUrl);
+        setPendingFoto(null);
+        toast.success("Foto subida");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Error al subir foto");
+      } finally {
+        setUploading(false);
+        e.target.value = "";
+      }
     },
-    []
+    [isCreate, property]
   );
+
+  const handleDeleteFoto = useCallback(async () => {
+    if (isCreate || pendingFoto) {
+      setPendingFoto(null);
+      setImagePreview(null);
+      return;
+    }
+    if (!property) return;
+
+    setUploading(true);
+    try {
+      const res = await fetch("/.netlify/functions/updateProperty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: property.id, foto_destacada_path: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al eliminar foto");
+      setImagePreview(null);
+      toast.success("Foto eliminada");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar foto");
+    } finally {
+      setUploading(false);
+    }
+  }, [isCreate, pendingFoto, property]);
 
   const handleSave = useCallback(async () => {
     if (!form.titulo.trim()) {
@@ -225,8 +294,8 @@ export default function PropertyDetail({
         ocupado: form.ocupado === "true",
         origen: form.origen.trim() || null,
         direccion: form.direccion.trim() || null,
-        precio_compra: form.precio_compra || null,
-        precio_venta: form.precio_venta || null,
+        precio_compra: moneyFieldToNumberOrNull(form.precio_compra),
+        precio_venta: moneyFieldToNumberOrNull(form.precio_venta),
         superficie_m2: form.superficie_m2 || null,
         superficie_registrada_m2: form.superficie_registrada_m2 || null,
         superficie_real_m2: form.superficie_real_m2 || null,
@@ -260,13 +329,20 @@ export default function PropertyDetail({
 
       const propertyId = isCreate ? (data.id as string) : property!.id;
 
-      if (imageFile) {
-        const { publicUrl } = await uploadPropertyFeaturedImage(
-          propertyId,
-          imageFile
-        );
-        setImagePreview(publicUrl);
-        setImageFile(null);
+      if (isCreate && pendingFoto) {
+        try {
+          await fetch("/.netlify/functions/uploadPropertyFoto", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: propertyId,
+              base64: pendingFoto.base64,
+              mimeType: pendingFoto.mimeType,
+            }),
+          });
+        } catch {
+          // Non-blocking
+        }
       }
 
       if (isCreate) {
@@ -280,7 +356,9 @@ export default function PropertyDetail({
     } finally {
       setSaving(false);
     }
-  }, [form, imageFile, property?.id, isCreate]);
+  }, [form, pendingFoto, property?.id, isCreate]);
+
+  const isVendido = form.estado === INMUEBLE_ESTADO_VENDIDO;
 
   const lastTransferDate = settlements.find(
     (s) => s.liquidado && s.fecha_transferencia
@@ -292,63 +370,95 @@ export default function PropertyDetail({
     lastTransferDate
   );
 
-  return (
-    <div className="space-y-6 max-w-4xl">
-      {/* ── Back link ── */}
-      <a
-        href="/propiedades"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Volver a propiedades
-      </a>
+  const displayTitle = isCreate
+    ? "Nueva propiedad"
+    : (form.titulo || property?.titulo || "Sin título");
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start gap-6">
-        {/* Image */}
-        <label className="shrink-0 w-full sm:w-64 aspect-[16/10] rounded-lg border-2 border-dashed overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-center bg-muted">
-          {imagePreview ? (
+  const fotoBlock = (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Foto principal</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {imagePreview || pendingFoto ? (
+          <div className="relative group">
             <img
-              src={imagePreview}
-              alt={form.titulo}
-              className="w-full h-full object-cover"
+              src={pendingFoto?.preview ?? imagePreview!}
+              alt={displayTitle}
+              className="w-full max-h-40 object-cover rounded-md border"
             />
-          ) : (
-            <div className="flex flex-col items-center text-muted-foreground">
-              <ImagePlus className="h-8 w-8 mb-1" />
-              <span className="text-sm">Seleccionar imagen</span>
-            </div>
-          )}
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-1.5 right-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={handleDeleteFoto}
+              disabled={uploading}
+              title="Eliminar foto"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-24 rounded-md border border-dashed text-muted-foreground">
+            <ImageIcon className="h-7 w-7" />
+          </div>
+        )}
+        <div>
+          <Label
+            htmlFor="foto-upload"
+            className="inline-flex items-center gap-2 cursor-pointer text-sm text-primary hover:underline"
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {imagePreview || pendingFoto ? "Cambiar foto" : "Subir foto"}
+          </Label>
           <input
+            id="foto-upload"
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleImageChange}
+            onChange={handleUploadFoto}
+            disabled={uploading}
           />
-        </label>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
-        {/* Summary */}
-        <div className="flex-1 space-y-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {isCreate ? "Nueva propiedad" : (property?.titulo ?? "Sin título")}
+  return (
+    <div className="space-y-6">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-4 max-w-4xl mx-auto">
+        <Button variant="ghost" size="icon" asChild>
+          <a href="/propiedades">
+            <ArrowLeft className="h-5 w-5" />
+          </a>
+        </Button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight truncate">
+            <span className="text-muted-foreground font-normal">Engine ·</span>{" "}
+            {displayTitle}
           </h1>
-          {!isCreate && (
-            <>
+          {!isCreate && property && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
               <div className="flex flex-wrap gap-2">
-                <Badge variant={estadoVariant(property!.estado)}>
-                  {estadoLabel(property!.estado)}
+                <Badge variant={estadoVariant(property.estado)}>
+                  {estadoLabel(property.estado)}
                 </Badge>
-                <Badge variant={property!.liquidacion ? "success" : "secondary"}>
-                  {property!.liquidacion ? "Liquidada" : "Activa"}
+                <Badge variant={property.liquidacion ? "success" : "secondary"}>
+                  {property.liquidacion ? "Liquidada" : "Activa"}
                 </Badge>
-                {property!.numero_operacion != null && (
-                  <Badge variant="outline">Nº {property!.numero_operacion}</Badge>
+                {property.numero_operacion != null && (
+                  <Badge variant="outline">Nº {property.numero_operacion}</Badge>
                 )}
               </div>
               <div className="flex gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
-                  {formatDateShort(property!.created_at)}
+                  {formatDateShort(property.created_at)}
                 </span>
                 {daysActive != null && (
                   <span className="flex items-center gap-1">
@@ -357,311 +467,417 @@ export default function PropertyDetail({
                   </span>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      <Separator />
+      <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px] gap-8 items-start">
+        {/* ── Columna principal ── */}
+        <div className="space-y-6 w-full max-w-xl mx-auto lg:max-w-none">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Datos de la propiedad</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="titulo">Nombre operativo *</Label>
+                <Input
+                  id="titulo"
+                  value={form.titulo}
+                  onChange={set("titulo")}
+                  placeholder="Nombre operativo"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Formato interno (ej. FONT 16 3º 2ª L&apos;H). No se modifica al guardar la dirección postal.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* ── Editable form ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Identificación</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="titulo">Nombre *</Label>
-              <Input id="titulo" value={form.titulo} onChange={set("titulo")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="origen">Origen</Label>
-              <Input
-                id="origen"
-                value={form.origen}
-                onChange={set("origen")}
-                placeholder="Fuente u origen de la inversión"
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Fecha, precio y operación</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_ingreso">Inicio operación</Label>
+                  <Input
+                    id="fecha_ingreso"
+                    type="date"
+                    value={form.fecha_ingreso}
+                    onChange={set("fecha_ingreso")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_compra">Fecha de compra</Label>
+                  <Input
+                    id="fecha_compra"
+                    type="date"
+                    value={form.fecha_compra}
+                    onChange={set("fecha_compra")}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="precio_compra">Precio de compra</Label>
+                  <MoneyInput
+                    id="precio_compra"
+                    value={form.precio_compra}
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
+                    placeholder="0,00 €"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Identificación</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="origen">Origen</Label>
+                  <Input
+                    id="origen"
+                    value={form.origen}
+                    onChange={set("origen")}
+                    placeholder="Fuente u origen de la inversión"
+                  />
+                </div>
+                <AddressAutocomplete
+                  id="direccion"
+                  value={form.direccion}
+                  onChange={(v) => setForm((prev) => ({ ...prev, direccion: v }))}
+                  className="sm:col-span-2"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Características</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="superficie_m2">Superficie Catastral</Label>
+                  <Input
+                    id="superficie_m2"
+                    type="number"
+                    value={form.superficie_m2}
+                    onChange={set("superficie_m2")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+                  <Input
+                    id="superficie_registrada_m2"
+                    type="number"
+                    value={form.superficie_registrada_m2}
+                    onChange={set("superficie_registrada_m2")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
+                  <Input
+                    id="superficie_real_m2"
+                    type="number"
+                    value={form.superficie_real_m2}
+                    onChange={set("superficie_real_m2")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="anio_construccion">Año construcción</Label>
+                  <Input
+                    id="anio_construccion"
+                    type="number"
+                    min="1800"
+                    max="2100"
+                    value={form.anio_construccion}
+                    onChange={set("anio_construccion")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numero_catastro">Ref. Catastral</Label>
+                  <Input
+                    id="numero_catastro"
+                    value={form.numero_catastro}
+                    onChange={set("numero_catastro")}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Estado</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select
+                      value={form.estado}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, estado: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESTADO_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {isVendido && (
+                    <div className="space-y-2">
+                      <Label htmlFor="precio_venta">Precio de venta</Label>
+                      <MoneyInput
+                        id="precio_venta"
+                        value={form.precio_venta}
+                        onValueChange={(v) => setForm((prev) => ({ ...prev, precio_venta: v }))}
+                        placeholder="0,00 €"
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Ocupado</Label>
+                    <Select
+                      value={form.ocupado}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, ocupado: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OCUPADO_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {isVendido && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fecha_venta">Fecha de venta</Label>
+                      <Input
+                        id="fecha_venta"
+                        type="date"
+                        value={form.fecha_venta}
+                        onChange={set("fecha_venta")}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Participación</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PropertyParticipacionSection
+                values={{
+                  participacion_sanyus: form.participacion_sanyus,
+                  participacion_jasp: form.participacion_jasp,
+                  participacion_bienes_sanyus_cb: form.participacion_bienes_sanyus_cb,
+                }}
+                onChange={(field, value) =>
+                  setForm((prev) => ({ ...prev, [field]: value }))
+                }
               />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="direccion">Dirección</Label>
-              <Input id="direccion" value={form.direccion} onChange={set("direccion")} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <p className="text-xs text-muted-foreground mt-2">
+                Retribución y JASP se calculan desde el bruto en Liquidaciones.
+              </p>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Datos económicos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="precio_compra">Precio compra (€)</Label>
-              <Input id="precio_compra" type="number" step="0.01" value={form.precio_compra} onChange={set("precio_compra")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="precio_venta">Precio venta (€)</Label>
-              <Input id="precio_venta" type="number" step="0.01" value={form.precio_venta} onChange={set("precio_venta")} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Características</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="superficie_m2">Superficie Catastral</Label>
-              <Input id="superficie_m2" type="number" value={form.superficie_m2} onChange={set("superficie_m2")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
-              <Input
-                id="superficie_registrada_m2"
-                type="number"
-                value={form.superficie_registrada_m2}
-                onChange={set("superficie_registrada_m2")}
+          {!isCreate && property && (
+            <>
+              <MasterLiquidacionDocumentsPanel
+                bloque="engine"
+                entityType="propiedad"
+                entityId={property.id}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
-              <Input
-                id="superficie_real_m2"
-                type="number"
-                value={form.superficie_real_m2}
-                onChange={set("superficie_real_m2")}
+              <EntityDocumentsPanel
+                bloque="engine"
+                entityType="propiedad"
+                entityId={property.id}
+                excludeFolderSlug={MASTER_LIQUIDACION_FOLDER_SLUG}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="anio_construccion">Año construcción</Label>
-              <Input id="anio_construccion" type="number" min="1800" max="2100" value={form.anio_construccion} onChange={set("anio_construccion")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="numero_catastro">Ref. Catastral</Label>
-              <Input id="numero_catastro" value={form.numero_catastro} onChange={set("numero_catastro")} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </>
+          )}
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Estado</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={form.estado} onValueChange={(v) => setForm((prev) => ({ ...prev, estado: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ESTADO_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Ocupado</Label>
-              <Select value={form.ocupado} onValueChange={(v) => setForm((prev) => ({ ...prev, ocupado: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {OCUPADO_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* ── Columna lateral ── */}
+        <aside className="space-y-4 lg:sticky lg:top-6 w-full max-w-xl mx-auto lg:max-w-none">
+          <Card>
+            <CardContent className="pt-6 space-y-2">
+              <Button className="w-full" onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isCreate ? "Crear propiedad" : "Guardar"}
+              </Button>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Fechas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="fecha_ingreso">Inicio operación</Label>
-              <Input id="fecha_ingreso" type="date" value={form.fecha_ingreso} onChange={set("fecha_ingreso")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="fecha_compra">Fecha compra</Label>
-              <Input id="fecha_compra" type="date" value={form.fecha_compra} onChange={set("fecha_compra")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="fecha_venta">Fecha venta</Label>
-              <Input id="fecha_venta" type="date" value={form.fecha_venta} onChange={set("fecha_venta")} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {fotoBlock}
 
-      {/* ── Notas ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <textarea
-            className="w-full min-h-[80px] rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            value={form.notas}
-            onChange={set("notas")}
-            placeholder="Notas internas..."
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Participación</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PropertyParticipacionSection
-            values={{
-              participacion_sanyus: form.participacion_sanyus,
-              participacion_jasp: form.participacion_jasp,
-              participacion_bienes_sanyus_cb: form.participacion_bienes_sanyus_cb,
-            }}
-            onChange={(field, value) =>
-              setForm((prev) => ({ ...prev, [field]: value }))
-            }
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            Retribución y JASP se calculan desde el bruto en Liquidaciones.
-          </p>
-        </CardContent>
-      </Card>
-
-      {!isCreate && property && (
-        <EntityDocumentsPanel
-          bloque="engine"
-          entityType="propiedad"
-          entityId={property.id}
-        />
-      )}
-
-      {/* ── Save button ── */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-          {isCreate ? "Crear propiedad" : "Guardar cambios"}
-        </Button>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Notas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                className="w-full min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={form.notas}
+                onChange={set("notas")}
+                placeholder="Notas, observaciones, detalles adicionales..."
+              />
+            </CardContent>
+          </Card>
+        </aside>
       </div>
 
-      {/* ── Investment data (read-only) ── */}
-      {!isCreate && property && <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Datos de inversión</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Aportación</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.aportacion)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Retribución</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.retribucion)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Retención</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.retencion)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Ingreso banco</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.ingreso_banco)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Efectivo</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.efectivo)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">JASP</span>
-              <span className="font-medium tabular-nums">{formatEuro(property.jasp_10_percent)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Pago</span>
-              <span className="font-medium">
-                {derivePagoFromIngreso(
-                  property.ingreso_banco,
-                  settlements[0]?.transferencia
-                )
-                  ? "Realizado"
-                  : "Pendiente"}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-xs uppercase">Ejercicio</span>
-              <span className="font-medium">{property.ejercicio ?? "—"}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>}
+      {/* ── Datos Engine (solo lectura) ── */}
+      {!isCreate && property && (
+        <>
+          <Separator className="max-w-4xl mx-auto" />
+          <div className="max-w-4xl mx-auto space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Datos de inversión</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Aportación</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.aportacion)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Retribución</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.retribucion)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Retención</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.retencion)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Ingreso banco</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.ingreso_banco)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Efectivo</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.efectivo)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">JASP</span>
+                    <span className="font-medium tabular-nums">{formatEuro(property.jasp_10_percent)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Pago</span>
+                    <span className="font-medium">
+                      {derivePagoFromIngreso(
+                        property.ingreso_banco,
+                        settlements[0]?.transferencia
+                      )
+                        ? "Realizado"
+                        : "Pendiente"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs uppercase">Ejercicio</span>
+                    <span className="font-medium">{property.ejercicio ?? "—"}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* ── Liquidaciones ── */}
-      {settlements.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Liquidaciones ({settlements.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground uppercase">
-                    <th className="py-2 pr-4">ID</th>
-                    <th className="py-2 pr-4">Nº OP</th>
-                    <th className="py-2 pr-4">Fecha</th>
-                    <th className="py-2 pr-4 text-right">Aportación</th>
-                    <th className="py-2 pr-4 text-right">Bruto</th>
-                    <th className="py-2 pr-4 text-right">Retribución</th>
-                    <th className="py-2 pr-4 text-right">Transferencia</th>
-                    <th className="py-2 pr-4">F. Transferencia</th>
-                    <th className="py-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {settlements.map((s) => (
-                    <tr key={s.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 tabular-nums">
-                        {property!.numero_operacion ?? "—"}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums">
-                        {s.numero_operacion ?? "—"}
-                      </td>
-                      <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.aportacion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums" data-money>
-                        {formatEuro(
-                          deriveBrutoFromRetribucion({
-                            retribucion: s.retribucion,
-                            propiedad_participacion_sanyus: property?.participacion_sanyus,
-                          })
-                        )}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.retribucion)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums" data-money>{formatEuro(s.transferencia)}</td>
-                      <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>
-                      <td className="py-2">
-                        <Badge variant={s.liquidado ? "success" : "outline"} className="text-xs">
-                          {s.liquidado ? "Liquidada" : "Pendiente"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+            {settlements.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Liquidaciones ({settlements.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-xs text-muted-foreground uppercase">
+                          <th className="py-2 pr-4">ID</th>
+                          <th className="py-2 pr-4">Nº OP</th>
+                          <th className="py-2 pr-4">Fecha</th>
+                          <th className="py-2 pr-4 text-right">Aportación</th>
+                          <th className="py-2 pr-4 text-right">Bruto</th>
+                          <th className="py-2 pr-4 text-right">Retribución</th>
+                          <th className="py-2 pr-4 text-right">Transferencia</th>
+                          <th className="py-2 pr-4">F. Transferencia</th>
+                          <th className="py-2">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {settlements.map((s) => (
+                          <tr key={s.id} className="border-b last:border-0">
+                            <td className="py-2 pr-4 tabular-nums">
+                              {property.numero_operacion ?? "—"}
+                            </td>
+                            <td className="py-2 pr-4 tabular-nums">
+                              {s.numero_operacion ?? "—"}
+                            </td>
+                            <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
+                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
+                              {formatEuro(s.aportacion)}
+                            </td>
+                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
+                              {formatEuro(
+                                deriveBrutoFromRetribucion({
+                                  retribucion: s.retribucion,
+                                  propiedad_participacion_sanyus: property.participacion_sanyus,
+                                })
+                              )}
+                            </td>
+                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
+                              {formatEuro(s.retribucion)}
+                            </td>
+                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
+                              {formatEuro(s.transferencia)}
+                            </td>
+                            <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>
+                            <td className="py-2">
+                              <Badge variant={s.liquidado ? "success" : "outline"} className="text-xs">
+                                {s.liquidado ? "Liquidada" : "Pendiente"}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

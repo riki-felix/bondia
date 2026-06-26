@@ -29,6 +29,29 @@ const settlements = (allSettlements ?? []).map((r: any) => ({
   propiedad_numero_operacion: r.propiedades?.numero_operacion ?? null,
 }));
 
+const propiedadIds = [
+  ...new Set(
+    settlements
+      .map((s: { propiedad_id: string }) => s.propiedad_id)
+      .filter(Boolean)
+  ),
+];
+
+const masterDocumentByPropiedadId: Record<string, string> = {};
+if (propiedadIds.length > 0) {
+  const { data: masterDocs } = await supabase
+    .from("documentos")
+    .select("id, entity_id")
+    .eq("entity_type", "propiedad")
+    .eq("bloque", "engine")
+    .eq("folder_slug", "master-liquidacion")
+    .in("entity_id", propiedadIds);
+
+  for (const doc of masterDocs ?? []) {
+    masterDocumentByPropiedadId[doc.entity_id] = doc.id;
+  }
+}
+
 // Compute year range from settlements
 const yearSet = new Set<number>();
 for (const s of settlements) {
@@ -70,6 +93,7 @@ const initialYear =
         initialData={settlements}
         years={years}
         initialYear={initialYear}
+        masterDocumentByPropiedadId={masterDocumentByPropiedadId}
       />
     )}
   </div>

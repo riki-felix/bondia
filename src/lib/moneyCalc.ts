@@ -11,6 +11,8 @@ export {
   formatEuro,
   formatEuroPlain,
   formatMoneyEdit,
+  moneyFieldFromNumber,
+  moneyFieldToNumberOrNull,
   parseEuro,
   parseMoneyInput,
   normalizeMoneyText,
