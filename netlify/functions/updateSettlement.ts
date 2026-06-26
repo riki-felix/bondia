@@ -11,6 +11,7 @@ import {
   derivePagoFromIngreso,
   calcBrutoFromRetribucion,
   effectiveParticipacionSanyus,
+  syncPropiedadRetribucionFromLiquidaciones,
 } from './_shared';
 
 export const handler: Handler = async (event) => {
@@ -123,6 +124,10 @@ export const handler: Handler = async (event) => {
         .from('propiedades')
         .update(propUpdates)
         .eq('id', data.propiedad_id);
+
+      if (updates.retribucion !== undefined) {
+        await syncPropiedadRetribucionFromLiquidaciones(supabase, data.propiedad_id);
+      }
     }
 
     return json(data);

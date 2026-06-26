@@ -94,6 +94,8 @@ export function effectiveParticipacionSanyus(value: number | null | undefined): 
   return DEFAULT_PARTICIPACION_SANYUS;
 }
 
+export const DEFAULT_PARTICIPACION_JASP = 20;
+
 export function roundMoney2(value: number): number {
   if (!Number.isFinite(value)) return 0;
   const n = value >= 0 ? value + 1e-9 : value - 1e-9;
@@ -104,6 +106,55 @@ export function roundMoney2(value: number): number {
 export function calcBrutoFromRetribucion(retribucion: number, pctSanyus: number): number {
   if (pctSanyus <= 0) return 0;
   return roundMoney2((retribucion * 100) / pctSanyus);
+}
+
+export function effectiveParticipacionJasp(value: number | null | undefined): number {
+  if (value != null && Number.isFinite(value)) return value;
+  return DEFAULT_PARTICIPACION_JASP;
+}
+
+export function calcJaspFromBruto(bruto: number, pctJasp: number): number {
+  return roundMoney2(bruto * (pctJasp / 100));
+}
+
+/** Sincroniza retribución y JASP en propiedad desde sus liquidaciones (service role). */
+export async function syncPropiedadRetribucionFromLiquidaciones(
+  supabase: SupabaseClient,
+  propiedadId: string
+): Promise<void> {
+  const [{ data: liqs }, { data: prop }] = await Promise.all([
+    supabase.from('liquidaciones').select('retribucion').eq('propiedad_id', propiedadId),
+    supabase
+      .from('propiedades')
+      .select('participacion_sanyus, participacion_jasp, jasp_manual')
+      .eq('id', propiedadId)
+      .single(),
+  ]);
+
+  if (!prop) return;
+
+  const pctSanyus = effectiveParticipacionSanyus(prop.participacion_sanyus);
+  let totalBruto = 0;
+  let totalRetribucion = 0;
+  for (const l of liqs ?? []) {
+    const retribucion = Number(l.retribucion) || 0;
+    totalRetribucion += retribucion;
+    totalBruto += calcBrutoFromRetribucion(retribucion, pctSanyus);
+  }
+
+  const propUpdates: Record<string, unknown> = {
+    retribucion: roundMoney2(totalRetribucion),
+  };
+
+  if (!prop.jasp_manual) {
+    propUpdates.jasp_10_percent = calcJaspFromBruto(
+      totalBruto,
+      effectiveParticipacionJasp(prop.participacion_jasp)
+    );
+    propUpdates.jasp_manual = false;
+  }
+
+  await supabase.from('propiedades').update(propUpdates).eq('id', propiedadId);
 }
 
 /** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */

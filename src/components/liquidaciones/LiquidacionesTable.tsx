@@ -19,15 +19,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EditableCell } from "../inversiones/EditableCell";
 import { toast } from "@/components/ui/sonner";
-import { getSupabase } from "@/lib/supabaseReact";
-import { formatEuro, round2, toNum } from "@/lib/moneyCalc";
+import { formatEuro, toNum } from "@/lib/moneyCalc";
+import { sumLiquidacionesTotals } from "@/lib/liquidacionesTotals";
 import {
   deriveBrutoFromRetribucion,
   deriveSettlementMoney,
-  syncPropiedadFromLiquidaciones,
 } from "@/lib/syncPropiedadFromLiquidaciones";
 import { LiquidacionesSummary } from "./LiquidacionesSummary";
-import { sumTransferenciasLiquidaciones } from "@/lib/ingresosBancoAggregate";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
 import {
   getEngineColumnTooltip,
@@ -171,37 +169,10 @@ export default function LiquidacionesTable({
     });
   }, [rows, ejercicioFilter, search]);
 
-  const totals = useMemo(() => {
-    const result: Record<string, number> = {
-      beneficio_bruto: 0,
-      aportacion: 0,
-      retribucion: 0,
-      retencion: 0,
-      neto: 0,
-      efectivo: 0,
-    };
-    for (const row of filteredRows) {
-      result.beneficio_bruto += deriveBrutoFromRetribucion(row);
-      result.aportacion += toNum(row.aportacion);
-      const derived = deriveSettlementMoney(row);
-      result.retribucion += derived.retribucion;
-      result.retencion += derived.retencion;
-      result.neto += derived.neto;
-      result.efectivo += derived.efectivo;
-    }
-    for (const key of Object.keys(result)) {
-      result[key] = round2(result[key]);
-    }
-    const { total: transferencia } = sumTransferenciasLiquidaciones(
-      filteredRows.map((r) => ({
-        transferencia: r.transferencia,
-        ejercicio: r.ejercicio,
-      })),
-      ejercicioFilter
-    );
-    result.transferencia = transferencia;
-    return result;
-  }, [filteredRows, ejercicioFilter]);
+  const totals = useMemo(
+    () => sumLiquidacionesTotals(filteredRows),
+    [filteredRows]
+  );
 
   const applyRowPatch = useCallback(
     (row: SettlementRow, field: string, value: unknown): SettlementRow => {
@@ -248,8 +219,6 @@ export default function LiquidacionesTable({
         payload.beneficio_bruto = optimistic.beneficio_bruto;
       }
 
-      const syncMoney = field === "retribucion";
-
       try {
         const res = await fetch("/.netlify/functions/updateSettlement", {
           method: "POST",
@@ -276,10 +245,6 @@ export default function LiquidacionesTable({
               : r
           )
         );
-
-        if (syncMoney) {
-          await syncPropiedadFromLiquidaciones(getSupabase(), row.propiedad_id);
-        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Error al guardar";
         toast.error(message);

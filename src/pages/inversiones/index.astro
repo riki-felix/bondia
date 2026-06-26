@@ -50,11 +50,6 @@ for (const l of allLiq ?? []) {
   });
 }
 
-// Totales globales de transferencias (= /liquidaciones)
-const { data: allLiqRows } = await supabase
-  .from("liquidaciones")
-  .select("transferencia, ejercicio");
-
 // Merge liquidación overlay into properties
 const properties: Property[] = (allProperties ?? []).map((p: any) => ({
   ...p,
@@ -104,10 +99,6 @@ const initialYear =
         initialData={properties}
         years={years}
         initialYear={initialYear}
-        liquidacionesTransferencias={(allLiqRows ?? []).map((l) => ({
-          transferencia: l.transferencia,
-          ejercicio: l.ejercicio,
-        }))}
       />
     )}
   </div>

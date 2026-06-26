@@ -83,12 +83,16 @@
   }
 }
 
-/* Incognito mode — blur money values */
-[data-incognito] [data-money] {
+/* Incognito mode — blur money values (sin bloquear edición) */
+[data-incognito] [data-money]:not(input):not([data-editable]) {
   filter: blur(8px);
   user-select: none;
-  pointer-events: none;
-  transition: filter 0.2s ease;
+}
+
+[data-incognito] [data-editable],
+[data-incognito] input[data-money] {
+  filter: none;
+  user-select: text;
 }
 
 /* Contabilidad / moneda: alineación derecha en tablas */

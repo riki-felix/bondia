@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Input } from "@/components/ui/input";
-import { formatEuro, toNum } from "@/lib/moneyCalc";
+import { formatEuro, round2, parseMoneyInput } from "@/lib/moneyCalc";
 import { Pencil } from "lucide-react";
 
 interface LiquidacionesSummaryProps {
@@ -17,8 +17,8 @@ export function LiquidacionesSummary({
   totalEfectivo,
   totalAportacion,
 }: LiquidacionesSummaryProps) {
-  const diferencia = totalTransferencia - totalEfectivo;
-  const total = totalTransferencia + totalEfectivo;
+  const diferencia = round2(totalTransferencia - totalEfectivo);
+  const total = round2(totalTransferencia + totalEfectivo);
 
   const [invertido, setInvertido] = useState<number>(0);
   const [editingInvertido, setEditingInvertido] = useState(false);
@@ -27,14 +27,14 @@ export function LiquidacionesSummary({
   // Load from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(INVERTIDO_KEY);
-    if (saved != null) setInvertido(Number(saved) || 0);
+    if (saved != null) setInvertido(parseMoneyInput(saved) ?? 0);
   }, []);
 
-  const sobrante = totalAportacion - invertido;
+  const sobrante = round2(totalAportacion - invertido);
   const margen = invertido > 0 ? Math.round((totalTransferencia / invertido) * 100) : null;
 
   const handleInvertidoSave = () => {
-    const val = toNum(invertidoInput);
+    const val = parseMoneyInput(invertidoInput) ?? 0;
     setInvertido(val);
     localStorage.setItem(INVERTIDO_KEY, String(val));
     setEditingInvertido(false);

@@ -10,7 +10,14 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { formatEuro, toNum } from "@/lib/moneyCalc";
+import {
+  formatEuro,
+  formatMoneyEdit,
+  normalizeMoneyText,
+  parseMoneyInput,
+  roundMoney2,
+  toNum,
+} from "@/lib/moneyCalc";
 
 // ─── Formatters ──────────────────────────────────────────────
 
@@ -31,6 +38,10 @@ function fmtDate(iso: string | null): string {
 function fmtMoney(value: number | null): string {
   if (value == null) return "—";
   return formatEuro(value);
+}
+
+function moneyDraftFromValue(value: unknown): string {
+  return formatMoneyEdit(value);
 }
 
 function estadoVariant(
@@ -109,8 +120,12 @@ export function EditableCell({
   const commit = useCallback(() => {
     setEditing(false);
     if (type === "money") {
-      const n = toNum(draft);
-      if (n !== toNum(value)) onSave(n);
+      const trimmed = draft.trim();
+      const normalized = trimmed ? normalizeMoneyText(draft) : "";
+      const parsed = parseMoneyInput(normalized);
+      const next = trimmed === "" ? 0 : (parsed ?? 0);
+      const prev = roundMoney2(toNum(value));
+      if (next !== prev) onSave(next);
     } else if (type === "date") {
       const v = draft.trim() || null;
       if (v !== value) onSave(v);
@@ -120,15 +135,47 @@ export function EditableCell({
     }
   }, [draft, value, type, onSave]);
 
+  const handleMoneyBlur = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed) {
+      const normalized = normalizeMoneyText(draft);
+      if (normalized !== draft) setDraft(normalized);
+    }
+    commit();
+  }, [draft, commit]);
+
+  const handleMoneyPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLInputElement>) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData("text");
+      setDraft(normalizeMoneyText(pasted));
+    },
+    []
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") commit();
+      if (e.key === "Enter") {
+        if (type === "money" && draft.trim()) {
+          const normalized = normalizeMoneyText(draft);
+          setDraft(normalized);
+          setEditing(false);
+          const parsed = parseMoneyInput(normalized);
+          const next = parsed ?? 0;
+          const prev = roundMoney2(toNum(value));
+          if (next !== prev) onSave(next);
+          return;
+        }
+        commit();
+      }
       if (e.key === "Escape") {
-        setDraft(String(value ?? ""));
+        setDraft(
+          type === "money" ? moneyDraftFromValue(value) : String(value ?? "")
+        );
         setEditing(false);
       }
     },
-    [commit, value]
+    [commit, value, type, draft]
   );
 
   const bgClass = highlight ? "bg-yellow-50" : "";
@@ -220,15 +267,14 @@ export function EditableCell({
     return (
       <div
         data-money={type === "money" || undefined}
+        data-editable={type === "money" || type === "date" || type === "text" || undefined}
         className={`cursor-pointer rounded px-1 py-0.5 hover:bg-muted/60 min-h-[28px] w-full flex items-center ${
           type === "money" ? "justify-end text-right tabular-nums" : ""
         } ${bgClass} ${className}`}
         onClick={() => {
           setDraft(
             type === "money"
-              ? value != null
-                ? String(value)
-                : ""
+              ? moneyDraftFromValue(value)
               : String(value ?? "")
           );
           setEditing(true);
@@ -243,14 +289,15 @@ export function EditableCell({
   return (
     <Input
       ref={inputRef}
-      type={type === "date" ? "date" : type === "money" ? "text" : "text"}
+      type={type === "date" ? "date" : "text"}
       data-money={type === "money" || undefined}
       className={`h-7 w-full text-sm ${
         type === "money" ? "text-right tabular-nums" : ""
       } ${bgClass} ${className}`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onBlur={type === "money" ? handleMoneyBlur : commit}
+      onPaste={type === "money" ? handleMoneyPaste : undefined}
       onKeyDown={handleKeyDown}
       inputMode={type === "money" ? "decimal" : undefined}
     />

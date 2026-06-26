@@ -11,7 +11,12 @@
     "prebuild": "node scripts/guard-build.mjs",
     "build": "astro check && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "db:status": "node scripts/supabase/compare-migrations.mjs",
+    "db:migrations": "node scripts/supabase/list-migrations.mjs",
+    "db:apply": "node scripts/supabase/apply-migration.mjs",
+    "db:backup": "node scripts/supabase/backup.mjs",
+    "db:push": "supabase db push"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",

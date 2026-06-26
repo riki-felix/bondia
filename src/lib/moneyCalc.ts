@@ -2,16 +2,21 @@
 // Decimal-safe calculation helpers for financial data.
 // All functions round to 2 decimal places to match DECIMAL(12,2) in PostgreSQL.
 
-import { toNum } from "./money";
+import { roundMoney2, toNum } from "./money";
 
-export { toNum, formatEuro, formatEuroPlain, parseEuro } from "./money";
+const round2 = roundMoney2;
 
-/** Redondeo a céntimos (alineado con ROUND(..., 2) en PostgreSQL NUMERIC) */
-export function round2(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const n = value >= 0 ? value + 1e-9 : value - 1e-9;
-  return Math.round(n * 100) / 100;
-}
+export {
+  toNum,
+  formatEuro,
+  formatEuroPlain,
+  formatMoneyEdit,
+  parseEuro,
+  parseMoneyInput,
+  normalizeMoneyText,
+  roundMoney2,
+  round2,
+} from "./money";
 
 /** Retención IRPF = 19% de retribución */
 export function calcRetencion(retribucion: number): number {
@@ -78,9 +83,6 @@ export function recalcPropertyEfectivo(row: {
 /** Sum an array of numbers (for totals row) */
 export function sumColumn(rows: Record<string, unknown>[], field: string): number {
   return round2(
-    rows.reduce((acc, row) => {
-      const val = row[field];
-      return acc + (typeof val === "number" ? val : 0);
-    }, 0)
+    rows.reduce((acc, row) => acc + toNum(row[field]), 0)
   );
 }

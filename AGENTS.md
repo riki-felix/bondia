@@ -64,8 +64,10 @@ netlify link
 npm run dev:netlify              # desarrollo completo (alias de netlify dev)
 npm run check                    # verificar tipos sin romper netlify dev
 npm run build                    # producción (astro check && build); parar netlify dev antes
+npm run db:status                # migraciones locales vs remoto (requiere SUPABASE_ACCESS_TOKEN)
+npm run db:backup                # dump SQL → supabase/backups/
 ```
 
-Migraciones de BD: SQL en `supabase/migrations/` — manual en Supabase UI, vía **Supabase MCP** (ver `.cursor/mcp.json.example`) o `supabase db push`.
+Migraciones de BD: `supabase/migrations/` — aplicar con **Supabase MCP** (`.cursor/mcp.json.example`), `npm run db:apply` / `db:status` / `db:backup`, o `supabase db push`. Ver skill `bondia-supabase`.
 
 **Documentos privados:** tabla `documentos`, bucket `bondia-documentos` (privado). Subida/lectura vía `/.netlify/functions/uploadDocument`, `getDocumentSignedUrl`, etc. UI en `/documentos` y paneles por entidad.

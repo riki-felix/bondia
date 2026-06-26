@@ -21,10 +21,8 @@ import { EditableCell } from "./EditableCell";
 import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import {
-  calcRetencion,
   recalcPropertyEfectivo,
   formatEuro,
-  sumColumn,
   toNum,
 } from "@/lib/moneyCalc";
 import { syncPropiedadFromLiquidaciones } from "@/lib/syncPropiedadFromLiquidaciones";
@@ -40,15 +38,14 @@ import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import {
-  effectiveIngresoBancoPropiedad,
-  sumTransferenciasLiquidaciones,
-  type IngresoBancoLiquidacionRow,
-} from "@/lib/ingresosBancoAggregate";
-import {
   fetchInversionesWithLiquidaciones,
   propertyEjercicio,
   propertyIsLiquidada,
 } from "@/lib/fetchInversionesWithLiquidaciones";
+import {
+  inversionDisplayMoney,
+  sumInversionDisplayMoney,
+} from "@/lib/inversionesDisplayMoney";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
 import {
   getEngineColumnTooltip,
@@ -64,8 +61,6 @@ interface InversionesTableProps {
   initialData: Property[];
   years: number[];
   initialYear: number | null;
-  /** Todas las liquidaciones (para total global = /liquidaciones) */
-  liquidacionesTransferencias: IngresoBancoLiquidacionRow[];
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -74,7 +69,6 @@ export default function InversionesTable({
   initialData,
   years,
   initialYear,
-  liquidacionesTransferencias,
 }: InversionesTableProps) {
   const [rows, setRows] = useState<Property[]>(initialData);
   const [search, setSearch] = useState("");
@@ -155,27 +149,11 @@ export default function InversionesTable({
     return result;
   }, [rows, yearFilter, search, onlyActive, showLiquidadas, showSinLiquidacion]);
 
-  // ── Totals (borradores never count) ──
+  // ── Totals (borradores no cuentan; mismos importes que las filas visibles) ──
   const totals = useMemo(() => {
     const nonDraftRows = filteredRows.filter((r) => !isDraft(r));
-    const moneyFields = [
-      "aportacion",
-      "retribucion",
-      "retencion",
-      "efectivo",
-      "jasp_10_percent",
-    ] as const;
-    const result: Record<string, number> = {};
-    for (const f of moneyFields) {
-      result[f] = sumColumn(nonDraftRows as unknown as Record<string, unknown>[], f);
-    }
-    const { total: transferenciaTotal } = sumTransferenciasLiquidaciones(
-      liquidacionesTransferencias,
-      yearFilter
-    );
-    result.ingreso_banco = transferenciaTotal;
-    return result;
-  }, [filteredRows, liquidacionesTransferencias, yearFilter]);
+    return sumInversionDisplayMoney(nonDraftRows);
+  }, [filteredRows]);
 
   // ── Save single field ──
   const saveField = useCallback(
@@ -497,15 +475,15 @@ export default function InversionesTable({
                 {formatEuro(totals.retencion)}
               </TableCell>
               <TableCell data-money className="text-right tabular-nums text-sm bg-yellow-50">
-                {formatEuro(totals.ingreso_banco)}
+                {formatEuro(totals.ingresoBanco)}
               </TableCell>
               <TableCell data-money className="text-right tabular-nums text-sm">
                 {formatEuro(totals.efectivo)}
               </TableCell>
               <TableCell data-money className="text-right tabular-nums text-sm">
-                {formatEuro(totals.jasp_10_percent)}
+                {formatEuro(totals.jasp)}
               </TableCell>
-              <TableCell colSpan={6} />
+              <TableCell colSpan={7} />
             </TableRow>
           </TableHeader>
 
@@ -523,18 +501,12 @@ export default function InversionesTable({
               filteredRows.map((row, idx) => {
                 const isLiquidada = propertyIsLiquidada(row);
                 const displayEjercicio = propertyEjercicio(row);
-                // Use liquidación values only when the property is actually marked as liquidated.
-                const displayAportacion = isLiquidada && row.liq ? row.liq.aportacion : row.aportacion;
-                const displayRetribucion = isLiquidada && row.liq ? row.liq.retribucion : row.retribucion;
-                const displayRetencion =
-                  isLiquidada && row.liq
-                    ? row.liq.retencion
-                    : calcRetencion(toNum(row.retribucion));
-                const displayIngresoBanco = effectiveIngresoBancoPropiedad({
-                  ingreso_banco: row.ingreso_banco,
-                  liqTransferencia: row.liq?.transferencia ?? null,
-                });
-                const displayEfectivo = isLiquidada && row.liq ? row.liq.efectivo : row.efectivo;
+                const display = inversionDisplayMoney(row);
+                const displayAportacion = display.aportacion;
+                const displayRetribucion = display.retribucion;
+                const displayRetencion = display.retencion;
+                const displayIngresoBanco = display.ingresoBanco;
+                const displayEfectivo = display.efectivo;
 
                 // Per-year sequential ID when a year is selected; global numero_operacion otherwise
                 const isBorrador = row.estado === "borrador";

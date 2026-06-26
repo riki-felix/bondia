@@ -1,17 +1,81 @@
 ---
 name: bondia-supabase
 description: >-
-  Gestiona esquema Supabase de Bondia: migraciones SQL, tablas por dominio, RLS,
-  storage buckets e imports. Usar al crear migraciones, cambiar columnas,
-  seeds o scripts de importación en Bondia.
-disable-model-invocation: true
+  Gestiona Supabase en Bondia: migraciones SQL, aplicar/cotejar con remoto,
+  backups, RLS, storage e imports. Usar al crear migraciones, aplicar cambios
+  en BD, auditar esquema, generar backups o interactuar con el proyecto remoto.
 ---
 
-# Bondia — Supabase y esquema
+# Bondia — Supabase (esquema y operaciones)
 
-## Enfoque
+## Prioridad de herramientas
 
-PostgreSQL en Supabase. **Sin ORM**: tipos manuales en `src/lib/*.ts`, migraciones SQL en `supabase/migrations/`. Aplicar migraciones **manualmente** en el SQL Editor de Supabase (no hay CI de BD en el repo).
+| Tarea | 1ª opción (agente) | 2ª opción (terminal) |
+|-------|-------------------|------------------------|
+| Ver migraciones pendientes | MCP `list_migrations` + comparar con `supabase/migrations/` | `npm run db:status` |
+| Aplicar migración DDL | MCP `apply_migration` | `npm run db:apply -- <archivo.sql>` |
+| Consulta / auditoría datos | MCP `execute_sql` (SELECT) | — |
+| Backup completo | `npm run db:backup` (CLI) | Dashboard → Backups |
+| Push todas las pendientes | `supabase db push` (`npm run db:push`) | — |
+| Inspeccionar esquema | MCP `list_tables` | — |
+
+**DDL (CREATE/ALTER/DROP):** siempre `apply_migration` o `npm run db:apply` — **nunca** `execute_sql` para DDL (provoca drift en el historial).
+
+**DML (SELECT/INSERT/UPDATE):** `execute_sql`. Antes de UPDATE masivo → `npm run db:backup`.
+
+## Configuración MCP (una vez por máquina)
+
+1. PAT en [Account → Access Tokens](https://supabase.com/dashboard/account/tokens).
+2. Copiar `.cursor/mcp.json.example` → `.cursor/mcp.json` y poner el token.
+3. Project ref: `supabase/.project-ref` (o `SUPABASE_PROJECT_REF` en `.env`).
+4. Cursor → Settings → Tools & MCP → activar `supabase` → reiniciar chat.
+5. **No** commitear `.cursor/mcp.json`.
+
+### Herramientas MCP relevantes
+
+- `list_migrations` — historial remoto
+- `apply_migration` — `{ name, query }` desde archivo en `supabase/migrations/`
+- `execute_sql` — consultas (no DDL)
+- `list_tables` — columnas y tipos tras un cambio
+- `get_advisors` — avisos de seguridad (RLS, etc.)
+
+Para migraciones **no** usar `read_only=true` en la config MCP.
+
+## Scripts npm (requieren `SUPABASE_ACCESS_TOKEN` en `.env`)
+
+```bash
+npm run db:status      # local vs remoto — pendientes
+npm run db:migrations  # listado detallado
+npm run db:apply -- 20260615120000_ejemplo.sql
+npm run db:apply -- 20260615120000_ejemplo.sql --dry-run
+npm run db:backup      # supabase db dump → supabase/backups/ (gitignored)
+npm run db:push        # supabase CLI: todas las pendientes
+```
+
+Primera vez backup/push:
+
+```bash
+brew install supabase/tap/supabase   # o docs oficiales
+supabase login
+supabase link --project-ref $(cat supabase/.project-ref)
+```
+
+## Flujo del agente al aplicar una migración
+
+1. **Backup** si el cambio es destructivo o toca datos: `npm run db:backup`.
+2. **Crear** archivo `supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql`.
+3. **Revisar** dependencias (Casa ↔ Sanyus espejo, RLS, columnas generadas).
+4. **Dry-run:** `npm run db:apply -- <archivo> --dry-run`.
+5. **Aplicar:** MCP `apply_migration` o `npm run db:apply -- <archivo>`.
+6. **Verificar:** `npm run db:status` + `list_tables` / consulta de prueba.
+7. **Código:** actualizar tipos TS (`propertyTypes.ts`, `bloqueTypes.ts`, etc.) si aplica.
+8. **Commit:** mensaje indicando que la migración debe estar aplicada en prod.
+
+## Enfoque de esquema
+
+PostgreSQL en Supabase. **Sin ORM**: tipos manuales en `src/lib/*.ts`, migraciones en `supabase/migrations/`.
+
+Archivos `step*.sql`: evolución histórica liquidaciones/propiedades (proyectos nuevos: aplicar en orden lógico).
 
 ## Dominios y migraciones de referencia
 
@@ -19,73 +83,44 @@ PostgreSQL en Supabase. **Sin ORM**: tipos manuales en `src/lib/*.ts`, migracion
 |---------|-------------------|
 | Casa | `20260331000000_create_casa.sql` |
 | Sanyus | `20260402000000_create_sanyus.sql` |
-| Áreas Casa | `20260331300000_create_casa_areas.sql` |
 | Liquidaciones | `20260311000000_create_liquidaciones.sql` |
-| Métodos pago | `20260402500000_create_metodos_pago.sql` |
-| Cartera | `20260402600000_create_cartera.sql` |
-| Activos valor/foto | `20260409000000_activos_valor_estimado_foto.sql` |
-| Tags | `20260409100000_activos_tags.sql` |
-| Características | `20260409200000_activos_caracteristicas.sql` |
-| Feature tasks | `20260519190000_create_feature_tasks.sql` |
+| RLS anon | `20260603120000_restore_bondia_anon_rls.sql` |
+| Liquidación 1:1 | `20260608120000_liquidaciones_propiedad_1to1.sql` |
 
-Archivos `step*.sql` en la misma carpeta: evolución de liquidaciones/propiedades (aplicar en orden lógico si el proyecto es nuevo).
+Ver `reference.md` para diagrama de relaciones.
 
 ## Tablas principales
 
 **Inmobiliario:** `propiedades`, `liquidaciones` (columnas generadas: retención, neto, efectivo).
 
-**Por bloque (`casa_*` / `sanyus_*`):** gastos, ingresos, activos_v2, categorías, overrides, areas.
+**Por bloque:** `casa_*` / `sanyus_*` (gastos, ingresos, activos_v2, categorías, overrides, areas).
 
-**Cartera:** `cartera_movimientos`, `cartera_ajustes`.
+**Cartera:** `cartera_movimientos`, `cartera_ajustes` (`NUMERIC` sin escala fija — cuidado al redondear).
 
-**Auxiliar:** `metodos_pago`, `feature_tasks`, `activos_tags`, `activos_caracteristicas`.
-
-**Legacy starter:** `frameworks` — ignorar salvo limpieza.
+**Auxiliar:** `metodos_pago`, `feature_tasks`, `documentos`.
 
 ## RLS y seguridad
 
-Bondia lee con **`anon`** (`PUBLIC_SUPABASE_ANON_KEY`) en páginas `.astro` sin login. Las **mutaciones** van por `service_role` en Netlify Functions.
-
-Políticas esperadas en tablas de app (ver `20260603120000_restore_bondia_anon_rls.sql` + `20260604120000_security_advisor_fixes.sql`):
-
-- `bondia_anon_select` — `FOR SELECT TO anon USING (true)` únicamente
-- Sin política `authenticated`: mutaciones solo vía `service_role` (Netlify)
-- `bondia_reset_anon_select_rls(regclass)` — solo ejecutable por `service_role` (no RPC pública)
-
-**No aplicar** el Security Advisor que sustituye `USING (true)` en **SELECT anon** por `(auth.uid() IS NOT NULL)`: la UI queda vacía.
-
-Bucket `activos-fotos` es **público** (`public: true`): no añadir políticas `SELECT` amplias en `storage.objects` (permite listado). Subida/borrado en Netlify con service role.
-
-**Modelo 184:** tabla `sanyus_modelo184_config` (fila `default`) — ficha editable en `/sanyus/modelo-184`; guardado vía `upsertSanyusModelo184Config`.
-
-Auth: activar “Prevent use of leaked passwords” en [Auth → Email](https://supabase.com/dashboard/project/_/auth/providers?provider=Email) si el plan lo permite (Pro+).
+- Lectura UI: rol **`anon`** (`PUBLIC_SUPABASE_ANON_KEY`).
+- Mutaciones app: **`service_role`** en Netlify Functions.
+- Patrón: `bondia_anon_select` (solo SELECT) — ver `20260603120000_restore_bondia_anon_rls.sql`.
+- **No** sustituir SELECT anon por `auth.uid()` sin login real.
 
 ## Storage buckets
 
 | Bucket | Uso |
 |--------|-----|
-| `activos-fotos` | Fotos activos Casa/Sanyus (público) |
+| `activos-fotos` | Fotos activos (público) |
 | `property-images` | Imágenes propiedades (público) |
-| `bondia-documentos` | PDF/JPG privados; URLs firmadas vía Netlify Functions |
-
-Tabla `documentos`: metadatos, `sort_order`, `entity_type` + `entity_id`, `bloque` (`engine`|`casa`|`sanyus`). Migración `20260522140000_create_documentos.sql`.
-
-## ENUM y tipos SQL
-
-- `casa_frecuencia` — semanal, mensual, anual, puntual, variable, etc. (usado en gastos/ingresos de ambos bloques según migración).
-
-## Scripts e imports en raíz
-
-- `propiedades_schema.sql`, `import_*.sql`, `generar_*.py` — herramientas puntuales; leer README asociado (`PROPERTY_IMPORT_README.md`, `PROPIEDADES_*_README.md`).
-- Seeds de datos en migraciones `*_import_*_2026.sql`.
+| `bondia-documentos` | Documentos privados (URLs firmadas vía functions) |
 
 ## Convención nueva migración
 
 1. Nombre: `YYYYMMDDHHMMSS_descripcion.sql` en `supabase/migrations/`.
-2. Si afecta bloques espejo: alterar **ambas** tablas `casa_*` y `sanyus_*`.
-3. RLS: replicar patrón `ENABLE ROW LEVEL SECURITY` + policy allow si la tabla es de app.
-4. Actualizar tipos TS en `bloqueTypes.ts` / `propertyTypes.ts` según corresponda.
-5. Documentar en commit que la migración debe aplicarse en Supabase prod.
+2. Bloques espejo: alterar **casa_* y sanyus_*** si aplica.
+3. RLS: `bondia_reset_anon_select_rls('public.tabla')` o política equivalente.
+4. Tipos TS y functions Netlify si hay columnas nuevas.
+5. Idempotencia: `IF NOT EXISTS`, `DROP IF EXISTS` cuando sea seguro.
 
 ## Lo que no crear sin requisito explícito
 
@@ -97,9 +132,6 @@ Tabla `documentos`: metadatos, `sort_order`, `entity_type` + `entity_id`, `bloqu
 
 | Archivo | Entidades |
 |---------|-----------|
-| `bloqueTypes.ts` | Gasto, Ingreso, Activo, overrides, cartera |
+| `bloqueTypes.ts` | Gasto, Ingreso, Activo, cartera |
 | `propertyTypes.ts` | Property |
 | `settlementTypes.ts` | Settlement |
-| `supabase/types.ts` | Legacy frameworks |
-
-Ver `reference.md` para diagrama de relaciones resumido.
