@@ -230,7 +230,7 @@ export function AppSidebar({
   return (
     <Sidebar
       collapsible="icon"
-      className="top-12 h-[calc(100svh-3rem)] border-r-0 p-1 pl-1 pr-0 pb-1 [&_[data-sidebar=sidebar]]:overflow-hidden [&_[data-sidebar=sidebar]]:rounded-tl-xl [&_[data-sidebar=sidebar]]:shadow-sm [&_[data-sidebar=sidebar]]:ring-1 [&_[data-sidebar=sidebar]]:ring-border/40"
+      className="!inset-y-auto !top-12 !bottom-auto !left-2 !h-[calc(100svh-3.5rem)] border-0 [&_[data-sidebar=sidebar]]:overflow-hidden [&_[data-sidebar=sidebar]]:rounded-tl-lg [&_[data-sidebar=sidebar]]:bg-sidebar"
     >
       <SidebarContent className="gap-0 px-1 pt-1">
         <SidebarGroup className="px-1.5 py-0.5">

@@ -9,11 +9,26 @@ export type InformesProperty = Property & {
   precio_venta: number | null;
 };
 
+export interface PropiedadPorAnioItem {
+  id: string;
+  titulo: string;
+  numero_operacion: number | null;
+}
+
+export interface PropiedadesPorAnioEntry {
+  year: number;
+  count: number;
+  properties: PropiedadPorAnioItem[];
+}
+
 export interface InformesStats {
   beneficioNeto: number;
   beneficioBruto: number;
   beneficioMedio: number | null;
   operacionesLiquidadas: number;
+  ingresoLiquidadas: number;
+  retencionesLiquidadas: number;
+  brutoLiquidadas: number;
   aportacion: number;
   retribucion: number;
   jaspTotal: number;
@@ -97,9 +112,9 @@ export function computeInformesStats(rows: Property[]): InformesStats {
   let efectivoTotal = 0;
   let transferenciaTotal = 0;
   let ingresoLiquidadas = 0;
+  let retencionesLiquidadas = 0;
+  let brutoLiquidadas = 0;
   let operacionesLiquidadas = 0;
-
-  const countByYear = new Map<number, number>();
 
   for (const row of eligible) {
     const d = inversionDisplayMoney(row);
@@ -112,20 +127,17 @@ export function computeInformesStats(rows: Property[]): InformesStats {
     efectivoTotal += d.efectivo;
     transferenciaTotal += d.ingresoBanco;
 
-    const ej = propertyEjercicio(row);
-    if (ej != null) {
-      countByYear.set(ej, (countByYear.get(ej) ?? 0) + 1);
-    }
-
     if (propertyIsLiquidada(row)) {
       operacionesLiquidadas += 1;
       ingresoLiquidadas += d.ingresoBanco;
+      retencionesLiquidadas += d.retencion;
+      brutoLiquidadas += d.ingresoBanco + d.retencion;
     }
   }
 
-  const propiedadesPorAnio = [...countByYear.entries()]
-    .map(([year, count]) => ({ year, count }))
-    .sort((a, b) => a.year - b.year);
+  const propiedadesPorAnio = computePropiedadesPorAnio(rows).map(
+    ({ year, count }) => ({ year, count })
+  );
 
   const beneficioMedio =
     operacionesLiquidadas > 0
@@ -137,6 +149,9 @@ export function computeInformesStats(rows: Property[]): InformesStats {
     beneficioBruto: round2(beneficioBruto),
     beneficioMedio,
     operacionesLiquidadas,
+    ingresoLiquidadas: round2(ingresoLiquidadas),
+    retencionesLiquidadas: round2(retencionesLiquidadas),
+    brutoLiquidadas: round2(brutoLiquidadas),
     aportacion: round2(aportacion),
     retribucion: round2(retribucion),
     jaspTotal: round2(jaspTotal),
@@ -148,6 +163,43 @@ export function computeInformesStats(rows: Property[]): InformesStats {
 }
 
 /** Media de precio_compra / precio_venta de la ficha de propiedad (solo widgets Informes). */
+export function computePropiedadesPorAnio(
+  rows: Property[]
+): PropiedadesPorAnioEntry[] {
+  const eligible = rows.filter((r) => !isDraft(r));
+  const byYear = new Map<number, PropiedadPorAnioItem[]>();
+
+  for (const row of eligible) {
+    const ej = propertyEjercicio(row);
+    if (ej == null) continue;
+
+    const list = byYear.get(ej) ?? [];
+    list.push({
+      id: row.id,
+      titulo:
+        row.titulo?.trim() ||
+        (row.numero_operacion != null
+          ? `Operación ${row.numero_operacion}`
+          : "Sin nombre"),
+      numero_operacion: row.numero_operacion,
+    });
+    byYear.set(ej, list);
+  }
+
+  return [...byYear.entries()]
+    .map(([year, properties]) => ({
+      year,
+      count: properties.length,
+      properties: properties.sort((a, b) => {
+        const na = a.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+        const nb = b.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+        if (na !== nb) return na - nb;
+        return a.titulo.localeCompare(b.titulo, "es");
+      }),
+    }))
+    .sort((a, b) => a.year - b.year);
+}
+
 export function computePreciosMedios(rows: InformesProperty[]): PreciosMediosStats {
   const eligible = rows.filter((r) => r.estado !== "borrador");
 
@@ -185,6 +237,15 @@ export function computeMargenPct(
 ): number | null {
   if (invertido <= 0) return null;
   return Math.round((transferenciaTotal / invertido) * 100);
+}
+
+/** Monto / capital invertido (ej. bruto 300k / invertido 100k → 3). */
+export function computeUsoCapitalMultiple(
+  monto: number,
+  invertido: number
+): number | null {
+  if (invertido <= 0 || monto < 0) return null;
+  return round2(monto / invertido);
 }
 
 /** Variación % respecto al año anterior (null si no es comparable). */

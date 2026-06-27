@@ -16,7 +16,8 @@
     "db:migrations": "node scripts/supabase/list-migrations.mjs",
     "db:apply": "node scripts/supabase/apply-migration.mjs",
     "db:backup": "node scripts/supabase/backup.mjs",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "db:recalc-jasp": "node scripts/recalcular-jasp-propiedades.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",

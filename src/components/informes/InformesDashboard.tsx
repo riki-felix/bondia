@@ -3,7 +3,10 @@ import { BarChart3, CheckCircle, Circle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/ui/stat-card";
-import { BeneficioMedioCard } from "./BeneficioMedioCard";
+import { BeneficioObjetivoCard } from "./BeneficioObjetivoCard";
+import { AportacionMargenCard } from "./AportacionMargenCard";
+import { RepartoCard } from "./RepartoCard";
+import { PreciosMediosCard } from "./PreciosMediosCard";
 import { PropiedadesPorAnioChart } from "./PropiedadesPorAnioChart";
 import type { InformesProperty } from "@/lib/informesStats";
 import {
@@ -11,10 +14,14 @@ import {
   computeInformesStats,
   computeMargenPct,
   computePreciosMedios,
+  computePropiedadesPorAnio,
   computeYearOverYearPct,
   filterInformesRows,
   filterInformesRowsForPreciosMedios,
+  type PropiedadPorAnioItem,
 } from "@/lib/informesStats";
+import { propertyEjercicio } from "@/lib/fetchInversionesWithLiquidaciones";
+import { computeRepartoStats } from "@/lib/repartoStats";
 import {
   formatEuro,
   formatMoneyEdit,
@@ -111,6 +118,76 @@ export default function InformesDashboard({
   );
   const margen = computeMargenPct(stats.transferenciaTotal, invertido);
 
+  const propiedadesPorAnioRows = useMemo(() => {
+    let result = initialData;
+    if (showLiquidadas) {
+      result = result.filter((r) => propertyIsLiquidada(r));
+    } else if (showSinLiquidacion) {
+      result = result.filter((r) => !propertyIsLiquidada(r));
+    }
+    return result;
+  }, [initialData, showLiquidadas, showSinLiquidacion]);
+
+  const propiedadesPorAnioData = useMemo(
+    () => computePropiedadesPorAnio(propiedadesPorAnioRows),
+    [propiedadesPorAnioRows]
+  );
+
+  const listByYear = useMemo(() => {
+    const eligible = viewRows.filter((r) => r.estado !== "borrador");
+    const toItem = (row: (typeof eligible)[number]): PropiedadPorAnioItem => ({
+      id: row.id,
+      titulo:
+        row.titulo?.trim() ||
+        (row.numero_operacion != null
+          ? `Operación ${row.numero_operacion}`
+          : "Sin nombre"),
+      numero_operacion: row.numero_operacion,
+    });
+
+    if (yearFilter === "all") {
+      const byYear = new Map<number, PropiedadPorAnioItem[]>();
+      for (const row of eligible) {
+        const ej = propertyEjercicio(row);
+        if (ej == null) continue;
+        const list = byYear.get(ej) ?? [];
+        list.push(toItem(row));
+        byYear.set(ej, list);
+      }
+      return [...byYear.entries()]
+        .map(([year, properties]) => ({
+          year,
+          count: properties.length,
+          properties: properties.sort((a, b) => {
+            const na = a.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+            const nb = b.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+            if (na !== nb) return na - nb;
+            return a.titulo.localeCompare(b.titulo, "es");
+          }),
+        }))
+        .sort((a, b) => b.year - a.year);
+    }
+
+    const properties = eligible
+      .map(toItem)
+      .sort((a, b) => {
+        const na = a.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+        const nb = b.numero_operacion ?? Number.MAX_SAFE_INTEGER;
+        if (na !== nb) return na - nb;
+        return a.titulo.localeCompare(b.titulo, "es");
+      });
+
+    if (properties.length === 0) return [];
+
+    return [
+      {
+        year: Number(yearFilter),
+        count: properties.length,
+        properties,
+      },
+    ];
+  }, [viewRows, yearFilter]);
+
   const prevYearRows = useMemo(() => {
     if (yearFilter === "all") return null;
     return filterInformesRows(
@@ -156,6 +233,20 @@ export default function InformesDashboard({
       prevYearRows
         ? prevYearRows.filter((r) => r.estado !== "borrador").length
         : null,
+    [prevYearRows]
+  );
+
+  const repartoReal = useMemo(
+    () => computeRepartoStats(viewRows, "real"),
+    [viewRows]
+  );
+  const repartoTeorico = useMemo(
+    () => computeRepartoStats(viewRows, "teorico"),
+    [viewRows]
+  );
+  const prevRepartoReal = useMemo(
+    () =>
+      prevYearRows ? computeRepartoStats(prevYearRows, "real") : null,
     [prevYearRows]
   );
 
@@ -274,23 +365,25 @@ export default function InformesDashboard({
       {/* Bloque 1 — Beneficios */}
       <InformesBlock title="Beneficios">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Beneficio neto"
-            value={formatEuro(stats.beneficioNeto)}
-            description="Suma de ingresos en banco"
-            variant="highlight"
+          <BeneficioObjetivoCard
+            variant="neto"
+            stats={stats}
+            objetivoBeneficioMedio={objetivoBeneficioMedio}
+            yearFilter={yearFilter}
             yearComparisonPct={yoy(stats.beneficioNeto, prevStats?.beneficioNeto ?? null)}
           />
-          <StatCard
-            label="Beneficio bruto"
-            value={formatEuro(stats.beneficioBruto)}
-            description="Ingresos en banco + retenciones"
+          <BeneficioObjetivoCard
+            variant="bruto"
+            stats={stats}
+            objetivoBeneficioMedio={objetivoBeneficioMedio}
+            yearFilter={yearFilter}
             yearComparisonPct={yoy(stats.beneficioBruto, prevStats?.beneficioBruto ?? null)}
           />
-          <BeneficioMedioCard
-            beneficioMedio={stats.beneficioMedio}
-            operacionesLiquidadas={stats.operacionesLiquidadas}
+          <BeneficioObjetivoCard
+            variant="medio"
+            stats={stats}
             objetivoBeneficioMedio={objetivoBeneficioMedio}
+            yearFilter={yearFilter}
             yearComparisonPct={yoy(
               stats.beneficioMedio,
               prevStats?.beneficioMedio ?? null
@@ -301,31 +394,26 @@ export default function InformesDashboard({
 
       {/* Bloque 2 — Participación */}
       <InformesBlock title="Participación">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            label="Aportación"
-            value={formatEuro(stats.aportacion)}
-            description="Suma de aportaciones"
-            yearComparisonPct={yoy(stats.aportacion, prevStats?.aportacion ?? null)}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AportacionMargenCard
+            aportacion={stats.aportacion}
+            transferenciaTotal={stats.transferenciaTotal}
+            invertido={invertido}
+            yearFilter={yearFilter}
+            aportacionYoYPct={yoy(
+              stats.aportacion,
+              prevStats?.aportacion ?? null
+            )}
+            margenYoYPct={yoy(margen, prevMargen)}
           />
-          <StatCard
-            label="Retribución"
-            value={formatEuro(stats.retribucion)}
-            description="Suma de retribuciones"
-            yearComparisonPct={yoy(stats.retribucion, prevStats?.retribucion ?? null)}
-          />
-          <StatCard
-            label="JASP total"
-            value={formatEuro(stats.jaspTotal)}
-            description="Suma de JASP"
-            yearComparisonPct={yoy(stats.jaspTotal, prevStats?.jaspTotal ?? null)}
-          />
-          <StatCard
-            label="Margen"
-            value={margen != null ? `${margen}%` : "—"}
-            description="Transferencias / Invertido"
-            variant="muted"
-            yearComparisonPct={yoy(margen, prevMargen)}
+          <RepartoCard
+            real={repartoReal}
+            teorico={repartoTeorico}
+            yearFilter={yearFilter}
+            brutoYoYPct={yoy(
+              repartoReal.brutoTotal,
+              prevRepartoReal?.brutoTotal ?? null
+            )}
           />
         </div>
       </InformesBlock>
@@ -354,64 +442,32 @@ export default function InformesDashboard({
 
       {/* Bloque 5 — Propiedades */}
       <InformesBlock title="Propiedades">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-lg border bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Propiedades por año
-            </p>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="min-w-0 rounded-xl border bg-card p-5">
             <PropiedadesPorAnioChart
-              data={stats.propiedadesPorAnio}
-              totalCount={showYearComparison ? propiedadesEnVista : undefined}
+              evolution={propiedadesPorAnioData}
+              activeYear={yearFilter !== "all" ? Number(yearFilter) : null}
+              listByYear={listByYear}
+              totalCount={propiedadesEnVista}
               yearComparisonPct={yoy(
                 propiedadesEnVista,
                 prevPropiedadesEnVista
               )}
+              compact
             />
           </div>
-          <div className="space-y-4">
-            <StatCard
-              label="Precio medio compra"
-              value={
-                preciosMedios.precioMedioCompra != null
-                  ? formatEuro(preciosMedios.precioMedioCompra)
-                  : "—"
-              }
-              description={
-                preciosMedios.comprasEnVista > 0
-                  ? yearFilter !== "all"
-                    ? `${preciosMedios.comprasEnVista} en ejercicio ${yearFilter}`
-                    : `${preciosMedios.comprasEnVista} con precio de compra`
-                  : yearFilter !== "all"
-                    ? `Sin precios en ejercicio ${yearFilter}`
-                    : "Sin precios de compra en esta vista"
-              }
-              yearComparisonPct={yoy(
-                preciosMedios.precioMedioCompra,
-                prevPreciosMedios?.precioMedioCompra ?? null
-              )}
-            />
-            <StatCard
-              label="Precio medio venta"
-              value={
-                preciosMedios.precioMedioVenta != null
-                  ? formatEuro(preciosMedios.precioMedioVenta)
-                  : "—"
-              }
-              description={
-                preciosMedios.ventasEnVista > 0
-                  ? yearFilter !== "all"
-                    ? `${preciosMedios.ventasEnVista} en ejercicio ${yearFilter}`
-                    : `${preciosMedios.ventasEnVista} con precio de venta`
-                  : yearFilter !== "all"
-                    ? `Sin precios en ejercicio ${yearFilter}`
-                    : "Sin precios de venta en esta vista"
-              }
-              yearComparisonPct={yoy(
-                preciosMedios.precioMedioVenta,
-                prevPreciosMedios?.precioMedioVenta ?? null
-              )}
-            />
-          </div>
+          <PreciosMediosCard
+            preciosMedios={preciosMedios}
+            yearFilter={yearFilter}
+            compraYoYPct={yoy(
+              preciosMedios.precioMedioCompra,
+              prevPreciosMedios?.precioMedioCompra ?? null
+            )}
+            ventaYoYPct={yoy(
+              preciosMedios.precioMedioVenta,
+              prevPreciosMedios?.precioMedioVenta ?? null
+            )}
+          />
         </div>
       </InformesBlock>
     </div>
