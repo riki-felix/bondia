@@ -7,6 +7,7 @@ import InformesDashboard from "../../components/informes/InformesDashboard";
 import { supabaseClient } from "../../lib/supabaseClient";
 import type { InformesProperty } from "../../lib/informesStats";
 import { maxInformesUpdatedAt } from "../../lib/informesStats";
+import { fetchMercadoReferencia } from "../../lib/mercadoReferencia";
 import { PROPERTY_SELECT } from "../../lib/propertyTypes";
 import {
   OBJETIVO_BENEFICIO_MEDIO_OPERACION,
@@ -18,9 +19,18 @@ const supabase = supabaseClient();
 
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select(`${PROPERTY_SELECT}, precio_compra, precio_venta, updated_at`)
+  .select(
+    `${PROPERTY_SELECT}, precio_compra, precio_venta, superficie_registrada_m2, direccion, updated_at`
+  )
   .eq("tipo", "inversion")
   .order("numero_operacion", { ascending: true });
+
+let mercadoReferencia = null;
+try {
+  mercadoReferencia = await fetchMercadoReferencia(supabase);
+} catch (e) {
+  console.error("[informes] mercado referencia:", e);
+}
 
 const { data: allLiq } = await supabase
   .from("liquidaciones")
@@ -58,6 +68,8 @@ const properties: InformesProperty[] = (allProperties ?? []).map((p: any) => ({
   ...p,
   precio_compra: p.precio_compra ?? null,
   precio_venta: p.precio_venta ?? null,
+  superficie_registrada_m2: p.superficie_registrada_m2 ?? null,
+  direccion: p.direccion ?? null,
   liq: liqByProp.get(p.id) ?? null,
 })) as InformesProperty[];
 
@@ -88,6 +100,7 @@ const lastUpdatedAt = maxInformesUpdatedAt(
         initialData={properties}
         lastUpdatedAt={lastUpdatedAt}
         objetivoBeneficioMedio={objetivoBeneficioMedio}
+        mercadoReferencia={mercadoReferencia}
       />
     )}
   </div>

@@ -26,6 +26,11 @@ import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
+import {
+  applyCatastroToFormFields,
+  CatastroReferenciaField,
+  touchCatastroReferencia,
+} from "@/components/propiedades/CatastroReferenciaField";
 
 interface PropertyCreateDialogProps {
   open: boolean;
@@ -46,6 +51,8 @@ const EMPTY_FORM = {
   estado: "borrador",
   ocupado: "false",
   numero_catastro: "",
+  catastro_referencia_validada: "",
+  catastro_validado_at: "",
   fecha_ingreso: "",
   fecha_compra: "",
   fecha_venta: "",
@@ -133,6 +140,10 @@ export function PropertyCreateDialog({
         if (form.anio_construccion) payload.anio_construccion = form.anio_construccion;
         if (form.numero_catastro.trim())
           payload.numero_catastro = form.numero_catastro.trim();
+        if (form.catastro_referencia_validada.trim()) {
+          payload.catastro_referencia_validada = form.catastro_referencia_validada.trim();
+        }
+        if (form.catastro_validado_at) payload.catastro_validado_at = form.catastro_validado_at;
         if (form.fecha_ingreso) payload.fecha_ingreso = form.fecha_ingreso;
         if (form.fecha_compra) payload.fecha_compra = form.fecha_compra;
         if (form.fecha_venta) payload.fecha_venta = form.fecha_venta;
@@ -275,9 +286,9 @@ export function PropertyCreateDialog({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
               Características
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="superficie_m2">Superficie Catastral</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="space-y-1.5 lg:col-span-2">
+                <Label htmlFor="superficie_m2">Superficie construida</Label>
                 <Input
                   id="superficie_m2"
                   type="number"
@@ -286,8 +297,8 @@ export function PropertyCreateDialog({
                   placeholder="m²"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+              <div className="space-y-1.5 lg:col-span-2">
+                <Label htmlFor="superficie_registrada_m2">Superficie vivienda</Label>
                 <Input
                   id="superficie_registrada_m2"
                   type="number"
@@ -296,7 +307,7 @@ export function PropertyCreateDialog({
                   placeholder="m²"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 lg:col-span-2">
                 <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
                 <Input
                   id="superficie_real_m2"
@@ -306,7 +317,7 @@ export function PropertyCreateDialog({
                   placeholder="m²"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 lg:col-span-2">
                 <Label htmlFor="anio_construccion">Año construcción</Label>
                 <Input
                   id="anio_construccion"
@@ -318,15 +329,19 @@ export function PropertyCreateDialog({
                   placeholder="Año"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="numero_catastro">Ref. Catastral</Label>
-                <Input
-                  id="numero_catastro"
-                  value={form.numero_catastro}
-                  onChange={set("numero_catastro")}
-                  placeholder="Referencia"
-                />
-              </div>
+              <CatastroReferenciaField
+                value={form.numero_catastro}
+                validatedReferencia={form.catastro_referencia_validada}
+                validatedAt={form.catastro_validado_at}
+                onChange={(v) => setForm((prev) => touchCatastroReferencia(prev, v))}
+                onValidated={(result) =>
+                  setForm((prev) => applyCatastroToFormFields(prev, result))
+                }
+                onFachadaImported={({ file, previewUrl }) => {
+                  setImageFile(file);
+                  setImagePreview(previewUrl);
+                }}
+              />
             </div>
           </div>
 

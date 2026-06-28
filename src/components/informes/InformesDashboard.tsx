@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { BarChart3, CheckCircle, Circle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/sonner";
 import { StatCard } from "@/components/ui/stat-card";
 import { BeneficioObjetivoCard } from "./BeneficioObjetivoCard";
 import { AportacionMargenCard } from "./AportacionMargenCard";
@@ -9,6 +10,8 @@ import { RepartoCard } from "./RepartoCard";
 import { PreciosMediosCard } from "./PreciosMediosCard";
 import { PropiedadesPorAnioChart } from "./PropiedadesPorAnioChart";
 import type { InformesProperty } from "@/lib/informesStats";
+import type { MercadoReferenciaBundle } from "@/lib/mercadoReferencia";
+import { refreshMercadoReferencia } from "@/lib/mercadoReferenciaApi";
 import {
   collectInformesYears,
   computeInformesStats,
@@ -35,6 +38,7 @@ interface InformesDashboardProps {
   initialData: InformesProperty[];
   lastUpdatedAt: string | null;
   objetivoBeneficioMedio: number | null;
+  mercadoReferencia: MercadoReferenciaBundle | null;
 }
 
 function formatLastUpdated(iso: string | null): string {
@@ -72,7 +76,15 @@ export default function InformesDashboard({
   initialData,
   lastUpdatedAt,
   objetivoBeneficioMedio,
+  mercadoReferencia: initialMercadoReferencia,
 }: InformesDashboardProps) {
+  const [mercadoReferencia, setMercadoReferencia] = useState(
+    initialMercadoReferencia
+  );
+  const [refreshingMercado, setRefreshingMercado] = useState(false);
+  const [mercadoRefreshNote, setMercadoRefreshNote] = useState<string | null>(
+    null
+  );
   const years = useMemo(() => collectInformesYears(initialData), [initialData]);
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [showLiquidadas, setShowLiquidadas] = useState(false);
@@ -113,8 +125,8 @@ export default function InformesDashboard({
     [initialData, yearFilter, showLiquidadas, showSinLiquidacion]
   );
   const preciosMedios = useMemo(
-    () => computePreciosMedios(preciosMediosRows),
-    [preciosMediosRows]
+    () => computePreciosMedios(preciosMediosRows, mercadoReferencia),
+    [preciosMediosRows, mercadoReferencia]
   );
   const margen = computeMargenPct(stats.transferenciaTotal, invertido);
 
@@ -210,8 +222,8 @@ export default function InformesDashboard({
       showLiquidadas,
       showSinLiquidacion
     );
-    return computePreciosMedios(rows);
-  }, [initialData, yearFilter, showLiquidadas, showSinLiquidacion]);
+    return computePreciosMedios(rows, mercadoReferencia);
+  }, [initialData, yearFilter, showLiquidadas, showSinLiquidacion, mercadoReferencia]);
   const prevMargen = useMemo(
     () =>
       prevStats
@@ -249,6 +261,33 @@ export default function InformesDashboard({
       prevYearRows ? computeRepartoStats(prevYearRows, "real") : null,
     [prevYearRows]
   );
+
+  const handleRefreshMercado = useCallback(async () => {
+    setRefreshingMercado(true);
+    try {
+      const result = await refreshMercadoReferencia();
+      setMercadoReferencia(result.bundle);
+      setMercadoRefreshNote(result.idealistaNote);
+
+      const parts: string[] = [];
+      if (result.mitmaUpdated) parts.push("MITMA");
+      if (result.idealistaUpdated) parts.push("Idealista");
+      if (parts.length) {
+        toast.success(`Referencias actualizadas: ${parts.join(" y ")}`);
+      } else {
+        toast.success("Referencias de mercado revisadas");
+      }
+      if (result.idealistaNote) {
+        toast.message("Idealista", { description: result.idealistaNote });
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Error al actualizar referencias"
+      );
+    } finally {
+      setRefreshingMercado(false);
+    }
+  }, []);
 
   const handleInvertidoSave = () => {
     const trimmed = invertidoInput.trim();
@@ -467,6 +506,18 @@ export default function InformesDashboard({
               preciosMedios.precioMedioVenta,
               prevPreciosMedios?.precioMedioVenta ?? null
             )}
+            compraM2YoYPct={yoy(
+              preciosMedios.euroM2MedioCompra,
+              prevPreciosMedios?.euroM2MedioCompra ?? null
+            )}
+            ventaM2YoYPct={yoy(
+              preciosMedios.euroM2MedioVenta,
+              prevPreciosMedios?.euroM2MedioVenta ?? null
+            )}
+            mercadoUpdatedAt={mercadoReferencia?.updatedAt ?? null}
+            onRefreshMercado={handleRefreshMercado}
+            refreshingMercado={refreshingMercado}
+            mercadoRefreshNote={mercadoRefreshNote}
           />
         </div>
       </InformesBlock>

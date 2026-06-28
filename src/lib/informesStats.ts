@@ -2,11 +2,19 @@ import type { Property } from "./propertyTypes";
 import { round2 } from "./moneyCalc";
 import { propertyEjercicio, propertyIsLiquidada } from "./fetchInversionesWithLiquidaciones";
 import { inversionDisplayMoney } from "./inversionesDisplayMoney";
+import { getSuperficieViviendaM2 } from "./superficieVivienda";
+import {
+  extractProvinciaFromDireccion,
+  resolveMercadoItem,
+  type MercadoReferenciaBundle,
+} from "./mercadoReferencia";
 
-/** Propiedad con precios de compra/venta; solo se cargan en la página Informes. */
+/** Propiedad con precios y superficie de vivienda; solo se cargan en la página Informes. */
 export type InformesProperty = Property & {
   precio_compra: number | null;
   precio_venta: number | null;
+  superficie_registrada_m2: number | null;
+  direccion: string | null;
 };
 
 export interface PropiedadPorAnioItem {
@@ -43,6 +51,18 @@ export interface PreciosMediosStats {
   precioMedioVenta: number | null;
   comprasEnVista: number;
   ventasEnVista: number;
+  euroM2MedioCompra: number | null;
+  euroM2MedioVenta: number | null;
+  comprasConSuperficieVivienda: number;
+  ventasConSuperficieVivienda: number;
+  mercadoEuroM2Compra: number | null;
+  mercadoEuroM2Venta: number | null;
+  mercadoEtiqueta: string | null;
+  mercadoPeriodo: string | null;
+  idealistaEuroM2Compra: number | null;
+  idealistaEuroM2Venta: number | null;
+  idealistaEtiqueta: string | null;
+  idealistaPeriodo: string | null;
 }
 
 function isDraft(row: Property): boolean {
@@ -200,13 +220,27 @@ export function computePropiedadesPorAnio(
     .sort((a, b) => a.year - b.year);
 }
 
-export function computePreciosMedios(rows: InformesProperty[]): PreciosMediosStats {
+export function computePreciosMedios(
+  rows: InformesProperty[],
+  mercado: MercadoReferenciaBundle | null = null
+): PreciosMediosStats {
   const eligible = rows.filter((r) => r.estado !== "borrador");
 
   let sumCompra = 0;
   let comprasEnVista = 0;
   let sumVenta = 0;
   let ventasEnVista = 0;
+
+  let sumPrecioCompraM2 = 0;
+  let sumM2Compra = 0;
+  let comprasConSuperficieVivienda = 0;
+
+  let sumPrecioVentaM2 = 0;
+  let sumM2Venta = 0;
+  let ventasConSuperficieVivienda = 0;
+
+  const mitma = accumulateMercadoWeighted(eligible, mercado, "mitma");
+  const idealista = accumulateMercadoWeighted(eligible, mercado, "idealista");
 
   for (const row of eligible) {
     const precioCompra = Number(row.precio_compra) || 0;
@@ -220,6 +254,20 @@ export function computePreciosMedios(rows: InformesProperty[]): PreciosMediosSta
       sumVenta += precioVenta;
       ventasEnVista += 1;
     }
+
+    const m2Vivienda = getSuperficieViviendaM2(row);
+    if (m2Vivienda != null) {
+      if (precioCompra > 0) {
+        sumPrecioCompraM2 += precioCompra;
+        sumM2Compra += m2Vivienda;
+        comprasConSuperficieVivienda += 1;
+      }
+      if (precioVenta > 0) {
+        sumPrecioVentaM2 += precioVenta;
+        sumM2Venta += m2Vivienda;
+        ventasConSuperficieVivienda += 1;
+      }
+    }
   }
 
   return {
@@ -228,6 +276,83 @@ export function computePreciosMedios(rows: InformesProperty[]): PreciosMediosSta
     precioMedioVenta: ventasEnVista > 0 ? round2(sumVenta / ventasEnVista) : null,
     comprasEnVista,
     ventasEnVista,
+    euroM2MedioCompra:
+      sumM2Compra > 0 ? round2(sumPrecioCompraM2 / sumM2Compra) : null,
+    euroM2MedioVenta: sumM2Venta > 0 ? round2(sumPrecioVentaM2 / sumM2Venta) : null,
+    comprasConSuperficieVivienda,
+    ventasConSuperficieVivienda,
+    mercadoEuroM2Compra: mitma.compraEuroM2,
+    mercadoEuroM2Venta: mitma.ventaEuroM2,
+    mercadoEtiqueta: mitma.etiqueta,
+    mercadoPeriodo: mitma.periodo,
+    idealistaEuroM2Compra: idealista.compraEuroM2,
+    idealistaEuroM2Venta: idealista.ventaEuroM2,
+    idealistaEtiqueta: idealista.etiqueta,
+    idealistaPeriodo: idealista.periodo,
+  };
+}
+
+function accumulateMercadoWeighted(
+  rows: InformesProperty[],
+  mercado: MercadoReferenciaBundle | null,
+  fuente: "mitma" | "idealista"
+): {
+  compraEuroM2: number | null;
+  ventaEuroM2: number | null;
+  etiqueta: string | null;
+  periodo: string | null;
+} {
+  if (!mercado) {
+    return { compraEuroM2: null, ventaEuroM2: null, etiqueta: null, periodo: null };
+  }
+
+  let weightedCompra = 0;
+  let m2Compra = 0;
+  let weightedVenta = 0;
+  let m2Venta = 0;
+  const etiquetas = new Set<string>();
+  let periodo: string | null = null;
+
+  for (const row of rows) {
+    const m2Vivienda = getSuperficieViviendaM2(row);
+    if (m2Vivienda == null) continue;
+
+    const provincia = extractProvinciaFromDireccion(row.direccion);
+    const ref = resolveMercadoItem(fuente, provincia, mercado);
+    if (!ref) continue;
+
+    etiquetas.add(ref.etiqueta);
+    periodo = ref.periodo;
+
+    const precioCompra = Number(row.precio_compra) || 0;
+    if (precioCompra > 0) {
+      weightedCompra += ref.euroM2 * m2Vivienda;
+      m2Compra += m2Vivienda;
+    }
+
+    const precioVenta = Number(row.precio_venta) || 0;
+    if (precioVenta > 0) {
+      weightedVenta += ref.euroM2 * m2Vivienda;
+      m2Venta += m2Vivienda;
+    }
+  }
+
+  const fallback =
+    fuente === "mitma" ? mercado.mitma.espana?.euroM2 ?? null : null;
+
+  let etiqueta: string | null = null;
+  if (etiquetas.size === 1) etiqueta = [...etiquetas][0];
+  else if (etiquetas.size > 1) etiqueta = "Mix provincias";
+  else if (fuente === "mitma" && mercado.mitma.espana) {
+    etiqueta = mercado.mitma.espana.etiqueta;
+    periodo = mercado.mitma.espana.periodo;
+  }
+
+  return {
+    compraEuroM2: m2Compra > 0 ? round2(weightedCompra / m2Compra) : fallback,
+    ventaEuroM2: m2Venta > 0 ? round2(weightedVenta / m2Venta) : fallback,
+    etiqueta,
+    periodo,
   };
 }
 

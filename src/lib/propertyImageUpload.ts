@@ -1,3 +1,5 @@
+import { importCatastroFachada } from "./catastroApi";
+
 /** Sube la foto destacada vía Netlify (service role); evita fallos silenciosos de RLS en el cliente. */
 
 export async function fileToBase64(file: File): Promise<string> {
@@ -41,5 +43,19 @@ export async function uploadPropertyFeaturedImage(
   return {
     foto_destacada_path: data.foto_destacada_path,
     publicUrl: data.publicUrl,
+  };
+}
+
+export async function uploadCatastroFachadaAsFeatured(
+  propertyId: string,
+  referencia: string
+): Promise<{ foto_destacada_path: string; publicUrl: string }> {
+  const result = await importCatastroFachada(referencia, propertyId);
+  if (!result.publicUrl || !result.foto_destacada_path) {
+    throw new Error("No se pudo importar la foto de fachada");
+  }
+  return {
+    foto_destacada_path: result.foto_destacada_path,
+    publicUrl: result.publicUrl,
   };
 }

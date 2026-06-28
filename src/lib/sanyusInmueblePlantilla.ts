@@ -45,10 +45,10 @@ export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMet
   origen: { slug: "origen", label: "Origen", type: "text", colSpan: 1 },
   direccion: { slug: "direccion", label: "Dirección", type: "text", colSpan: 1 },
   precio_venta: { slug: "precio_venta", label: "Precio de venta", type: "money" },
-  superficie_m2: { slug: "superficie_m2", label: "Superficie Catastral", type: "number" },
+  superficie_m2: { slug: "superficie_m2", label: "Superficie construida", type: "number" },
   superficie_registrada_m2: {
     slug: "superficie_registrada_m2",
-    label: "Superficie registrada en m²",
+    label: "Superficie vivienda",
     type: "number",
   },
   superficie_real_m2: {

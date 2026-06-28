@@ -275,7 +275,19 @@ export const handler: Handler = async (event) => {
 	}
 	if (body.superficie_real_m2 !== undefined) updates.superficie_real_m2 = toIntOrNull(body.superficie_real_m2);
 	if (body.anio_construccion !== undefined) updates.anio_construccion = toYearOrNull(body.anio_construccion);
-	if (body.numero_catastro !== undefined) updates.numero_catastro = emptyOrNull(body.numero_catastro);
+	if (body.numero_catastro !== undefined) {
+	  updates.numero_catastro = emptyOrNull(body.numero_catastro);
+	  if (!updates.numero_catastro && body.catastro_validado_at === undefined) {
+		updates.catastro_referencia_validada = null;
+		updates.catastro_validado_at = null;
+	  }
+	}
+	if (body.catastro_referencia_validada !== undefined) {
+	  updates.catastro_referencia_validada = emptyOrNull(body.catastro_referencia_validada);
+	}
+	if (body.catastro_validado_at !== undefined) {
+	  updates.catastro_validado_at = body.catastro_validado_at || null;
+	}
 	if (body.fecha_compra !== undefined) updates.fecha_compra = toDateISO(body.fecha_compra);
 	if (body.created_at !== undefined) {
 	  const d = toDateISO(body.created_at);

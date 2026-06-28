@@ -169,6 +169,11 @@ export const handler: Handler = async (event) => {
 	const superficie_real_m2 = toIntOrNull(body?.superficie_real_m2);
 	const anio_construccion = toYearOrNull(body?.anio_construccion);
 	const numero_catastro = emptyToNull(body?.numero_catastro);
+	const catastro_referencia_validada = emptyToNull(body?.catastro_referencia_validada);
+	const catastro_validado_at =
+	  typeof body?.catastro_validado_at === 'string' && body.catastro_validado_at.trim()
+		? body.catastro_validado_at.trim()
+		: null;
 	const fecha_compra = toDateISO(body?.fecha_compra);
 
 	const precio_compra = toMoneyOrNull(body?.precio_compra);
@@ -267,6 +272,10 @@ export const handler: Handler = async (event) => {
 	if (superficie_real_m2 != null) payload.superficie_real_m2 = superficie_real_m2;
 	if (anio_construccion != null) payload.anio_construccion = anio_construccion;
 	if (numero_catastro != null) payload.numero_catastro = numero_catastro;
+	if (catastro_referencia_validada != null) {
+	  payload.catastro_referencia_validada = catastro_referencia_validada;
+	}
+	if (catastro_validado_at != null) payload.catastro_validado_at = catastro_validado_at;
 	if (fecha_compra != null) payload.fecha_compra = fecha_compra;
 
 	if (precio_compra != null) payload.precio_compra = precio_compra;

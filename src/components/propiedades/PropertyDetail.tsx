@@ -31,6 +31,11 @@ import {
   validateParticipacionPair,
 } from "@/lib/participacion";
 import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
+import {
+  applyCatastroToFormFields,
+  CatastroReferenciaField,
+  touchCatastroReferencia,
+} from "@/components/propiedades/CatastroReferenciaField";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 import { MasterLiquidacionDocumentsPanel } from "@/components/documents/MasterLiquidacionDocumentsPanel";
 import { MASTER_LIQUIDACION_FOLDER_SLUG } from "@/lib/documentTypes";
@@ -56,6 +61,8 @@ interface PropertyData {
   superficie_real_m2: number | null;
   anio_construccion: number | null;
   numero_catastro: string | null;
+  catastro_referencia_validada: string | null;
+  catastro_validado_at: string | null;
   fecha_ingreso: string | null;
   fecha_compra: string | null;
   fecha_venta: string | null;
@@ -161,6 +168,8 @@ export default function PropertyDetail({
       property?.superficie_real_m2 != null ? String(property.superficie_real_m2) : "",
     anio_construccion: property?.anio_construccion != null ? String(property.anio_construccion) : "",
     numero_catastro: property?.numero_catastro ?? "",
+    catastro_referencia_validada: property?.catastro_referencia_validada ?? "",
+    catastro_validado_at: property?.catastro_validado_at ?? "",
     fecha_ingreso: property?.fecha_ingreso ? String(property.fecha_ingreso).substring(0, 10) : "",
     fecha_compra: property?.fecha_compra ? String(property.fecha_compra).substring(0, 10) : "",
     fecha_venta: property?.fecha_venta ? String(property.fecha_venta).substring(0, 10) : "",
@@ -301,6 +310,8 @@ export default function PropertyDetail({
         superficie_real_m2: form.superficie_real_m2 || null,
         anio_construccion: form.anio_construccion || null,
         numero_catastro: form.numero_catastro.trim() || null,
+        catastro_referencia_validada: form.catastro_referencia_validada.trim() || null,
+        catastro_validado_at: form.catastro_validado_at || null,
         fecha_ingreso: form.fecha_ingreso || null,
         fecha_compra: form.fecha_compra || null,
         fecha_venta: form.fecha_venta || null,
@@ -564,9 +575,9 @@ export default function PropertyDetail({
               <CardTitle className="text-base">Características</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="superficie_m2">Superficie Catastral</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="space-y-2 lg:col-span-2">
+                  <Label htmlFor="superficie_m2">Superficie construida</Label>
                   <Input
                     id="superficie_m2"
                     type="number"
@@ -574,8 +585,8 @@ export default function PropertyDetail({
                     onChange={set("superficie_m2")}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+                <div className="space-y-2 lg:col-span-2">
+                  <Label htmlFor="superficie_registrada_m2">Superficie vivienda</Label>
                   <Input
                     id="superficie_registrada_m2"
                     type="number"
@@ -583,7 +594,7 @@ export default function PropertyDetail({
                     onChange={set("superficie_registrada_m2")}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 lg:col-span-2">
                   <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
                   <Input
                     id="superficie_real_m2"
@@ -592,7 +603,7 @@ export default function PropertyDetail({
                     onChange={set("superficie_real_m2")}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 lg:col-span-2">
                   <Label htmlFor="anio_construccion">Año construcción</Label>
                   <Input
                     id="anio_construccion"
@@ -603,14 +614,34 @@ export default function PropertyDetail({
                     onChange={set("anio_construccion")}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="numero_catastro">Ref. Catastral</Label>
-                  <Input
-                    id="numero_catastro"
-                    value={form.numero_catastro}
-                    onChange={set("numero_catastro")}
-                  />
-                </div>
+                <CatastroReferenciaField
+                  value={form.numero_catastro}
+                  validatedReferencia={form.catastro_referencia_validada}
+                  validatedAt={form.catastro_validado_at}
+                  onChange={(v) => setForm((prev) => touchCatastroReferencia(prev, v))}
+                  onValidated={(result) =>
+                    setForm((prev) => applyCatastroToFormFields(prev, result))
+                  }
+                  propertyId={isCreate ? undefined : property?.id}
+                  onFachadaImported={({ file, previewUrl }) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const dataUrl = reader.result as string;
+                      const base64 = dataUrl.split(",")[1];
+                      setPendingFoto({
+                        base64,
+                        mimeType: file.type || "image/jpeg",
+                        preview: previewUrl,
+                      });
+                      setImagePreview(previewUrl);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  onFachadaUploaded={(publicUrl) => {
+                    setImagePreview(publicUrl);
+                    setPendingFoto(null);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>

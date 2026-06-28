@@ -24,6 +24,11 @@ import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
+import {
+  applyCatastroToFormFields,
+  CatastroReferenciaField,
+  touchCatastroReferencia,
+} from "@/components/propiedades/CatastroReferenciaField";
 import { EntityDocumentsPanel } from "@/components/documents/EntityDocumentsPanel";
 import { MasterLiquidacionDocumentsPanel } from "@/components/documents/MasterLiquidacionDocumentsPanel";
 import { MASTER_LIQUIDACION_FOLDER_SLUG } from "@/lib/documentTypes";
@@ -61,6 +66,8 @@ const EMPTY_FORM = {
   estado: "sin_estado",
   ocupado: "false",
   numero_catastro: "",
+  catastro_referencia_validada: "",
+  catastro_validado_at: "",
   fecha_ingreso: "",
   fecha_compra: "",
   fecha_venta: "",
@@ -97,7 +104,7 @@ export function PropertyDialog({
       const { data, error } = await supabase
         .from("propiedades")
         .select(
-          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, estado, ocupado, numero_catastro, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
+          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, estado, ocupado, numero_catastro, catastro_referencia_validada, catastro_validado_at, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
         )
         .eq("id", editId)
         .single();
@@ -125,6 +132,8 @@ export function PropertyDialog({
         estado: data.estado || "sin_estado",
         ocupado: data.ocupado ? "true" : "false",
         numero_catastro: data.numero_catastro || "",
+        catastro_referencia_validada: data.catastro_referencia_validada || "",
+        catastro_validado_at: data.catastro_validado_at || "",
         fecha_ingreso: data.fecha_ingreso ? String(data.fecha_ingreso).substring(0, 10) : "",
         fecha_compra: data.fecha_compra ? String(data.fecha_compra).substring(0, 10) : "",
         fecha_venta: data.fecha_venta ? String(data.fecha_venta).substring(0, 10) : "",
@@ -233,6 +242,8 @@ export function PropertyDialog({
           superficie_real_m2: form.superficie_real_m2 || null,
           anio_construccion: form.anio_construccion || null,
           numero_catastro: form.numero_catastro.trim() || null,
+          catastro_referencia_validada: form.catastro_referencia_validada.trim() || null,
+          catastro_validado_at: form.catastro_validado_at || null,
           fecha_ingreso: form.fecha_ingreso || null,
           fecha_compra: form.fecha_compra || null,
           fecha_venta: form.fecha_venta || null,
@@ -399,9 +410,9 @@ export function PropertyDialog({
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                 Características
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="superficie_m2">Superficie Catastral</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="space-y-1.5 lg:col-span-2">
+                  <Label htmlFor="superficie_m2">Superficie construida</Label>
                   <Input
                     id="superficie_m2"
                     type="number"
@@ -410,8 +421,8 @@ export function PropertyDialog({
                     placeholder="m²"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="superficie_registrada_m2">Superficie registrada en m²</Label>
+                <div className="space-y-1.5 lg:col-span-2">
+                  <Label htmlFor="superficie_registrada_m2">Superficie vivienda</Label>
                   <Input
                     id="superficie_registrada_m2"
                     type="number"
@@ -420,7 +431,7 @@ export function PropertyDialog({
                     placeholder="m²"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 lg:col-span-2">
                   <Label htmlFor="superficie_real_m2">Superficie real en m²</Label>
                   <Input
                     id="superficie_real_m2"
@@ -430,7 +441,7 @@ export function PropertyDialog({
                     placeholder="m²"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 lg:col-span-2">
                   <Label htmlFor="anio_construccion">Año construcción</Label>
                   <Input
                     id="anio_construccion"
@@ -442,15 +453,24 @@ export function PropertyDialog({
                     placeholder="Año"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="numero_catastro">Ref. Catastral</Label>
-                  <Input
-                    id="numero_catastro"
-                    value={form.numero_catastro}
-                    onChange={set("numero_catastro")}
-                    placeholder="Referencia"
-                  />
-                </div>
+                <CatastroReferenciaField
+                  value={form.numero_catastro}
+                  validatedReferencia={form.catastro_referencia_validada}
+                  validatedAt={form.catastro_validado_at}
+                  onChange={(v) => setForm((prev) => touchCatastroReferencia(prev, v))}
+                  onValidated={(result) =>
+                    setForm((prev) => applyCatastroToFormFields(prev, result))
+                  }
+                  propertyId={isEdit ? editId : undefined}
+                  onFachadaImported={({ file, previewUrl }) => {
+                    setImageFile(file);
+                    setImagePreview(previewUrl);
+                  }}
+                  onFachadaUploaded={(publicUrl) => {
+                    setImageFile(null);
+                    setImagePreview(publicUrl);
+                  }}
+                />
               </div>
             </div>
 
