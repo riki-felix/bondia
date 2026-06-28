@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { parsePostalAddress } from "./formatAddress";
 
 export interface MercadoReferenciaItem {
   slug: string;
@@ -21,11 +22,70 @@ export interface MercadoReferenciaBundle {
   updatedAt: string | null;
 }
 
+/** Municipios habituales en cartera → clave en bondia_mercado_referencia. */
+const CIUDAD_A_TERRITORIO: Readonly<Record<string, string>> = {
+  barcelona: "BARCELONA",
+  "l'hospitalet de llobregat": "BARCELONA",
+  "hospitalet de llobregat": "BARCELONA",
+  "esplugues de llobregat": "BARCELONA",
+  begues: "BARCELONA",
+  "el masnou": "BARCELONA",
+  badalona: "BARCELONA",
+  "sant boi de llobregat": "BARCELONA",
+  "santa coloma de gramanet": "BARCELONA",
+  "cornella de llobregat": "BARCELONA",
+  castelldefels: "BARCELONA",
+  "sant cugat del valles": "BARCELONA",
+  "sant adria de besos": "BARCELONA",
+  "sant joan despi": "BARCELONA",
+  "sant just desvern": "BARCELONA",
+  "sant feliu de llobregat": "BARCELONA",
+  "sant vicenc dels horts": "BARCELONA",
+  "montcada i reixac": "BARCELONA",
+  "cerdanyola del valles": "BARCELONA",
+  "molins de rei": "BARCELONA",
+  "palleja": "BARCELONA",
+  madrid: "MADRID",
+  "alcala de henares": "MADRID",
+  alcobendas: "MADRID",
+  "mostoles": "MADRID",
+  "fuenlabrada": "MADRID",
+  getafe: "MADRID",
+  leganes: "MADRID",
+};
+
+function normalizeCiudadKey(city: string): string {
+  return city
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[''`´]/g, "'")
+    .toLowerCase()
+    .trim();
+}
+
+function territorioFromCiudad(city: string): string | null {
+  return CIUDAD_A_TERRITORIO[normalizeCiudadKey(city)] ?? null;
+}
+
 export function extractProvinciaFromDireccion(direccion: string | null | undefined): string | null {
   if (!direccion?.trim()) return null;
+
   const match = direccion.match(/\(([^)]+)\)\s*$/);
-  if (!match) return null;
-  return match[1].trim().toUpperCase();
+  if (match) {
+    const raw = match[1].trim();
+    const upper = raw.toUpperCase();
+    if (upper === "BARCELONA" || upper === "MADRID") return upper;
+    const fromParen = territorioFromCiudad(raw);
+    if (fromParen) return fromParen;
+  }
+
+  const { city } = parsePostalAddress(direccion);
+  if (city) {
+    const fromCity = territorioFromCiudad(city);
+    if (fromCity) return fromCity;
+  }
+
+  return null;
 }
 
 export function resolveMercadoItem(
