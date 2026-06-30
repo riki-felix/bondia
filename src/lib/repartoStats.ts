@@ -1,9 +1,11 @@
 import type { Property } from "./propertyTypes";
 import { calcBrutoFromRetribucion, round2 } from "./moneyCalc";
 import { inversionDisplayMoney } from "./inversionesDisplayMoney";
+import { computeJaspOperativa } from "./jaspOperativa";
 import {
   DEFAULT_PARTICIPACION_JASP,
   DEFAULT_PARTICIPACION_SANYUS,
+  effectiveParticipacionJasp,
   effectiveParticipacionSanyus,
   participacionExterna,
 } from "./participacion";
@@ -19,6 +21,13 @@ export interface RepartoSlice {
 export interface RepartoStats {
   brutoTotal: number;
   slices: RepartoSlice[];
+}
+
+/** Totales netos operativos por parte (independiente del modo bruto del gráfico). */
+export interface RepartoNetoTotals {
+  sanyus: number;
+  castello: number;
+  jasp: number;
 }
 
 const SLICE_NAMES = {
@@ -106,5 +115,46 @@ export function computeRepartoStats(
   return {
     brutoTotal: round2(brutoTotal),
     slices,
+  };
+}
+
+/**
+ * Netos por parte: Sanyus = transferencias (ingreso banco);
+ * Castello = cuota neta sobre bruto real; JASP = real operativo.
+ */
+export function computeRepartoNetoTotals(rows: Property[]): RepartoNetoTotals {
+  let sanyus = 0;
+  let castello = 0;
+  let jasp = 0;
+
+  for (const row of rows) {
+    if (isDraft(row)) continue;
+    const d = inversionDisplayMoney(row);
+    const pctS = effectiveParticipacionSanyus(row.participacion_sanyus);
+    const pctJ = effectiveParticipacionJasp(row.participacion_jasp);
+    const pctC = participacionExterna(pctS, pctJ);
+    const bruto =
+      Number(row.beneficio_bruto) ||
+      (d.retribucion > 0 ? calcBrutoFromRetribucion(d.retribucion, pctS) : 0);
+
+    const breakdown = computeJaspOperativa({
+      beneficioBruto: bruto,
+      participacionJasp: pctJ,
+      participacionSanyus: pctS,
+      retribucion: d.retribucion,
+      ingresoBanco: d.ingresoBanco,
+    });
+
+    sanyus += d.ingresoBanco;
+    jasp += breakdown.jaspReal;
+    if (breakdown.brutoReal > 0 && pctC > 0) {
+      castello += round2((breakdown.brutoReal * pctC) / 100);
+    }
+  }
+
+  return {
+    sanyus: round2(sanyus),
+    castello: round2(castello),
+    jasp: round2(jasp),
   };
 }

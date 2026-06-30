@@ -1,12 +1,13 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BarChart3, CheckCircle, Circle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { StatCard } from "@/components/ui/stat-card";
 import { BeneficioObjetivoCard } from "./BeneficioObjetivoCard";
 import { AportacionMargenCard } from "./AportacionMargenCard";
 import { RepartoCard } from "./RepartoCard";
+import { RepartoNetoCard } from "./RepartoNetoCard";
+import { InvertidoDialog } from "./InvertidoDialog";
 import { PreciosMediosCard } from "./PreciosMediosCard";
 import { PropiedadesPorAnioChart } from "./PropiedadesPorAnioChart";
 import type { InformesProperty } from "@/lib/informesStats";
@@ -24,20 +25,25 @@ import {
   type PropiedadPorAnioItem,
 } from "@/lib/informesStats";
 import { propertyEjercicio, propertyIsLiquidada } from "@/lib/fetchInversiones";
-import { computeRepartoStats } from "@/lib/repartoStats";
+import { computeRepartoStats, computeRepartoNetoTotals } from "@/lib/repartoStats";
 import {
   formatEuro,
-  formatMoneyEdit,
-  normalizeMoneyText,
-  parseMoneyInput,
 } from "@/lib/moneyCalc";
-import { useInvertido } from "@/lib/invertidoStorage";
+import { saveInvertidoEjercicios } from "@/lib/invertidoApi";
+import {
+  type InvertidoByYear,
+  clearInvertidoLocal,
+  invertidoBalanceForView,
+  invertidoViewLabel,
+  readInvertidoByYearFromLocal,
+} from "@/lib/invertidoStorage";
 
 interface InformesDashboardProps {
   initialData: InformesProperty[];
   lastUpdatedAt: string | null;
   objetivoBeneficioMedio: number | null;
   mercadoReferencia: MercadoReferenciaBundle | null;
+  initialInvertidoByYear: InvertidoByYear;
 }
 
 function formatLastUpdated(iso: string | null): string {
@@ -76,6 +82,7 @@ export default function InformesDashboard({
   lastUpdatedAt,
   objetivoBeneficioMedio,
   mercadoReferencia: initialMercadoReferencia,
+  initialInvertidoByYear,
 }: InformesDashboardProps) {
   const [mercadoReferencia, setMercadoReferencia] = useState(
     initialMercadoReferencia
@@ -88,9 +95,34 @@ export default function InformesDashboard({
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [showLiquidadas, setShowLiquidadas] = useState(false);
   const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
-  const { invertido, saveInvertido } = useInvertido();
-  const [editingInvertido, setEditingInvertido] = useState(false);
-  const [invertidoInput, setInvertidoInput] = useState("");
+  const [byYear, setByYear] = useState<InvertidoByYear>(initialInvertidoByYear);
+  const [invertidoDialogOpen, setInvertidoDialogOpen] = useState(false);
+  const migratedLocalRef = useRef(false);
+
+  useEffect(() => {
+    if (migratedLocalRef.current) return;
+    if (Object.keys(initialInvertidoByYear).length > 0) return;
+
+    const local = readInvertidoByYearFromLocal();
+    if (Object.keys(local).length === 0) return;
+
+    migratedLocalRef.current = true;
+    void (async () => {
+      try {
+        const saved = await saveInvertidoEjercicios(local);
+        setByYear(saved);
+        clearInvertidoLocal();
+      } catch (e) {
+        console.error("[informes] migrar invertido local:", e);
+        setByYear(local);
+      }
+    })();
+  }, [initialInvertidoByYear]);
+
+  const invertido = useMemo(
+    () => invertidoBalanceForView(byYear, yearFilter),
+    [byYear, yearFilter]
+  );
 
   const liquidadasCount = useMemo(
     () => initialData.filter((r) => propertyIsLiquidada(r)).length,
@@ -223,12 +255,24 @@ export default function InformesDashboard({
     );
     return computePreciosMedios(rows, mercadoReferencia);
   }, [initialData, yearFilter, showLiquidadas, showSinLiquidacion, mercadoReferencia]);
+  const prevInvertido = useMemo(
+    () =>
+      yearFilter === "all"
+        ? null
+        : invertidoBalanceForView(byYear, String(Number(yearFilter) - 1)),
+    [byYear, yearFilter]
+  );
   const prevMargen = useMemo(
     () =>
       prevStats
-        ? computeMargenPct(prevStats.transferenciaTotal, invertido)
+        ? computeMargenPct(
+            prevStats.transferenciaTotal,
+            prevInvertido != null && prevInvertido > 0
+              ? prevInvertido
+              : invertido
+          )
         : null,
-    [prevStats, invertido]
+    [prevStats, prevInvertido, invertido]
   );
 
   const showYearComparison = yearFilter !== "all";
@@ -253,6 +297,10 @@ export default function InformesDashboard({
   );
   const repartoTeorico = useMemo(
     () => computeRepartoStats(viewRows, "teorico"),
+    [viewRows]
+  );
+  const repartoNeto = useMemo(
+    () => computeRepartoNetoTotals(viewRows),
     [viewRows]
   );
   const prevRepartoReal = useMemo(
@@ -288,15 +336,17 @@ export default function InformesDashboard({
     }
   }, []);
 
-  const handleInvertidoSave = () => {
-    const trimmed = invertidoInput.trim();
-    const parsed =
-      trimmed === ""
-        ? 0
-        : parseMoneyInput(normalizeMoneyText(trimmed)) ?? 0;
-    saveInvertido(parsed);
-    setEditingInvertido(false);
-  };
+  const handleInvertidoSave = useCallback(async (next: InvertidoByYear) => {
+    try {
+      const saved = await saveInvertidoEjercicios(next);
+      setByYear(saved);
+      clearInvertidoLocal();
+      toast.success("Capital invertido actualizado");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
+      throw e;
+    }
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -317,36 +367,27 @@ export default function InformesDashboard({
             Invertido
             <Pencil className="h-3 w-3" />
           </p>
-          {editingInvertido ? (
-            <Input
-              autoFocus
-              className="mt-1 h-8 text-lg font-semibold tabular-nums"
-              value={invertidoInput}
-              onChange={(e) => setInvertidoInput(e.target.value)}
-              onBlur={handleInvertidoSave}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleInvertidoSave();
-                if (e.key === "Escape") setEditingInvertido(false);
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              data-money
-              className="mt-0.5 text-xl font-semibold tabular-nums hover:text-primary transition-colors"
-              onClick={() => {
-                setInvertidoInput(
-                  invertido ? formatMoneyEdit(invertido) : ""
-                );
-                setEditingInvertido(true);
-              }}
-            >
-              {formatEuro(invertido)}
-            </button>
-          )}
-          <p className="mt-0.5 text-xs text-muted-foreground">Clic para editar</p>
+          <button
+            type="button"
+            data-money
+            className="mt-0.5 text-xl font-semibold tabular-nums hover:text-primary transition-colors text-left"
+            onClick={() => setInvertidoDialogOpen(true)}
+          >
+            {formatEuro(invertido)}
+          </button>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {invertidoViewLabel(yearFilter)} · Clic para editar
+          </p>
         </div>
       </div>
+
+      <InvertidoDialog
+        open={invertidoDialogOpen}
+        onOpenChange={setInvertidoDialogOpen}
+        years={years}
+        byYear={byYear}
+        onSave={handleInvertidoSave}
+      />
 
       {/* Vistas */}
       <div className="flex flex-wrap items-center gap-2">
@@ -432,18 +473,7 @@ export default function InformesDashboard({
 
       {/* Bloque 2 — Participación */}
       <InformesBlock title="Participación">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AportacionMargenCard
-            aportacion={stats.aportacion}
-            transferenciaTotal={stats.transferenciaTotal}
-            invertido={invertido}
-            yearFilter={yearFilter}
-            aportacionYoYPct={yoy(
-              stats.aportacion,
-              prevStats?.aportacion ?? null
-            )}
-            margenYoYPct={yoy(margen, prevMargen)}
-          />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)] lg:items-start">
           <RepartoCard
             real={repartoReal}
             teorico={repartoTeorico}
@@ -453,6 +483,25 @@ export default function InformesDashboard({
               prevRepartoReal?.brutoTotal ?? null
             )}
           />
+          <div className="flex flex-col gap-4">
+            <AportacionMargenCard
+              compact
+              aportacion={stats.aportacion}
+              transferenciaTotal={stats.transferenciaTotal}
+              invertido={invertido}
+              yearFilter={yearFilter}
+              aportacionYoYPct={yoy(
+                stats.aportacion,
+                prevStats?.aportacion ?? null
+              )}
+              margenYoYPct={yoy(margen, prevMargen)}
+            />
+            <RepartoNetoCard
+              compact
+              neto={repartoNeto}
+              yearFilter={yearFilter}
+            />
+          </div>
         </div>
       </InformesBlock>
 

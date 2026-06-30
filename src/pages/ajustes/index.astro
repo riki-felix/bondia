@@ -5,7 +5,9 @@ import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
 import MetodosPagoManager from "../../components/ajustes/MetodosPagoManager";
 import ObjetivosSection from "../../components/ajustes/ObjetivosSection";
+import BrandingSection from "../../components/ajustes/BrandingSection";
 import { supabaseClient } from "../../lib/supabaseClient";
+import { brandingStateFromRow } from "../../lib/branding";
 
 const supabase = supabaseClient();
 
@@ -18,6 +20,14 @@ const { data: objetivos } = await supabase
   .from("bondia_objetivos")
   .select("id, etiqueta, valor")
   .order("id", { ascending: true });
+
+const { data: brandingRow } = await supabase
+  .from("bondia_branding")
+  .select("logo_storage_path, logo_mime_type, updated_at")
+  .eq("id", "default")
+  .maybeSingle();
+
+const initialBranding = brandingStateFromRow(supabase, brandingRow);
 ---
 
 <Layout>
@@ -28,6 +38,11 @@ const { data: objetivos } = await supabase
         Configuración global de la plataforma
       </p>
     </div>
+
+    <BrandingSection
+      client:load
+      initialBranding={initialBranding}
+    />
 
     <MetodosPagoManager
       client:load

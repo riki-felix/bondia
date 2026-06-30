@@ -13,6 +13,7 @@ interface AportacionMargenCardProps {
   yearFilter: string;
   aportacionYoYPct?: number | null;
   margenYoYPct?: number | null;
+  compact?: boolean;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ export function AportacionMargenCard({
   yearFilter,
   aportacionYoYPct,
   margenYoYPct,
+  compact = false,
   className,
 }: AportacionMargenCardProps) {
   const vistaLabel =
@@ -65,11 +67,11 @@ export function AportacionMargenCard({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-xl border bg-card",
+        "flex flex-col overflow-hidden rounded-xl border bg-card",
         className
       )}
     >
-      <div className="p-5 pb-4">
+      <div className={cn(compact ? "p-4 pb-3" : "p-5 pb-4")}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-semibold tracking-tight">Aportación</p>
@@ -80,26 +82,29 @@ export function AportacionMargenCard({
           )}
         </div>
 
-        <div className="mt-4 rounded-lg bg-muted/50 p-4">
+        <div className={cn("rounded-lg bg-muted/50", compact ? "mt-3 p-3" : "mt-4 p-4")}>
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Total aportado
           </p>
           <p
             data-money
-            className="mt-1 text-3xl font-semibold tabular-nums tracking-tight"
+            className={cn(
+              "mt-1 font-semibold tabular-nums tracking-tight",
+              compact ? "text-2xl" : "text-3xl"
+            )}
           >
             {formatEuro(aportacion)}
           </p>
 
           {hasInvertido && aportacion > 0 && (
             <>
-              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-500"
                   style={{ width: `${usoBarPct}%` }}
                 />
               </div>
-              <div className="mt-2 flex items-baseline justify-between gap-2 text-xs">
+              <div className="mt-1.5 flex items-baseline justify-between gap-2 text-xs">
                 <span className="text-muted-foreground">
                   {usoMultiple != null && usoMultiple >= 1
                     ? `${formatMultiplicador(usoMultiple)} del invertido`
@@ -112,12 +117,12 @@ export function AportacionMargenCard({
             </>
           )}
 
-          <div className="mt-4 border-t border-border/60 pt-4">
+          <div className={cn("border-t border-border/60 pt-3", compact ? "mt-3" : "mt-4")}>
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Margen
             </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p className="text-xl font-semibold tabular-nums">
+              <p className={cn("font-semibold tabular-nums", compact ? "text-lg" : "text-xl")}>
                 {margen != null ? `${margen}%` : "—"}
               </p>
               {margenYoYPct != null && (
@@ -134,9 +139,11 @@ export function AportacionMargenCard({
         </div>
       </div>
 
-      <div className="mt-auto border-t bg-muted/40 px-5 py-3">
-        <p className="text-xs text-muted-foreground">{statusMessage}</p>
-      </div>
+      {!compact && (
+        <div className="mt-auto border-t bg-muted/40 px-5 py-3">
+          <p className="text-xs text-muted-foreground">{statusMessage}</p>
+        </div>
+      )}
     </div>
   );
 }

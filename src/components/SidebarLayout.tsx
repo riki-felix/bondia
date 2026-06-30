@@ -19,6 +19,7 @@ interface SidebarLayoutProps {
   currentPath: string
   currentSearch?: string
   favoritos?: FavoritoItem[]
+  logoUrl?: string | null
   children: ReactNode
 }
 
@@ -26,6 +27,7 @@ export function SidebarLayout({
   currentPath,
   currentSearch = "",
   favoritos = [],
+  logoUrl = null,
   children,
 }: SidebarLayoutProps) {
   const [incognito, setIncognito] = useState(false)
@@ -54,7 +56,7 @@ export function SidebarLayout({
           href="/"
           className="flex items-center hover:opacity-90 transition-opacity"
         >
-          <BondiaLogo className="h-8 w-auto" />
+          <BondiaLogo className="h-8 w-auto" logoUrl={logoUrl} />
         </a>
         <div className="ml-auto flex items-center gap-1">
           <span

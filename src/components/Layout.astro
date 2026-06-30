@@ -5,6 +5,8 @@ import { SidebarLayout } from "./SidebarLayout";
 import { supabaseClient } from "../lib/supabaseClient";
 import { CASA_CONFIG, SANYUS_CONFIG } from "../lib/bloqueConfig";
 
+import { brandingStateFromRow } from "../lib/branding";
+
 const currentPath = Astro.url.pathname;
 const currentSearch = Astro.url.search;
 const supabase = supabaseClient();
@@ -29,13 +31,27 @@ const favoritos: FavItem[] = [
   ...(sir.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/sanyus/ingresos?cat=${c.id}` })),
   ...(sar.data ?? []).map((c: any) => ({ nombre: c.nombre, href: `/sanyus/activos?cat=${c.id}` })),
 ];
+
+const { data: brandingRow } = await supabase
+  .from("bondia_branding")
+  .select("logo_storage_path, logo_mime_type, updated_at")
+  .eq("id", "default")
+  .maybeSingle();
+
+const branding = brandingStateFromRow(supabase, brandingRow);
 ---
 
 <!doctype html>
 <html lang="es">
   <Head />
   <body class="h-svh overflow-hidden bg-sidebar-primary font-sans antialiased">
-    <SidebarLayout client:load currentPath={currentPath} currentSearch={currentSearch} favoritos={favoritos}>
+    <SidebarLayout
+      client:load
+      currentPath={currentPath}
+      currentSearch={currentSearch}
+      favoritos={favoritos}
+      logoUrl={branding.logoUrl}
+    >
       <slot />
     </SidebarLayout>
   </body>
