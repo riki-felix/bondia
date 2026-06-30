@@ -1,8 +1,8 @@
 // netlify/functions/createProperty.ts
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import { ensureLiquidacionForInversion } from './_shared';
 import { normalizeDireccionPostal } from './_normalizeDireccion';
+import { deriveEjercicioPropiedad } from './_ejercicioPropiedad';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -298,7 +298,6 @@ export const handler: Handler = async (event) => {
 	if (plano_path != null) payload.plano_path = plano_path;
 
 	if (numero_operacion != null) payload.numero_operacion = numero_operacion;
-	if (ejercicio != null) payload.ejercicio = ejercicio;
 
 	if (hasIngreso) {
 	  payload.ingreso_banco = ingreso_banco;
@@ -330,6 +329,23 @@ export const handler: Handler = async (event) => {
 	}
 	if (pctBienes != null) payload.participacion_bienes_sanyus_cb = pctBienes;
 
+	if (tipo === 'inversion') {
+	  if (ejercicio != null) {
+	    payload.ejercicio = ejercicio;
+	  } else {
+	    const derived = deriveEjercicioPropiedad({
+	      liquidacion: liquidacionParsed ?? false,
+	      fecha_liquidacion: toDateISO(body?.fecha_liquidacion),
+	      fecha_venta,
+	      fecha_ingreso,
+	      created_at: new Date().toISOString(),
+	    });
+	    if (derived != null) payload.ejercicio = derived;
+	  }
+	} else if (ejercicio != null) {
+	  payload.ejercicio = ejercicio;
+	}
+
 	const { data, error } = await supabase
 	  .from('propiedades')
 	  .insert(payload)
@@ -345,24 +361,11 @@ export const handler: Handler = async (event) => {
 	}
 
 	if (tipo === 'inversion') {
-	  const { error: liqError } = await ensureLiquidacionForInversion(supabase, data.id, {
-	    ejercicio: ejercicio ?? null,
-	    liquidado: liquidacionParsed ?? false,
-	  });
-
-	  if (liqError) {
-	    console.error('[createProperty] liquidacion insert error:', liqError);
-	    await supabase.from('propiedades').delete().eq('id', data.id);
-	    return json({ error: liqError || 'liquidacion_insert_error' }, 500);
-	  }
-
-	  if (ejercicio != null || liquidacionParsed === true) {
-	    const propUpdates: Record<string, unknown> = {};
-	    if (ejercicio != null) propUpdates.ejercicio = ejercicio;
-	    if (liquidacionParsed != null) propUpdates.liquidacion = liquidacionParsed;
-	    if (Object.keys(propUpdates).length > 0) {
-	      await supabase.from('propiedades').update(propUpdates).eq('id', data.id);
-	    }
+	  if (liquidacionParsed != null) {
+	    await supabase
+	      .from('propiedades')
+	      .update({ liquidacion: liquidacionParsed })
+	      .eq('id', data.id);
 	  }
 	}
 

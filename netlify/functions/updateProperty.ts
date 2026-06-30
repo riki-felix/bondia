@@ -1,7 +1,17 @@
 // netlify/functions/updateProperty.ts
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import { ensureLiquidacionForInversion } from './_shared';
+import { calcBrutoFromRetribucion } from './_shared';
+import {
+  deriveEjercicioPropiedad,
+  mergeEjercicioPropiedadInput,
+  shouldAutoDeriveEjercicio,
+} from './_ejercicioPropiedad';
+import {
+  assertFinancialFieldsEditable,
+  applyPropiedadLiquidacionSideEffects,
+  recalcBrutoYJaspPropiedad,
+} from './_inversionOperativa';
 import { normalizeDireccionPostal } from './_normalizeDireccion';
 
 const SUPABASE_URL =
@@ -122,55 +132,6 @@ function toPctOrNull(v: any): number | null {
   return Number(n.toFixed(3));
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-function calcJaspFromBruto(bruto: number, pctJasp: number): number {
-  return round2(bruto * (pctJasp / 100));
-}
-
-async function recalcLiquidacionesYPropiedad(
-  supabase: any,
-  propiedadId: string,
-  participacionSanyus: number,
-  participacionJasp: number,
-  jaspManual: boolean,
-  jaspStored: number | null
-) {
-  const { data: liqs } = await supabase
-    .from('liquidaciones')
-    .select('id, retribucion')
-    .eq('propiedad_id', propiedadId);
-
-  let totalBruto = 0;
-  let totalRetribucion = 0;
-
-  for (const l of liqs ?? []) {
-    const retribucion = Number(l.retribucion) || 0;
-    totalRetribucion += retribucion;
-    const bruto =
-      retribucion > 0 && participacionSanyus > 0
-        ? round2((retribucion * 100) / participacionSanyus)
-        : 0;
-    totalBruto += bruto;
-    await supabase
-      .from('liquidaciones')
-      .update({ beneficio_bruto: bruto })
-      .eq('id', l.id);
-  }
-
-  const propUpdates: Record<string, unknown> = {
-    retribucion: round2(totalRetribucion),
-  };
-  if (!jaspManual) {
-    propUpdates.jasp_10_percent = calcJaspFromBruto(totalBruto, participacionJasp);
-    propUpdates.jasp_manual = false;
-  }
-
-  await supabase.from('propiedades').update(propUpdates).eq('id', propiedadId);
-}
-
 function toBoolOrNull(v: any): boolean | null {
   if (v == null) return null;
   if (typeof v === 'boolean') return v;
@@ -247,7 +208,9 @@ export const handler: Handler = async (event) => {
 
 	const { data: current, error: getErr } = await supabase
 	  .from('propiedades')
-	  .select('id, slug, titulo')
+	  .select(
+	    'id, slug, titulo, tipo, liquidacion, participacion_sanyus, fecha_venta, fecha_ingreso, fecha_liquidacion, created_at, ejercicio'
+	  )
 	  .eq('id', id)
 	  .single();
 
@@ -299,6 +262,33 @@ export const handler: Handler = async (event) => {
 	}
 	if (body.aportacion !== undefined) {
 	  updates.aportacion = toMoneyOrNull(body.aportacion) ?? 0;
+	}
+	if (body.retribucion !== undefined) {
+	  updates.retribucion = toMoneyOrNull(body.retribucion) ?? 0;
+	  const pct = current.participacion_sanyus ?? 40;
+	  const ret = Number(updates.retribucion) || 0;
+	  updates.beneficio_bruto =
+	    ret > 0 && pct > 0 ? calcBrutoFromRetribucion(ret, pct) : 0;
+	}
+	if (body.beneficio_bruto !== undefined) {
+	  updates.beneficio_bruto = toMoneyOrNull(body.beneficio_bruto) ?? 0;
+	}
+	if (body.fecha_liquidacion !== undefined) {
+	  updates.fecha_liquidacion = toDateISO(body.fecha_liquidacion);
+	}
+	if (body.fecha_aportacion !== undefined) {
+	  updates.fecha_aportacion = toDateISO(body.fecha_aportacion);
+	}
+	if (body.fecha_transferencia !== undefined) {
+	  updates.fecha_transferencia = toDateISO(body.fecha_transferencia);
+	}
+	if (body.numero_op_liquidacion !== undefined) {
+	  updates.numero_op_liquidacion = toIntOrNull(body.numero_op_liquidacion);
+	}
+	if (body.transferencia !== undefined) {
+	  const ing = toMoneyOrNull(body.transferencia);
+	  updates.ingreso_banco = ing;
+	  updates.pago = (Number(ing) || 0) > 0;
 	}
 	if (body.jasp_10_percent !== undefined) {
 	  updates.jasp_10_percent = toMoneyOrNull(body.jasp_10_percent) ?? 0;
@@ -367,11 +357,10 @@ export const handler: Handler = async (event) => {
 	  updates.numero_operacion = toIntOrNull(body.numero_operacion);
 	}
 
-	// ejercicio (año fiscal) — la liquidación es la fuente de verdad; se refleja en propiedad
+	// ejercicio (año fiscal)
 	if (body.ejercicio !== undefined) {
 	  const ej = toIntOrNull(body.ejercicio);
 	  updates.ejercicio = ej;
-	  await supabase.from('liquidaciones').update({ ejercicio: ej }).eq('propiedad_id', id);
 	}
 
 	// ingreso banco + fecha ingreso (independientes en update parcial)
@@ -384,12 +373,15 @@ export const handler: Handler = async (event) => {
 	  updates.fecha_ingreso = toDateISO(body.fecha_ingreso);
 	}
 
-	// liquidación — sincroniza liquidado en la liquidación vinculada
+	// liquidación — cierre definitivo JASP
 	if (body.liquidacion !== undefined) {
 	  const b = toBoolOrNull(body.liquidacion);
 	  if (b == null) return json({ error: 'liquidacion inválido' }, 400);
 	  updates.liquidacion = b;
-	  await supabase.from('liquidaciones').update({ liquidado: b }).eq('propiedad_id', id);
+	  updates.liquidada_at = b ? new Date().toISOString() : null;
+	  if (b && !updates.fecha_liquidacion) {
+	    updates.fecha_liquidacion = new Date().toISOString().slice(0, 10);
+	  }
 	}
 
 	// ocupado
@@ -441,11 +433,34 @@ export const handler: Handler = async (event) => {
 	}
 
 	if (updates.aportacion !== undefined) {
-	  await supabase
-		.from('liquidaciones')
-		.update({ aportacion: updates.aportacion })
-		.eq('propiedad_id', id);
+	  // handled via mirror sync after update
 	}
+
+	if (
+	  current.tipo === 'inversion' &&
+	  shouldAutoDeriveEjercicio(body, updates)
+	) {
+	  const merged = mergeEjercicioPropiedadInput(
+	    {
+	      liquidacion: current.liquidacion,
+	      fecha_liquidacion: current.fecha_liquidacion,
+	      fecha_venta: current.fecha_venta,
+	      fecha_ingreso: current.fecha_ingreso,
+	      created_at: current.created_at,
+	    },
+	    {
+	      liquidacion: updates.liquidacion as boolean | null | undefined,
+	      fecha_liquidacion: updates.fecha_liquidacion as string | null | undefined,
+	      fecha_venta: updates.fecha_venta as string | null | undefined,
+	      fecha_ingreso: updates.fecha_ingreso as string | null | undefined,
+	    }
+	  );
+	  const derived = deriveEjercicioPropiedad(merged);
+	  if (derived != null) updates.ejercicio = derived;
+	}
+
+	const lockErr = assertFinancialFieldsEditable(current, Object.keys(updates), updates);
+	if (lockErr) return json({ error: lockErr }, 409);
 
 	if (Object.keys(updates).length === 0) {
 	  return json({ ok: true, id: current.id, slug: current.slug }, 200);
@@ -464,37 +479,29 @@ export const handler: Handler = async (event) => {
 	}
 
 	if (data.tipo === 'inversion') {
-	  const { error: liqErr } = await ensureLiquidacionForInversion(supabase, id, {
-	    ejercicio: updates.ejercicio ?? null,
-	    liquidado: updates.liquidacion ?? undefined,
-	  });
-	  if (liqErr) {
-	    console.error('[updateProperty] ensure liquidacion:', liqErr);
-	    return json({ error: liqErr }, 500);
+	  if (needsRecalc) {
+	    const { data: fin } = await supabase
+		  .from('propiedades')
+		  .select('participacion_sanyus, participacion_jasp, jasp_manual')
+		  .eq('id', id)
+		  .single();
+	    if (fin) {
+		  const sanyus = fin.participacion_sanyus ?? 40;
+		  const jasp = fin.participacion_jasp ?? 20;
+		  if (sanyus + jasp > 100) {
+		    return json({ error: 'Sanyus + JASP no pueden superar el 100%' }, 400);
+		  }
+	    }
+	    await recalcBrutoYJaspPropiedad(supabase, id);
+	  } else if (
+	    updates.retribucion !== undefined ||
+	    updates.beneficio_bruto !== undefined ||
+	    updates.jasp_manual === false
+	  ) {
+	    await recalcBrutoYJaspPropiedad(supabase, id);
 	  }
-	}
 
-	if (needsRecalc) {
-	  const { data: fin } = await supabase
-		.from('propiedades')
-		.select('participacion_sanyus, participacion_jasp, jasp_manual, jasp_10_percent')
-		.eq('id', id)
-		.single();
-	  if (fin) {
-		const sanyus = fin.participacion_sanyus ?? 40;
-		const jasp = fin.participacion_jasp ?? 20;
-		if (sanyus + jasp > 100) {
-		  return json({ error: 'Sanyus + JASP no pueden superar el 100%' }, 400);
-		}
-		await recalcLiquidacionesYPropiedad(
-		  supabase,
-		  id,
-		  sanyus,
-		  jasp,
-		  fin.jasp_manual,
-		  fin.jasp_10_percent
-		);
-	  }
+	  await applyPropiedadLiquidacionSideEffects(supabase, id, updates);
 	}
 
 	return json({

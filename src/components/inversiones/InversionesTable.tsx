@@ -25,7 +25,7 @@ import {
   formatEuro,
   toNum,
 } from "@/lib/moneyCalc";
-import { syncPropiedadFromLiquidaciones } from "@/lib/syncPropiedadFromLiquidaciones";
+import { fetchInversiones } from "@/lib/fetchInversiones";
 import {
   type Property,
   PROPERTY_SELECT,
@@ -33,20 +33,19 @@ import {
   OCUPADO_OPTIONS,
   derivePagoFromIngreso,
 } from "@/lib/propertyTypes";
-import { Plus, Trash2, Pencil, CheckCircle, Circle, Building2 } from "lucide-react";
+import { Plus, Trash2, Pencil, CheckCircle, Circle, Building2, FileCheck2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PropertyDialog } from "./PropertyDialog";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import {
-  fetchInversionesWithLiquidaciones,
-  propertyEjercicio,
-  propertyIsLiquidada,
-} from "@/lib/fetchInversionesWithLiquidaciones";
+import { propertyEjercicio, propertyIsLiquidada } from "@/lib/fetchInversiones";
 import {
   inversionDisplayMoney,
   sumInversionDisplayMoney,
 } from "@/lib/inversionesDisplayMoney";
 import { TableColumnHeader } from "@/components/ui/table-column-header";
+import { JaspOperativaHint } from "@/components/inversiones/JaspOperativaHint";
+import { LiquidarOperacionDialog } from "@/components/inversiones/LiquidarOperacionDialog";
+import { canEditFinancialField } from "@/lib/inversionOperativa";
 import {
   getEngineColumnTooltip,
   type InversionesColumnKey,
@@ -77,6 +76,7 @@ export default function InversionesTable({
   const [showLiquidadas, setShowLiquidadas] = useState(false);
   const [showSinLiquidacion, setShowSinLiquidacion] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [liquidarTarget, setLiquidarTarget] = useState<Property | null>(null);
   const [yearFilter, setYearFilter] = useState<string>(
     initialYear != null ? String(initialYear) : "all"
   );
@@ -115,7 +115,7 @@ export default function InversionesTable({
       result = result.filter((r) => !propertyIsLiquidada(r));
     }
 
-    // Year filter (ejercicio manda desde liquidación)
+    // Year filter (ejercicio en propiedades)
     if (yearFilter !== "all") {
       const y = Number(yearFilter);
       result = result.filter((r) => {
@@ -237,11 +237,12 @@ export default function InversionesTable({
           );
         }
 
-        if (field === "__jasp_auto__") {
-          await syncPropiedadFromLiquidaciones(getSupabase(), id);
+        if (field === "__jasp_auto__" || field === "retribucion") {
           const { data: fresh } = await getSupabase()
             .from("propiedades")
-            .select("jasp_10_percent, jasp_manual, retribucion, retencion, efectivo")
+            .select(
+              "jasp_10_percent, jasp_manual, retribucion, retencion, efectivo, beneficio_bruto"
+            )
             .eq("id", id)
             .single();
           if (fresh) {
@@ -271,7 +272,7 @@ export default function InversionesTable({
   // ── Reload after creation ──
   const reloadData = useCallback(async () => {
     try {
-      const fresh = await fetchInversionesWithLiquidaciones(getSupabase());
+      const fresh = await fetchInversiones(getSupabase());
       setRows(fresh);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al recargar";
@@ -292,6 +293,36 @@ export default function InversionesTable({
     setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
     toast.success("Propiedad eliminada");
   }, [deleteTarget]);
+
+  const confirmLiquidar = useCallback(
+    async (payload: {
+      fecha_liquidacion: string;
+      numero_op_liquidacion: number | null;
+    }) => {
+      if (!liquidarTarget) return;
+      try {
+        const res = await fetch("/.netlify/functions/updateProperty", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: liquidarTarget.id,
+            liquidacion: true,
+            fecha_liquidacion: payload.fecha_liquidacion,
+            numero_op_liquidacion: payload.numero_op_liquidacion,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al liquidar");
+        toast.success("Operación liquidada");
+        setLiquidarTarget(null);
+        await reloadData();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Error al liquidar");
+        throw e;
+      }
+    },
+    [liquidarTarget, reloadData]
+  );
 
   return (
     <div className="space-y-6">
@@ -535,7 +566,7 @@ export default function InversionesTable({
                     )}
                   </TableCell>
 
-                  {/* AÑO (ejercicio desde liquidación) */}
+                  {/* AÑO (ejercicio fiscal) */}
                   <TableCell className="text-sm tabular-nums text-muted-foreground">
                     {displayEjercicio ?? "—"}
                   </TableCell>
@@ -591,13 +622,21 @@ export default function InversionesTable({
                     )}
                   </TableCell>
 
-                  {/* RETRIBUCIÓN (desde liquidaciones / bruto) */}
+                  {/* RETRIBUCIÓN */}
                   <TableCell>
-                    <EditableCell
-                      value={displayRetribucion}
-                      type="readonly-money"
-                      onSave={() => {}}
-                    />
+                    {canEditFinancialField(row, "retribucion") ? (
+                      <EditableCell
+                        value={row.retribucion}
+                        type="money"
+                        onSave={(v) => saveField(row.id, "retribucion", v)}
+                      />
+                    ) : (
+                      <EditableCell
+                        value={displayRetribucion}
+                        type="readonly-money"
+                        onSave={() => {}}
+                      />
+                    )}
                   </TableCell>
 
                   {/* RETENCIÓN (always readonly) */}
@@ -632,48 +671,50 @@ export default function InversionesTable({
                     />
                   </TableCell>
 
-                  {/* JASP: % participación del bruto, o manual si no liquidada */}
+                  {/* JASP */}
                   <TableCell>
-                    {isLiquidada ? (
-                      <EditableCell
-                        value={row.jasp_10_percent}
-                        type="readonly-money"
-                        onSave={() => {}}
-                      />
-                    ) : (
-                      <div
-                        className="min-w-[72px] w-full"
-                        title={
-                          row.jasp_manual
-                            ? "Valor manual — doble clic para volver al cálculo automático"
-                            : "Cálculo automático (% JASP del bruto) — clic para editar"
-                        }
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          if (row.jasp_manual) {
-                            saveField(row.id, "__jasp_auto__", null);
-                          }
-                        }}
-                      >
+                    <JaspOperativaHint row={row}>
+                      {isLiquidada ? (
                         <EditableCell
                           value={row.jasp_10_percent}
-                          type="money"
-                          className={
-                            row.jasp_manual
-                              ? "text-amber-800 dark:text-amber-200 font-medium"
-                              : ""
-                          }
-                          onSave={(v) => saveField(row.id, "jasp_10_percent", v)}
+                          type="readonly-money"
+                          onSave={() => {}}
                         />
-                      </div>
-                    )}
+                      ) : (
+                        <div
+                          className="min-w-[72px] w-full"
+                          title={
+                            row.jasp_manual
+                              ? "Valor manual — doble clic para volver al cálculo automático"
+                              : "Cálculo automático (% JASP del bruto) — clic para editar"
+                          }
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            if (row.jasp_manual) {
+                              saveField(row.id, "__jasp_auto__", null);
+                            }
+                          }}
+                        >
+                          <EditableCell
+                            value={row.jasp_10_percent}
+                            type="money"
+                            className={
+                              row.jasp_manual
+                                ? "text-amber-800 dark:text-amber-200 font-medium"
+                                : ""
+                            }
+                            onSave={(v) => saveField(row.id, "jasp_10_percent", v)}
+                          />
+                        </div>
+                      )}
+                    </JaspOperativaHint>
                   </TableCell>
 
-                  {/* TRANSFE (date — from liquidación if available) */}
+                  {/* TRANSFE */}
                   <TableCell>
-                    {isLiquidada && row.liq?.fecha_transferencia ? (
+                    {isLiquidada && row.fecha_transferencia ? (
                       <span className="text-sm tabular-nums">
-                        {new Date(row.liq.fecha_transferencia).toLocaleDateString("es-ES")}
+                        {new Date(row.fecha_transferencia).toLocaleDateString("es-ES")}
                       </span>
                     ) : (
                       <EditableCell
@@ -742,12 +783,21 @@ export default function InversionesTable({
                     />
                   </TableCell>
 
-                  {/* LIQUIDADA (solo lectura; se edita en Liquidaciones) */}
+                  {/* LIQUIDADA */}
                   <TableCell className="text-center">
                     {isLiquidada ? (
                       <Badge variant="success" className="text-xs">Sí</Badge>
                     ) : (
-                      <Badge variant="destructive" className="text-xs">No</Badge>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setLiquidarTarget(row)}
+                      >
+                        <FileCheck2 className="h-3.5 w-3.5 mr-1" />
+                        Liquidar
+                      </Button>
                     )}
                   </TableCell>
 
@@ -820,6 +870,15 @@ export default function InversionesTable({
         description={`¿Seguro que quieres eliminar "${deleteTarget?.name}"? Esta acción no se puede deshacer.`}
         confirmWord="ELIMINAR"
         onConfirm={deleteProperty}
+      />
+
+      <LiquidarOperacionDialog
+        open={!!liquidarTarget}
+        onOpenChange={(open) => {
+          if (!open) setLiquidarTarget(null);
+        }}
+        property={liquidarTarget}
+        onConfirm={confirmLiquidar}
       />
     </div>
   );

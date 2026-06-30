@@ -32,45 +32,12 @@ try {
   console.error("[informes] mercado referencia:", e);
 }
 
-const { data: allLiq } = await supabase
-  .from("liquidaciones")
-  .select(
-    "propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio, liquidado, updated_at"
-  );
-
-const liqByProp = new Map<
-  string,
-  {
-    aportacion: number;
-    retribucion: number;
-    retencion: number;
-    transferencia: number;
-    efectivo: number;
-    fecha_transferencia: string | null;
-    ejercicio: number | null;
-    liquidado: boolean;
-  }
->();
-for (const l of allLiq ?? []) {
-  liqByProp.set(l.propiedad_id, {
-    aportacion: Number(l.aportacion) || 0,
-    retribucion: Number(l.retribucion) || 0,
-    retencion: Number(l.retencion) || 0,
-    transferencia: Number(l.transferencia) || 0,
-    efectivo: Number(l.efectivo) || 0,
-    fecha_transferencia: l.fecha_transferencia ?? null,
-    ejercicio: l.ejercicio ?? null,
-    liquidado: l.liquidado === true,
-  });
-}
-
 const properties: InformesProperty[] = (allProperties ?? []).map((p: any) => ({
   ...p,
   precio_compra: p.precio_compra ?? null,
   precio_venta: p.precio_venta ?? null,
   superficie_registrada_m2: p.superficie_registrada_m2 ?? null,
   direccion: p.direccion ?? null,
-  liq: liqByProp.get(p.id) ?? null,
 })) as InformesProperty[];
 
 const { data: objetivosRows } = await supabase
@@ -84,10 +51,7 @@ const objetivoBeneficioMedio = objetivoValorFromRow(
   OBJETIVO_BENEFICIO_MEDIO_OPERACION
 );
 
-const lastUpdatedAt = maxInformesUpdatedAt(
-  allProperties ?? [],
-  allLiq ?? []
-);
+const lastUpdatedAt = maxInformesUpdatedAt(allProperties ?? []);
 ---
 
 <Layout>

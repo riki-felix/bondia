@@ -25,18 +25,13 @@ export interface Property {
   notas: string | null;
   liquidacion: boolean;
   fecha_ingreso: string | null;
+  beneficio_bruto: number | null;
+  fecha_liquidacion: string | null;
+  fecha_aportacion: string | null;
+  fecha_transferencia: string | null;
+  numero_op_liquidacion: number | null;
+  liquidada_at: string | null;
   slug: string | null;
-  // Overlay from linked liquidación (aggregated)
-  liq?: {
-    aportacion: number;
-    retribucion: number;
-    retencion: number;
-    transferencia: number;
-    efectivo: number;
-    fecha_transferencia: string | null;
-    ejercicio: number | null;
-    liquidado: boolean;
-  } | null;
 }
 
 export const ESTADO_OPTIONS = [
@@ -55,12 +50,10 @@ export const PAGO_OPTIONS = [
   { value: "false", label: "Pendiente" },
 ] as const;
 
-/** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */
+/** Pago automático: true si hay ingreso en banco. */
 export function derivePagoFromIngreso(
-  ingresoBanco: number | null | undefined,
-  liqTransferencia?: number | null
+  ingresoBanco: number | null | undefined
 ): boolean {
-  if ((Number(liqTransferencia) || 0) > 0) return true;
   return (Number(ingresoBanco) || 0) > 0;
 }
 
@@ -71,4 +64,4 @@ export const OCUPADO_OPTIONS = [
 
 /** Columns that are fetched from Supabase for the inversiones table */
 export const PROPERTY_SELECT =
-  "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, participacion_sanyus, participacion_jasp, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, slug" as const;
+  "id, numero_operacion, ejercicio, titulo, estado, created_at, pago, participacion_sanyus, participacion_jasp, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, transfe, fecha_compra, fecha_venta, ocupado, notas, liquidacion, fecha_ingreso, beneficio_bruto, fecha_liquidacion, fecha_aportacion, fecha_transferencia, numero_op_liquidacion, liquidada_at, slug" as const;

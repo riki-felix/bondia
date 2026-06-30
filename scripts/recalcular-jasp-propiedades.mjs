@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Recalcula jasp_10_percent con la fórmula actual:
- *   bruto = Σ (retribución × 100 / % Sanyus) por liquidación
+ *   bruto = retribución × 100 / % Sanyus (o beneficio_bruto si ya está)
  *   JASP  = bruto × % JASP de la ficha
  *
  * Solo propiedades con jasp_manual = false.
@@ -99,19 +99,8 @@ async function patch(table, filter, body) {
 }
 
 const props = await fetchJson(
-  "propiedades?tipo=eq.inversion&select=id,numero_operacion,titulo,participacion_sanyus,participacion_jasp,jasp_manual,jasp_10_percent,retribucion,ingreso_banco&order=numero_operacion.asc"
+  "propiedades?tipo=eq.inversion&select=id,numero_operacion,titulo,participacion_sanyus,participacion_jasp,jasp_manual,jasp_10_percent,retribucion,beneficio_bruto,ingreso_banco&order=numero_operacion.asc"
 );
-
-const liqs = await fetchJson(
-  "liquidaciones?select=id,propiedad_id,retribucion,beneficio_bruto"
-);
-
-const liqsByProp = new Map();
-for (const liq of liqs) {
-  const list = liqsByProp.get(liq.propiedad_id) ?? [];
-  list.push(liq);
-  liqsByProp.set(liq.propiedad_id, list);
-}
 
 let updated = 0;
 let unchanged = 0;
@@ -138,25 +127,13 @@ for (const prop of props) {
 
   const pctSanyus = effectiveSanyus(prop.participacion_sanyus);
   const pctJasp = effectiveJasp(prop.participacion_jasp);
-  const propLiqs = liqsByProp.get(prop.id) ?? [];
 
-  let totalBruto = 0;
-  let totalRetribucion = 0;
-  const liqUpdates = [];
-
-  for (const liq of propLiqs) {
-    const retribucion = toNum(liq.retribucion);
-    totalRetribucion += retribucion;
-    const bruto = brutoFromRetribucion(retribucion, pctSanyus);
-    totalBruto += bruto;
-    const brutoRounded = round2(bruto);
-    if (toNum(liq.beneficio_bruto) !== brutoRounded) {
-      liqUpdates.push({ id: liq.id, beneficio_bruto: brutoRounded });
-    }
-  }
-
-  totalRetribucion = round2(totalRetribucion);
-  totalBruto = round2(totalBruto);
+  const totalRetribucion = round2(toNum(prop.retribucion));
+  const storedBruto = round2(toNum(prop.beneficio_bruto));
+  const totalBruto =
+    storedBruto > 0
+      ? storedBruto
+      : brutoFromRetribucion(totalRetribucion, pctSanyus);
 
   if (totalBruto <= 0) {
     empty++;
@@ -165,11 +142,9 @@ for (const prop of props) {
 
   const newJasp = jaspFromBruto(totalBruto, pctJasp);
   const oldJasp = round2(toNum(prop.jasp_10_percent));
-  const oldRetribucion = round2(toNum(prop.retribucion));
-  const retribChanged = oldRetribucion !== totalRetribucion;
   const jaspChanged = oldJasp !== newJasp;
 
-  if (!jaspChanged && !retribChanged && liqUpdates.length === 0) {
+  if (!jaspChanged) {
     unchanged++;
     continue;
   }
@@ -189,14 +164,6 @@ for (const prop of props) {
       }`
     );
   }
-  if (retribChanged) {
-    console.log(
-      `  retribución propiedad: ${formatEuro(oldRetribucion)} → ${formatEuro(totalRetribucion)}`
-    );
-  }
-  if (liqUpdates.length > 0) {
-    console.log(`  liquidaciones bruto actualizadas: ${liqUpdates.length}`);
-  }
 
   if (dryRun) {
     updated++;
@@ -204,13 +171,8 @@ for (const prop of props) {
   }
 
   try {
-    for (const u of liqUpdates) {
-      await patch("liquidaciones", `id=eq.${u.id}`, {
-        beneficio_bruto: u.beneficio_bruto,
-      });
-    }
     await patch("propiedades", `id=eq.${prop.id}`, {
-      retribucion: totalRetribucion,
+      beneficio_bruto: totalBruto,
       jasp_10_percent: newJasp,
       jasp_manual: false,
     });

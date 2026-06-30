@@ -26,8 +26,8 @@ export interface PropertyCard {
   ejercicio: number | null;
   liquidacion: boolean;
   foto_destacada_path: string | null;
-  /** fecha_transferencia from last liquidación (when liquidacion=true) */
-  fecha_transferencia_liq: string | null;
+  /** fecha_transferencia de la operación (cuando liquidada) */
+  fecha_transferencia: string | null;
 }
 
 interface PropiedadesGridProps {
@@ -230,7 +230,7 @@ export default function PropiedadesGrid({
             const days = calcDaysActive(
               p.created_at,
               p.liquidacion,
-              p.fecha_transferencia_liq
+              p.fecha_transferencia
             );
 
             return (

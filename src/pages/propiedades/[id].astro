@@ -3,9 +3,7 @@ export const prerender = false;
 
 import Layout from "../../components/Layout.astro";
 import { Toaster } from "../../components/ui/sonner";
-import PropertyDetail, {
-  type PropertyDetailSettlement,
-} from "../../components/propiedades/PropertyDetail";
+import PropertyDetail from "../../components/propiedades/PropertyDetail";
 import { supabaseClient } from "../../lib/supabaseClient";
 import { PROPERTY_IMAGES_BUCKET } from "../../lib/propertyStorage";
 
@@ -14,45 +12,16 @@ if (!id) return Astro.redirect("/propiedades");
 
 const supabase = supabaseClient();
 
-// Fetch the property
 const { data: property, error } = await supabase
   .from("propiedades")
   .select(
-    "id, titulo, origen, direccion, estado, ejercicio, created_at, liquidacion, ocupado, foto_destacada_path, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, numero_catastro, catastro_referencia_validada, catastro_validado_at, fecha_ingreso, fecha_compra, fecha_venta, numero_operacion, pago, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, notas, slug"
+    "id, titulo, origen, direccion, estado, ejercicio, created_at, liquidacion, ocupado, foto_destacada_path, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, numero_catastro, catastro_referencia_validada, catastro_validado_at, fecha_ingreso, fecha_compra, fecha_venta, numero_operacion, pago, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb, aportacion, retribucion, retencion, ingreso_banco, efectivo, jasp_10_percent, jasp_manual, notas, slug, beneficio_bruto, fecha_liquidacion, fecha_aportacion, fecha_transferencia, numero_op_liquidacion, liquidada_at"
   )
   .eq("id", id)
   .single();
 
 if (error || !property) return Astro.redirect("/propiedades");
 
-// Fetch associated settlements
-const { data: settlements } = await supabase
-  .from("liquidaciones")
-  .select(
-    "id, numero_liquidacion, numero_operacion, fecha_liquidacion, beneficio_bruto, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, liquidado, ejercicio"
-  )
-  .eq("propiedad_id", id)
-  .order("numero_liquidacion", { ascending: true });
-
-const settlementsForDetail: PropertyDetailSettlement[] = (settlements ?? []).map(
-  (r: Record<string, unknown>) => ({
-    id: r.id as string,
-    numero_liquidacion: r.numero_liquidacion as number,
-    numero_operacion: (r.numero_operacion as number | null) ?? null,
-    fecha_liquidacion: (r.fecha_liquidacion as string) ?? "",
-    beneficio_bruto: r.beneficio_bruto as number | null,
-    aportacion: (r.aportacion as number) ?? 0,
-    retribucion: (r.retribucion as number) ?? 0,
-    retencion: (r.retencion as number) ?? 0,
-    transferencia: (r.transferencia as number) ?? 0,
-    efectivo: (r.efectivo as number) ?? 0,
-    fecha_transferencia: (r.fecha_transferencia as string | null) ?? null,
-    liquidado: (r.liquidado as boolean) ?? false,
-    ejercicio: (r.ejercicio as number | null) ?? null,
-  })
-);
-
-// Build image URL
 let imageUrl: string | null = null;
 if (property.foto_destacada_path) {
   const { data: urlData } = supabase.storage
@@ -67,7 +36,6 @@ if (property.foto_destacada_path) {
     <PropertyDetail
       client:load
       property={property}
-      settlements={settlementsForDetail}
       imageUrl={imageUrl}
     />
   </div>

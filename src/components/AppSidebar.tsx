@@ -7,7 +7,6 @@ import {
   Home,
   LayoutDashboard,
   Package,
-  Receipt,
   Star,
   Tag,
   TrendingDown,
@@ -56,7 +55,6 @@ const topLevelItems: NavItem[] = [
 const engineItems: NavItem[] = [
   { title: "Informes", href: "/informes", icon: BarChart3 },
   { title: "Inversiones", href: "/inversiones", icon: Building2 },
-  { title: "Liquidaciones", href: "/liquidaciones", icon: Receipt },
   { title: "Propiedades", href: "/propiedades", icon: Home },
 ]
 
@@ -132,7 +130,6 @@ function getGroupForPath(path: string): string | null {
   if (
     path.startsWith("/informes") ||
     path.startsWith("/inversiones") ||
-    path.startsWith("/liquidaciones") ||
     path.startsWith("/propiedades")
   ) {
     return "engine"

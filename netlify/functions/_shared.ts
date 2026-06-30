@@ -1,5 +1,5 @@
 // netlify/functions/_shared.ts
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -117,106 +117,9 @@ export function calcJaspFromBruto(bruto: number, pctJasp: number): number {
   return roundMoney2(bruto * (pctJasp / 100));
 }
 
-/** Sincroniza retribución y JASP en propiedad desde sus liquidaciones (service role). */
-export async function syncPropiedadRetribucionFromLiquidaciones(
-  supabase: SupabaseClient,
-  propiedadId: string
-): Promise<void> {
-  const [{ data: liqs }, { data: prop }] = await Promise.all([
-    supabase.from('liquidaciones').select('retribucion').eq('propiedad_id', propiedadId),
-    supabase
-      .from('propiedades')
-      .select('participacion_sanyus, participacion_jasp, jasp_manual')
-      .eq('id', propiedadId)
-      .single(),
-  ]);
-
-  if (!prop) return;
-
-  const pctSanyus = effectiveParticipacionSanyus(prop.participacion_sanyus);
-  let totalBruto = 0;
-  let totalRetribucion = 0;
-  for (const l of liqs ?? []) {
-    const retribucion = Number(l.retribucion) || 0;
-    totalRetribucion += retribucion;
-    totalBruto += calcBrutoFromRetribucion(retribucion, pctSanyus);
-  }
-
-  const propUpdates: Record<string, unknown> = {
-    retribucion: roundMoney2(totalRetribucion),
-  };
-
-  if (!prop.jasp_manual) {
-    propUpdates.jasp_10_percent = calcJaspFromBruto(
-      totalBruto,
-      effectiveParticipacionJasp(prop.participacion_jasp)
-    );
-    propUpdates.jasp_manual = false;
-  }
-
-  await supabase.from('propiedades').update(propUpdates).eq('id', propiedadId);
-}
-
-/** Pago automático: true si hay ingreso en banco o transferencia en liquidación. */
-export function derivePagoFromIngreso(
-  ingresoBanco: unknown,
-  liqTransferencia?: unknown
-): boolean {
-  if ((Number(liqTransferencia) || 0) > 0) return true;
+/** Pago automático: true si hay ingreso en banco. */
+export function derivePagoFromIngreso(ingresoBanco: unknown): boolean {
   return (Number(ingresoBanco) || 0) > 0;
-}
-
-export interface EnsureLiquidacionOptions {
-  ejercicio?: number | null;
-  liquidado?: boolean;
-  aportacion?: number;
-  retribucion?: number;
-  transferencia?: number;
-}
-
-/** Crea la liquidación 1:1 de una inversión si aún no existe (id = propiedad_id). */
-export async function ensureLiquidacionForInversion(
-  supabase: SupabaseClient,
-  propiedadId: string,
-  options: EnsureLiquidacionOptions = {}
-): Promise<{ created: boolean; error?: string }> {
-  const { data: existing, error: getErr } = await supabase
-    .from('liquidaciones')
-    .select('id')
-    .eq('propiedad_id', propiedadId)
-    .maybeSingle();
-
-  if (getErr) return { created: false, error: getErr.message };
-  if (existing) return { created: false };
-
-  const { data: maxRow, error: maxErr } = await supabase
-    .from('liquidaciones')
-    .select('numero_liquidacion')
-    .order('numero_liquidacion', { ascending: false })
-    .limit(1);
-
-  if (maxErr) return { created: false, error: maxErr.message };
-
-  const numero_liquidacion = (maxRow?.[0]?.numero_liquidacion ?? 0) + 1;
-
-  const { error: insertErr } = await supabase.from('liquidaciones').insert({
-    id: propiedadId,
-    propiedad_id: propiedadId,
-    fecha_liquidacion: null,
-    numero_liquidacion,
-    numero_operacion: null,
-    beneficio_bruto: 0,
-    aportacion: options.aportacion ?? 0,
-    retribucion: options.retribucion ?? 0,
-    transferencia: options.transferencia ?? 0,
-    fecha_transferencia: null,
-    fecha_aportacion: null,
-    liquidado: options.liquidado ?? false,
-    ejercicio: options.ejercicio ?? null,
-  });
-
-  if (insertErr) return { created: false, error: insertErr.message };
-  return { created: true };
 }
 
 export function toDateOrNull(v: any): string | null {

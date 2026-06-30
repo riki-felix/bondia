@@ -60,18 +60,8 @@ const alquilerAnual = annualTotal(alquilerIngresos, allIngresosOverrides, "ingre
 const mediaGastosMensual = Math.round((gastosAnual / 12) * 100) / 100;
 const mediaAlquilerMensual = Math.round((alquilerAnual / 12) * 100) / 100;
 
-const { data: liqIngresosBanco } = await supabase
-  .from("liquidaciones")
-  .select("transferencia, ejercicio");
-
-const ingresosBancoLiquidaciones = (liqIngresosBanco ?? []).map((l) => ({
-  transferencia: l.transferencia,
-  ejercicio: l.ejercicio,
-}));
-
 const ingresosBancoPropiedades = await loadIngresosBancoPropiedades(supabase);
 const ingresosBancoYears = collectIngresosBancoYears(
-  ingresosBancoLiquidaciones,
   ingresosBancoPropiedades,
   ejercicio
 );
@@ -91,7 +81,7 @@ const ingresosBancoYears = collectIngresosBancoYears(
       ejercicio={ejercicio}
       mediaGastosMensual={mediaGastosMensual}
       mediaAlquilerMensual={mediaAlquilerMensual}
-      ingresosBancoLiquidaciones={ingresosBancoLiquidaciones}
+      ingresosBancoPropiedades={ingresosBancoPropiedades}
       ingresosBancoYears={ingresosBancoYears}
     />
   </div>

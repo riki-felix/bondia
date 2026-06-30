@@ -1,6 +1,6 @@
 import type { Property } from "./propertyTypes";
 import { round2 } from "./moneyCalc";
-import { propertyEjercicio, propertyIsLiquidada } from "./fetchInversionesWithLiquidaciones";
+import { propertyEjercicio, propertyIsLiquidada } from "./fetchInversiones";
 import { inversionDisplayMoney } from "./inversionesDisplayMoney";
 import { getSuperficieViviendaM2 } from "./superficieVivienda";
 import {
@@ -398,18 +398,12 @@ export function collectInformesYears(rows: Property[]): number[] {
 }
 
 export function maxInformesUpdatedAt(
-  properties: { updated_at?: string | null }[],
-  liquidaciones: { updated_at?: string | null }[]
+  properties: { updated_at?: string | null }[]
 ): string | null {
   let max: number | null = null;
   for (const p of properties) {
     if (!p.updated_at) continue;
     const t = new Date(p.updated_at).getTime();
-    if (!Number.isNaN(t)) max = max == null ? t : Math.max(max, t);
-  }
-  for (const l of liquidaciones) {
-    if (!l.updated_at) continue;
-    const t = new Date(l.updated_at).getTime();
     if (!Number.isNaN(t)) max = max == null ? t : Math.max(max, t);
   }
   return max != null ? new Date(max).toISOString() : null;

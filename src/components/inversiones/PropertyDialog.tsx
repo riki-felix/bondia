@@ -19,10 +19,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/sonner";
 import { getSupabase } from "@/lib/supabaseReact";
 import { ESTADO_OPTIONS, OCUPADO_OPTIONS } from "@/lib/propertyTypes";
-import { ImagePlus, Loader2 } from "lucide-react";
+import { ImagePlus, Loader2, Undo2 } from "lucide-react";
 import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
 import {
   applyCatastroToFormFields,
@@ -88,6 +99,9 @@ export function PropertyDialog({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isLiquidada, setIsLiquidada] = useState(false);
+  const [anulando, setAnulando] = useState(false);
+  const [anularOpen, setAnularOpen] = useState(false);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -104,7 +118,7 @@ export function PropertyDialog({
       const { data, error } = await supabase
         .from("propiedades")
         .select(
-          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, estado, ocupado, numero_catastro, catastro_referencia_validada, catastro_validado_at, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb"
+          "titulo, origen, direccion, precio_compra, precio_venta, superficie_m2, superficie_registrada_m2, superficie_real_m2, anio_construccion, estado, ocupado, numero_catastro, catastro_referencia_validada, catastro_validado_at, fecha_ingreso, fecha_compra, fecha_venta, foto_destacada_path, participacion_sanyus, participacion_jasp, participacion_bienes_sanyus_cb, liquidacion, liquidada_at"
         )
         .eq("id", editId)
         .single();
@@ -116,6 +130,8 @@ export function PropertyDialog({
         toast.error("No se pudo cargar la propiedad");
         return;
       }
+
+      setIsLiquidada(data.liquidacion === true);
 
       setForm({
         titulo: data.titulo || "",
@@ -178,7 +194,33 @@ export function PropertyDialog({
     setForm({ ...EMPTY_FORM });
     setImageFile(null);
     setImagePreview(null);
+    setIsLiquidada(false);
   }, []);
+
+  const handleAnularLiquidacion = useCallback(async () => {
+    if (!editId) return;
+    setAnulando(true);
+    try {
+      const res = await fetch("/.netlify/functions/updateProperty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editId, liquidacion: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo anular la liquidación");
+
+      setIsLiquidada(false);
+      setAnularOpen(false);
+      toast.success("Liquidación anulada — los importes vuelven a ser editables");
+      onSaved();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error al anular la liquidación";
+      toast.error(message);
+    } finally {
+      setAnulando(false);
+    }
+  }, [editId, onSaved]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -493,7 +535,7 @@ export function PropertyDialog({
                     }
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Retribución y JASP se calculan desde el bruto en Liquidaciones.
+                    Retribución y JASP se calculan desde el bruto en Inversiones.
                   </p>
                 </div>
               </>
@@ -587,6 +629,63 @@ export function PropertyDialog({
                 </div>
               </div>
             </div>
+
+            {isEdit && isLiquidada && (
+              <>
+                <Separator />
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-amber-950">
+                      Operación liquidada
+                    </p>
+                    <p className="text-xs text-amber-900/80 mt-1">
+                      Los importes financieros están bloqueados. Si hubo un error
+                      en el cierre, puedes anular la liquidación para corregirlos.
+                    </p>
+                  </div>
+                  <AlertDialog open={anularOpen} onOpenChange={setAnularOpen}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-300 text-amber-950 hover:bg-amber-100"
+                        disabled={anulando || saving}
+                      >
+                        {anulando ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Undo2 className="h-4 w-4 mr-2" />
+                        )}
+                        Anular liquidación
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Anular liquidación?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se desbloquearán retribución, JASP, transferencia y
+                          demás importes de esta operación. Los datos actuales se
+                          conservan; solo podrás editarlos de nuevo.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={anulando}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={anulando}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void handleAnularLiquidacion();
+                          }}
+                        >
+                          {anulando ? "Anulando…" : "Sí, anular liquidación"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </>
+            )}
 
             {isEdit && editId && (
               <>

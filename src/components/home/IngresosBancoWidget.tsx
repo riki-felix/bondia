@@ -9,18 +9,18 @@ import {
 } from "@/components/ui/select";
 import { formatEuro } from "@/lib/money";
 import {
-  sumTransferenciasLiquidaciones,
-  type IngresoBancoLiquidacionRow,
+  sumIngresosBancoPropiedades,
+  type IngresoBancoPropiedadRow,
 } from "@/lib/ingresosBancoAggregate";
 
 interface Props {
-  liquidaciones: IngresoBancoLiquidacionRow[];
+  propiedades: IngresoBancoPropiedadRow[];
   years: number[];
   defaultYear: number;
 }
 
 export function IngresosBancoWidget({
-  liquidaciones,
+  propiedades,
   years,
   defaultYear,
 }: Props) {
@@ -37,8 +37,8 @@ export function IngresosBancoWidget({
   }, [years]);
 
   const { total, count } = useMemo(
-    () => sumTransferenciasLiquidaciones(liquidaciones, yearFilter),
-    [liquidaciones, yearFilter]
+    () => sumIngresosBancoPropiedades(propiedades, yearFilter),
+    [propiedades, yearFilter]
   );
 
   const filterLabel =
@@ -51,8 +51,7 @@ export function IngresosBancoWidget({
           <div>
             <h3 className="text-base font-semibold">Ingresos en banco</h3>
             <p className="text-sm text-muted-foreground">
-              Suma de transferencias en liquidaciones (mismo criterio que
-              /liquidaciones)
+              Suma de transferencias en inversiones (ingreso en banco)
             </p>
           </div>
           <Select value={yearFilter} onValueChange={setYearFilter}>
@@ -76,7 +75,7 @@ export function IngresosBancoWidget({
         <p className="mt-2 text-sm text-muted-foreground">
           {count === 0
             ? `Sin transferencias en ${filterLabel.toLowerCase()}`
-            : `${count} ${count === 1 ? "liquidación" : "liquidaciones"} · ${filterLabel}`}
+            : `${count} ${count === 1 ? "operación" : "operaciones"} · ${filterLabel}`}
         </p>
       </CardContent>
     </Card>

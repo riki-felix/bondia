@@ -19,7 +19,7 @@ import { ESTADO_OPTIONS, OCUPADO_OPTIONS, derivePagoFromIngreso } from "@/lib/pr
 import { INMUEBLE_ESTADO_VENDIDO } from "@/lib/sanyusInmueblePlantilla";
 import { formatDateShort } from "@/lib/date";
 import { formatEuro, moneyFieldFromNumber, moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
-import { deriveBrutoFromRetribucion } from "@/lib/syncPropiedadFromLiquidaciones";
+import { deriveBrutoFromRetribucion } from "@/lib/settlementDerivations";
 import { PropertyParticipacionSection } from "@/components/inversiones/PropertyParticipacionSection";
 import {
   DEFAULT_PARTICIPACION_BIENES_SANYUS_CB,
@@ -79,27 +79,16 @@ interface PropertyData {
   efectivo: number | null;
   jasp_10_percent: number | null;
   notas: string | null;
-}
-
-export interface PropertyDetailSettlement {
-  id: string;
-  numero_liquidacion: number;
-  numero_operacion: number | null;
-  fecha_liquidacion: string;
   beneficio_bruto: number | null;
-  aportacion: number;
-  retribucion: number;
-  retencion: number;
-  transferencia: number;
-  efectivo: number;
+  fecha_liquidacion: string | null;
+  fecha_aportacion: string | null;
   fecha_transferencia: string | null;
-  liquidado: boolean;
-  ejercicio: number | null;
+  numero_op_liquidacion: number | null;
+  liquidada_at: string | null;
 }
 
 interface PropertyDetailProps {
   property?: PropertyData | null;
-  settlements?: PropertyDetailSettlement[];
   imageUrl?: string | null;
 }
 
@@ -147,7 +136,6 @@ function calcDaysActive(
 
 export default function PropertyDetail({
   property,
-  settlements = [],
   imageUrl: initialImageUrl = null,
 }: PropertyDetailProps) {
   const isCreate = !property;
@@ -371,14 +359,10 @@ export default function PropertyDetail({
 
   const isVendido = form.estado === INMUEBLE_ESTADO_VENDIDO;
 
-  const lastTransferDate = settlements.find(
-    (s) => s.liquidado && s.fecha_transferencia
-  )?.fecha_transferencia ?? null;
-
   const daysActive = calcDaysActive(
     property?.created_at ?? null,
     property?.liquidacion ?? false,
-    lastTransferDate
+    property?.fecha_transferencia ?? null
   );
 
   const displayTitle = isCreate
@@ -827,10 +811,7 @@ export default function PropertyDetail({
                   <div>
                     <span className="text-muted-foreground block text-xs uppercase">Pago</span>
                     <span className="font-medium">
-                      {derivePagoFromIngreso(
-                        property.ingreso_banco,
-                        settlements[0]?.transferencia
-                      )
+                      {derivePagoFromIngreso(property.ingreso_banco)
                         ? "Realizado"
                         : "Pendiente"}
                     </span>
@@ -843,66 +824,74 @@ export default function PropertyDetail({
               </CardContent>
             </Card>
 
-            {settlements.length > 0 && (
+            {(property.liquidacion ||
+              property.fecha_liquidacion ||
+              property.numero_op_liquidacion) && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">
-                    Liquidaciones ({settlements.length})
-                  </CardTitle>
+                  <CardTitle className="text-base">Liquidación JASP</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b text-left text-xs text-muted-foreground uppercase">
-                          <th className="py-2 pr-4">ID</th>
-                          <th className="py-2 pr-4">Nº OP</th>
-                          <th className="py-2 pr-4">Fecha</th>
-                          <th className="py-2 pr-4 text-right">Aportación</th>
-                          <th className="py-2 pr-4 text-right">Bruto</th>
-                          <th className="py-2 pr-4 text-right">Retribución</th>
-                          <th className="py-2 pr-4 text-right">Transferencia</th>
-                          <th className="py-2 pr-4">F. Transferencia</th>
-                          <th className="py-2">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {settlements.map((s) => (
-                          <tr key={s.id} className="border-b last:border-0">
-                            <td className="py-2 pr-4 tabular-nums">
-                              {property.numero_operacion ?? "—"}
-                            </td>
-                            <td className="py-2 pr-4 tabular-nums">
-                              {s.numero_operacion ?? "—"}
-                            </td>
-                            <td className="py-2 pr-4">{formatDateShort(s.fecha_liquidacion)}</td>
-                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
-                              {formatEuro(s.aportacion)}
-                            </td>
-                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
-                              {formatEuro(
-                                deriveBrutoFromRetribucion({
-                                  retribucion: s.retribucion,
-                                  propiedad_participacion_sanyus: property.participacion_sanyus,
-                                })
-                              )}
-                            </td>
-                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
-                              {formatEuro(s.retribucion)}
-                            </td>
-                            <td className="py-2 pr-4 text-right tabular-nums" data-money>
-                              {formatEuro(s.transferencia)}
-                            </td>
-                            <td className="py-2 pr-4">{formatDateShort(s.fecha_transferencia)}</td>
-                            <td className="py-2">
-                              <Badge variant={s.liquidado ? "success" : "outline"} className="text-xs">
-                                {s.liquidado ? "Liquidada" : "Pendiente"}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        Estado
+                      </span>
+                      <Badge
+                        variant={property.liquidacion ? "success" : "outline"}
+                        className="mt-1"
+                      >
+                        {property.liquidacion ? "Liquidada" : "Pendiente"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        Fecha liquidación
+                      </span>
+                      <span className="font-medium">
+                        {formatDateShort(property.fecha_liquidacion)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        Nº OP (JASP)
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {property.numero_op_liquidacion ?? "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        Bruto
+                      </span>
+                      <span className="font-medium tabular-nums" data-money>
+                        {formatEuro(
+                          (property.beneficio_bruto ?? 0) > 0
+                            ? property.beneficio_bruto!
+                            : deriveBrutoFromRetribucion({
+                                retribucion: property.retribucion ?? 0,
+                                propiedad_participacion_sanyus:
+                                  property.participacion_sanyus,
+                              })
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        F. aportación
+                      </span>
+                      <span className="font-medium">
+                        {formatDateShort(property.fecha_aportacion)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs uppercase">
+                        F. transferencia
+                      </span>
+                      <span className="font-medium">
+                        {formatDateShort(property.fecha_transferencia)}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

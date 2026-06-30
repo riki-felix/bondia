@@ -6,71 +6,23 @@ import { Toaster } from "../../components/ui/sonner";
 import InversionesTable from "../../components/inversiones/InversionesTable";
 import { supabaseClient } from "../../lib/supabaseClient";
 import type { Property } from "../../lib/propertyTypes";
-import { PROPERTY_SELECT } from "../../lib/propertyTypes";
+import {
+  collectInversionesYears,
+  fetchInversiones,
+} from "../../lib/fetchInversiones";
 
 const supabase = supabaseClient();
 
-// Fetch all investment properties
-const { data: allProperties, error } = await supabase
-  .from("propiedades")
-  .select(PROPERTY_SELECT)
-  .eq("tipo", "inversion")
-  .order("numero_operacion", { ascending: true });
-
-// Liquidaciones vinculadas 1:1 a cada inversión (mismo id que la propiedad)
-const { data: allLiq } = await supabase
-  .from("liquidaciones")
-  .select(
-    "propiedad_id, aportacion, retribucion, retencion, transferencia, efectivo, fecha_transferencia, ejercicio, liquidado"
-  );
-
-const liqByProp = new Map<
-  string,
-  {
-    aportacion: number;
-    retribucion: number;
-    retencion: number;
-    transferencia: number;
-    efectivo: number;
-    fecha_transferencia: string | null;
-    ejercicio: number | null;
-    liquidado: boolean;
-  }
->();
-for (const l of allLiq ?? []) {
-  liqByProp.set(l.propiedad_id, {
-    aportacion: Number(l.aportacion) || 0,
-    retribucion: Number(l.retribucion) || 0,
-    retencion: Number(l.retencion) || 0,
-    transferencia: Number(l.transferencia) || 0,
-    efectivo: Number(l.efectivo) || 0,
-    fecha_transferencia: l.fecha_transferencia ?? null,
-    ejercicio: l.ejercicio ?? null,
-    liquidado: l.liquidado === true,
-  });
+let inversiones: Property[] = [];
+let loadError: string | null = null;
+try {
+  inversiones = await fetchInversiones(supabase);
+} catch (e) {
+  loadError = e instanceof Error ? e.message : "Error al cargar inversiones";
 }
 
-// Merge liquidación overlay into properties
-const properties: Property[] = (allProperties ?? []).map((p: any) => ({
-  ...p,
-  liq: liqByProp.get(p.id) ?? null,
-})) as Property[];
+const years = collectInversionesYears(inversiones);
 
-// Extract unique years from ejercicio, fecha_ingreso + ejercicio from liquidaciones
-const yearSet = new Set<number>();
-properties.forEach((p) => {
-  if (p.liq?.ejercicio != null) yearSet.add(p.liq.ejercicio);
-  else if (p.ejercicio != null) yearSet.add(p.ejercicio);
-  // Fallback to fecha_ingreso/created_at
-  const dateStr = p.fecha_ingreso || p.created_at;
-  if (dateStr) {
-    const d = new Date(dateStr);
-    if (!Number.isNaN(d.getTime())) yearSet.add(d.getFullYear());
-  }
-});
-const years = Array.from(yearSet).sort((a, b) => b - a);
-
-// Initial year from query param
 const url = new URL(Astro.request.url);
 const yearParam = url.searchParams.get("year");
 const currentYear = new Date().getFullYear();
@@ -84,12 +36,12 @@ const initialYear =
 
 <Layout>
   <div class="space-y-6">
-    {error ? (
-      <p class="text-destructive">Error: {error.message}</p>
+    {loadError ? (
+      <p class="text-destructive">Error: {loadError}</p>
     ) : (
       <InversionesTable
         client:load
-        initialData={properties}
+        initialData={inversiones}
         years={years}
         initialYear={initialYear}
       />

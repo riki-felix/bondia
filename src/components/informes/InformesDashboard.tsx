@@ -23,7 +23,7 @@ import {
   filterInformesRowsForPreciosMedios,
   type PropiedadPorAnioItem,
 } from "@/lib/informesStats";
-import { propertyEjercicio } from "@/lib/fetchInversionesWithLiquidaciones";
+import { propertyEjercicio, propertyIsLiquidada } from "@/lib/fetchInversiones";
 import { computeRepartoStats } from "@/lib/repartoStats";
 import {
   formatEuro,
@@ -31,7 +31,6 @@ import {
   normalizeMoneyText,
   parseMoneyInput,
 } from "@/lib/moneyCalc";
-import { propertyIsLiquidada } from "@/lib/fetchInversionesWithLiquidaciones";
 import { useInvertido } from "@/lib/invertidoStorage";
 
 interface InformesDashboardProps {

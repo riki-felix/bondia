@@ -1,7 +1,5 @@
 import type { Property } from "./propertyTypes";
 import { calcRetencion, round2, toNum } from "./moneyCalc";
-import { effectiveIngresoBancoPropiedad } from "./ingresosBancoAggregate";
-import { propertyIsLiquidada } from "./fetchInversionesWithLiquidaciones";
 
 export interface InversionDisplayMoney {
   aportacion: number;
@@ -12,26 +10,16 @@ export interface InversionDisplayMoney {
   jasp: number;
 }
 
-/** Importes mostrados en la tabla de inversiones (alineados con fila de totales). */
+/** Importes mostrados en la tabla de inversiones (propiedades = fuente unificada). */
 export function inversionDisplayMoney(row: Property): InversionDisplayMoney {
-  const isLiquidada = propertyIsLiquidada(row);
-  const retribucion = toNum(
-    isLiquidada && row.liq ? row.liq.retribucion : row.retribucion
-  );
+  const retribucion = toNum(row.retribucion);
 
   return {
-    aportacion: toNum(
-      isLiquidada && row.liq ? row.liq.aportacion : row.aportacion
-    ),
+    aportacion: toNum(row.aportacion),
     retribucion,
-    retencion: toNum(
-      isLiquidada && row.liq ? row.liq.retencion : calcRetencion(retribucion)
-    ),
-    ingresoBanco: effectiveIngresoBancoPropiedad({
-      ingreso_banco: row.ingreso_banco,
-      liqTransferencia: row.liq?.transferencia ?? null,
-    }),
-    efectivo: toNum(isLiquidada && row.liq ? row.liq.efectivo : row.efectivo),
+    retencion: toNum(row.retencion ?? calcRetencion(retribucion)),
+    ingresoBanco: toNum(row.ingreso_banco),
+    efectivo: toNum(row.efectivo),
     jasp: toNum(row.jasp_10_percent),
   };
 }

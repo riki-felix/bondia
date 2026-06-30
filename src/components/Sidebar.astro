@@ -1,5 +1,5 @@
 ---
-import { Building2, BarChart3, Receipt } from '@lucide/astro';
+import { Building2, BarChart3 } from '@lucide/astro';
 
 const currentPath = Astro.url.pathname;
 
@@ -25,13 +25,6 @@ function isActive(href: string): string {
     >
       <Building2 size="18" />
       Inversiones
-    </a>
-    <a
-      href="/liquidaciones"
-      class:list={["flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors", isActive("/liquidaciones")]}
-    >
-      <Receipt size="18" />
-      Liquidaciones
     </a>
   </nav>
 </aside>

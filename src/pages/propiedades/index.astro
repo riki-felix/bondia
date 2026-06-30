@@ -9,31 +9,14 @@ import type { PropertyCard } from "../../components/propiedades/PropiedadesGrid"
 
 const supabase = supabaseClient();
 
-// Fetch investment properties (same set as Inversiones)
 const { data: allProperties, error } = await supabase
   .from("propiedades")
-  .select("id, titulo, estado, created_at, ejercicio, liquidacion, foto_destacada_path, transfe, slug")
+  .select(
+    "id, titulo, estado, created_at, ejercicio, liquidacion, foto_destacada_path, transfe, slug, fecha_transferencia"
+  )
   .eq("tipo", "inversion")
   .order("created_at", { ascending: false });
 
-// Fetch liquidaciones to get fecha_transferencia per property
-const { data: allLiq } = await supabase
-  .from("liquidaciones")
-  .select("propiedad_id, fecha_transferencia")
-  .eq("liquidado", true);
-
-// Map last fecha_transferencia per property
-const liqDateByProp = new Map<string, string>();
-for (const l of allLiq ?? []) {
-  if (l.fecha_transferencia) {
-    const existing = liqDateByProp.get(l.propiedad_id);
-    if (!existing || l.fecha_transferencia > existing) {
-      liqDateByProp.set(l.propiedad_id, l.fecha_transferencia);
-    }
-  }
-}
-
-// Build card data
 const properties: PropertyCard[] = (allProperties ?? []).map((p: any) => ({
   id: p.id,
   titulo: p.titulo,
@@ -42,10 +25,9 @@ const properties: PropertyCard[] = (allProperties ?? []).map((p: any) => ({
   ejercicio: p.ejercicio,
   liquidacion: !!p.liquidacion,
   foto_destacada_path: p.foto_destacada_path,
-  fecha_transferencia_liq: liqDateByProp.get(p.id) ?? null,
+  fecha_transferencia: p.fecha_transferencia ?? null,
 }));
 
-// Compute years for filter
 const yearSet = new Set<number>();
 for (const p of properties) {
   if (p.ejercicio != null) yearSet.add(p.ejercicio);

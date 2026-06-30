@@ -2,13 +2,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { formatEuro } from "@/lib/money";
 import { IngresosBancoWidget } from "@/components/home/IngresosBancoWidget";
-import type { IngresoBancoLiquidacionRow } from "@/lib/ingresosBancoAggregate";
+import type { IngresoBancoPropiedadRow } from "@/lib/ingresosBancoAggregate";
 
 interface Props {
   ejercicio: number;
   mediaGastosMensual: number;
   mediaAlquilerMensual: number;
-  ingresosBancoLiquidaciones: IngresoBancoLiquidacionRow[];
+  ingresosBancoPropiedades: IngresoBancoPropiedadRow[];
   ingresosBancoYears: number[];
 }
 
@@ -18,7 +18,7 @@ export default function HomeDashboard({
   ejercicio,
   mediaGastosMensual,
   mediaAlquilerMensual,
-  ingresosBancoLiquidaciones,
+  ingresosBancoPropiedades,
   ingresosBancoYears,
 }: Props) {
   const pct =
@@ -41,7 +41,7 @@ export default function HomeDashboard({
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <IngresosBancoWidget
-          liquidaciones={ingresosBancoLiquidaciones}
+          propiedades={ingresosBancoPropiedades}
           years={ingresosBancoYears}
           defaultYear={currentYear}
         />
