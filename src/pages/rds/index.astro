@@ -1,0 +1,43 @@
+---
+export const prerender = false;
+
+import Layout from "../../components/Layout.astro";
+import { Toaster } from "../../components/ui/sonner";
+import RdsDashboard from "../../components/rds/RdsDashboard";
+import { supabaseClient } from "../../lib/supabaseClient";
+import { parseRdsYear } from "../../lib/rdsStats";
+import type { RdsMovimiento, RdsPiso, RdsPromo } from "../../lib/rdsTypes";
+
+const supabase = supabaseClient();
+const currentYear = new Date().getFullYear();
+const selectedYear = parseRdsYear(Astro.url.searchParams.get("year"), currentYear);
+
+const [
+  { data: pisosData, error: pisosError },
+  { data: movsData, error: movsError },
+  { data: promoData, error: promoError },
+] = await Promise.all([
+  supabase.from("rds_pisos").select("*").order("fecha_creacion", { ascending: true }),
+  supabase.from("rds_movimientos").select("*").eq("anio", selectedYear),
+  supabase.from("rds_promo").select("*").eq("anio", selectedYear),
+]);
+
+if (pisosError) console.error("[rds] pisos:", pisosError.message);
+if (movsError) console.error("[rds] movimientos:", movsError.message);
+if (promoError) console.error("[rds] promo:", promoError.message);
+
+const pisos = (pisosData ?? []) as RdsPiso[];
+const movimientos = (movsData ?? []) as RdsMovimiento[];
+const promos = (promoData ?? []) as RdsPromo[];
+---
+
+<Layout>
+  <RdsDashboard
+    client:load
+    pisos={pisos}
+    movimientos={movimientos}
+    promos={promos}
+    selectedYear={selectedYear}
+  />
+  <Toaster client:load />
+</Layout>

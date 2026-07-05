@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { toast } from "@/components/ui/sonner";
 import { Target } from "lucide-react";
 import {
@@ -108,16 +108,14 @@ export default function ObjetivosSection({ initialData }: Props) {
               >
                 <div className="min-w-[200px] flex-1">
                   <p className="text-sm font-medium">{row.etiqueta}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Valor económico (€)
-                  </p>
+                  <p className="text-xs text-muted-foreground">Valor económico</p>
                 </div>
                 {editingId === row.id ? (
-                  <Input
+                  <MoneyInput
                     autoFocus
-                    className="h-9 w-40 text-right tabular-nums"
+                    className="h-9 w-40"
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onValueChange={setDraft}
                     onBlur={() => saveValor(row.id, draft)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") saveValor(row.id, draft);

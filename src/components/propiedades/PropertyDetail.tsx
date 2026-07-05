@@ -522,7 +522,7 @@ export default function PropertyDetail({
                     id="precio_compra"
                     value={form.precio_compra}
                     onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
-                    placeholder="0,00 €"
+                    placeholder="0,00"
                   />
                 </div>
               </div>
@@ -662,7 +662,7 @@ export default function PropertyDetail({
                         id="precio_venta"
                         value={form.precio_venta}
                         onValueChange={(v) => setForm((prev) => ({ ...prev, precio_venta: v }))}
-                        placeholder="0,00 €"
+                        placeholder="0,00"
                       />
                     </div>
                   )}

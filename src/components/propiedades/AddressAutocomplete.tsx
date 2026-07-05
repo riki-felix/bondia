@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchAddresses } from "@/lib/addressApi";
@@ -23,6 +24,8 @@ interface AddressAutocompleteProps {
   hint?: string;
 }
 
+type DropdownRect = { top: number; left: number; width: number };
+
 export function AddressAutocomplete({
   id: idProp,
   label = "Dirección postal",
@@ -30,7 +33,7 @@ export function AddressAutocomplete({
   onChange,
   disabled = false,
   className,
-  hint = "Busca la calle y añade el número manualmente si no aparece en las sugerencias.",
+  hint = "Busca la calle (también nombres tipo catastro en mayúsculas). Añade número y ciudad si hace falta.",
 }: AddressAutocompleteProps) {
   const autoId = useId();
   const baseId = idProp ?? autoId;
@@ -44,12 +47,20 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [dropdownRect, setDropdownRect] = useState<DropdownRect | null>(null);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const streetInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLUListElement>(null);
   const numberInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipValueSync = useRef(false);
   const partsRef = useRef(parts);
   partsRef.current = parts;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (skipValueSync.current) {
@@ -71,6 +82,17 @@ export function AddressAutocomplete({
   const updatePart = (field: keyof PostalAddressParts, fieldValue: string) => {
     emitChange({ ...parts, [field]: fieldValue });
   };
+
+  const updateDropdownPosition = useCallback(() => {
+    const el = streetInputRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setDropdownRect({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
 
   const fetchSuggestions = useCallback(async () => {
     const { street, number, city } = partsRef.current;
@@ -109,13 +131,34 @@ export function AddressAutocomplete({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [parts.street, open, disabled, fetchSuggestions]);
+  }, [parts.street, parts.city, open, disabled, fetchSuggestions]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setDropdownRect(null);
+      return;
+    }
+    updateDropdownPosition();
+  }, [open, suggestions.length, loading, parts.street, updateDropdownPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onScrollOrResize = () => updateDropdownPosition();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, updateDropdownPosition]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
       }
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -154,6 +197,79 @@ export function AddressAutocomplete({
     }
   };
 
+  const showEmpty =
+    open &&
+    !loading &&
+    parts.street.trim().length >= 3 &&
+    suggestions.length === 0;
+
+  const dropdown =
+    mounted &&
+    open &&
+    suggestions.length > 0 &&
+    dropdownRect &&
+    createPortal(
+      <ul
+        ref={dropdownRef}
+        id={listId}
+        role="listbox"
+        style={{
+          position: "fixed",
+          top: dropdownRect.top,
+          left: dropdownRect.left,
+          width: dropdownRect.width,
+          zIndex: 9999,
+        }}
+        className="max-h-56 overflow-auto rounded-md border bg-popover py-1 shadow-md"
+      >
+        {suggestions.map((item, index) => (
+          <li key={`${item.label}-${index}`} role="option" aria-selected={index === activeIndex}>
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                index === activeIndex && "bg-accent"
+              )}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectSuggestion(item)}
+            >
+              <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+              <span>
+                {item.label}
+                {!item.housenumber ? (
+                  <span className="block text-xs text-muted-foreground">
+                    Sin número — indícalo abajo
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>,
+      document.body
+    );
+
+  const emptyState =
+    mounted &&
+    showEmpty &&
+    dropdownRect &&
+    createPortal(
+      <div
+        style={{
+          position: "fixed",
+          top: dropdownRect.top,
+          left: dropdownRect.left,
+          width: dropdownRect.width,
+          zIndex: 9999,
+        }}
+        className="rounded-md border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-md"
+      >
+        Sin sugerencias. Prueba añadir la ciudad (Barcelona, L&apos;Hospitalet…) o escribe la
+        dirección manualmente.
+      </div>,
+      document.body
+    );
+
   return (
     <div className={cn("space-y-1.5", className)} ref={containerRef}>
       <Label>{label}</Label>
@@ -163,6 +279,7 @@ export function AddressAutocomplete({
           Calle
         </Label>
         <Input
+          ref={streetInputRef}
           id={streetId}
           value={parts.street}
           disabled={disabled}
@@ -182,39 +299,10 @@ export function AddressAutocomplete({
         {loading && (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
-
-        {open && suggestions.length > 0 && (
-          <ul
-            id={listId}
-            role="listbox"
-            className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover py-1 shadow-md"
-          >
-            {suggestions.map((item, index) => (
-              <li key={`${item.label}-${index}`} role="option" aria-selected={index === activeIndex}>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
-                    index === activeIndex && "bg-accent"
-                  )}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => selectSuggestion(item)}
-                >
-                  <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
-                  <span>
-                    {item.label}
-                    {!item.housenumber ? (
-                      <span className="block text-xs text-muted-foreground">
-                        Sin número — indícalo abajo
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+
+      {dropdown}
+      {emptyState}
 
       <div className="grid grid-cols-[minmax(0,5rem)_1fr] gap-2">
         <div className="space-y-1">

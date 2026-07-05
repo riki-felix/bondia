@@ -25,6 +25,7 @@ import {
   isCasaActivoTitular,
 } from "@/lib/casaActivoTitular";
 import BloqueActivoInmuebleSection from "./BloqueActivoInmuebleSection";
+import type { CatastroFachadaImportPayload } from "@/components/propiedades/CatastroReferenciaField";
 import { INMUEBLE_PLANTILLA_SLUGS, INMUEBLE_PARTICIPACION_SLUGS, INMUEBLE_FIELD_META, findInmueblesCategoriaId, isActivoInmueble, isInmueblesCategoria, type InmueblePlantillaSlug } from "@/lib/sanyusInmueblePlantilla";
 import { parseParticipacionInput } from "@/lib/participacion";
 import { ArrowLeft, Save, Loader2, Upload, Trash2, ImageIcon, X } from "lucide-react";
@@ -114,7 +115,7 @@ export default function BloqueActivoDetail({
     categoria_id: activo?.categoria_id ?? "",
     fecha_compra: activo?.fecha_compra ?? "",
     precio_compra: moneyFieldFromNumber(activo?.precio_compra),
-    valor_estimado: activo?.valor_estimado != null ? String(activo.valor_estimado) : "",
+    valor_estimado: moneyFieldFromNumber(activo?.valor_estimado),
     notas: activo?.notas ?? "",
   });
 
@@ -233,7 +234,7 @@ export default function BloqueActivoDetail({
       form.categoria_id !== (activo?.categoria_id ?? "") ||
       form.fecha_compra !== (activo?.fecha_compra ?? "") ||
       form.precio_compra !== moneyFieldFromNumber(activo?.precio_compra) ||
-      form.valor_estimado !== (activo?.valor_estimado != null ? String(activo.valor_estimado) : "") ||
+      form.valor_estimado !== moneyFieldFromNumber(activo?.valor_estimado) ||
       form.notas !== (activo?.notas ?? "") ||
       (hasTitular && titular !== (activo?.titular ?? "carlos")) ||
       (hasInmuebles && esInmueble !== (activo?.es_inmueble ?? false)) ||
@@ -268,7 +269,7 @@ export default function BloqueActivoDetail({
         categoria_id: form.categoria_id || null,
         fecha_compra: form.fecha_compra || null,
         precio_compra: moneyFieldToNumberOrNull(form.precio_compra),
-        valor_estimado: form.valor_estimado ? Number(form.valor_estimado) : null,
+        valor_estimado: moneyFieldToNumberOrNull(form.valor_estimado),
         notas: form.notas,
       };
 
@@ -422,7 +423,8 @@ export default function BloqueActivoDetail({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setFotoUrl(data.foto_url);
+      setPendingFoto(null);
+      setFotoUrl(data.foto_url ?? null);
       toast.success("Foto subida");
     } catch (err: any) {
       toast.error(err.message || "Error al subir foto");
@@ -431,6 +433,47 @@ export default function BloqueActivoDetail({
       e.target.value = "";
     }
   }, [isNew, activo, config]);
+
+  const handleFachadaFromCatastro = useCallback(
+    async (payload: CatastroFachadaImportPayload) => {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(payload.file);
+      });
+      const base64 = dataUrl.split(",")[1];
+
+      if (isNew) {
+        setPendingFoto({ base64, mimeType: payload.file.type, preview: payload.previewUrl });
+        toast.success("Foto de fachada lista para guardar");
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const res = await fetch(config.endpoints.uploadActivoFoto, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: activo!.id,
+            base64,
+            mimeType: payload.file.type,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setPendingFoto(null);
+        setFotoUrl(data.foto_url ?? null);
+        toast.success("Foto de fachada importada del Catastro");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Error al subir foto");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [isNew, activo, config]
+  );
 
   const handleDeleteFoto = useCallback(async () => {
     if (!activo) return;
@@ -691,7 +734,7 @@ export default function BloqueActivoDetail({
                       id="precio_compra"
                       value={form.precio_compra}
                       onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
-                      placeholder="0,00 €"
+                      placeholder="0,00"
                     />
                   </div>
                 )}
@@ -704,20 +747,16 @@ export default function BloqueActivoDetail({
                       id="precio_compra"
                       value={form.precio_compra}
                       onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
-                      placeholder="0,00 €"
+                      placeholder="0,00"
                     />
                   </div>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="valor_estimado">Valor estimado</Label>
-                  <Input
+                  <MoneyInput
                     id="valor_estimado"
-                    type="number"
-                    step="0.01"
-                    min="0"
                     value={form.valor_estimado}
-                    onChange={set("valor_estimado")}
-                    placeholder="0,00 €"
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, valor_estimado: v }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -739,6 +778,7 @@ export default function BloqueActivoDetail({
               plantillaCaracteristicas={plantillaCaracteristicas}
               caracValores={caracValores}
               setCaracValores={setCaracValores}
+              onFachadaFromCatastro={(payload) => void handleFachadaFromCatastro(payload)}
             />
           )}
 

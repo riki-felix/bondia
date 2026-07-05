@@ -5,6 +5,7 @@ import {
   FileStack,
   FileText,
   Home,
+  KeyRound,
   LayoutDashboard,
   Package,
   Star,
@@ -50,6 +51,7 @@ type CasaNavItem = NavItem & {
 const topLevelItems: NavItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Cartera", href: "/cartera", icon: Wallet },
+  { title: "RDS", href: "/rds", icon: KeyRound },
 ]
 
 const engineItems: NavItem[] = [
@@ -123,7 +125,7 @@ function isCasaNavItemActive(
 const STORAGE_KEY = "sidebar-open-groups"
 
 function getGroupForPath(path: string): string | null {
-  if (path === "/" || path.startsWith("/cartera")) return null
+  if (path === "/" || path.startsWith("/cartera") || path.startsWith("/rds")) return null
   if (path.startsWith("/documentos")) return "documentos"
   if (path.startsWith("/casa")) return "casa"
   if (path.startsWith("/sanyus")) return "sanyus"

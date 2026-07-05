@@ -7,9 +7,9 @@ import { BondiaLogo } from "./BondiaLogo"
 import { AppSidebar, type FavoritoItem } from "./AppSidebar"
 
 const HEADER_BTN =
-  "h-8 w-8 text-sidebar-primary-foreground hover:bg-white/10 hover:text-sidebar-primary-foreground"
+  "h-8 w-8 text-sidebar-primary-foreground hover:bg-black/5 hover:text-sidebar-primary-foreground"
 
-/** Shopify-like shell: header oscuro + paneles claros con esquinas superiores redondeadas */
+/** Shopify-like shell: canvas claro + paneles blancos con esquinas superiores redondeadas */
 const SHELL_CANVAS = "bg-sidebar-primary"
 const SHELL_BODY = "flex min-h-0 flex-1 gap-0 px-2 pb-2"
 const MAIN_PANEL =
@@ -69,7 +69,7 @@ export function SidebarLayout({
             <Button
               variant="ghost"
               size="icon"
-              className={cn(HEADER_BTN, currentPath === "/diario" && "bg-white/15")}
+              className={cn(HEADER_BTN, currentPath === "/diario" && "bg-black/10")}
             >
               <BookOpen className="h-4 w-4" />
             </Button>
@@ -78,7 +78,7 @@ export function SidebarLayout({
             <Button
               variant="ghost"
               size="icon"
-              className={cn(HEADER_BTN, currentPath === "/ajustes" && "bg-white/15")}
+              className={cn(HEADER_BTN, currentPath === "/ajustes" && "bg-black/10")}
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -86,7 +86,7 @@ export function SidebarLayout({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(HEADER_BTN, incognito && "bg-white/15")}
+            className={cn(HEADER_BTN, incognito && "bg-black/10")}
             onClick={toggleIncognito}
             title={incognito ? "Mostrar valores" : "Ocultar valores"}
           >

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import {
   type InvertidoByYear,
@@ -136,15 +137,13 @@ export function InvertidoDialog({
                   <Label className="text-sm font-medium tabular-nums">
                     {year}
                   </Label>
-                  <Input
-                    inputMode="decimal"
-                    placeholder="0"
-                    className="h-9 tabular-nums"
+                  <MoneyInput
+                    className="h-9"
                     value={draft[String(year)] ?? ""}
-                    onChange={(e) =>
+                    onValueChange={(v) =>
                       setDraft((prev) => ({
                         ...prev,
-                        [String(year)]: e.target.value,
+                        [String(year)]: v,
                       }))
                     }
                   />

@@ -33,6 +33,8 @@ interface CatastroReferenciaFieldProps {
   onFachadaImported?: (payload: CatastroFachadaImportPayload) => void;
   /** Tras subir fachada a propiedad existente. */
   onFachadaUploaded?: (publicUrl: string) => void;
+  /** Si true, no muestra toast tras onFachadaImported (p. ej. subida inmediata en el padre). */
+  skipFachadaImportedToast?: boolean;
   label?: string;
   placeholder?: string;
   className?: string;
@@ -48,6 +50,7 @@ export function CatastroReferenciaField({
   propertyId,
   onFachadaImported,
   onFachadaUploaded,
+  skipFachadaImportedToast = false,
   label = "Ref. Catastral",
   placeholder = "Referencia",
   className,
@@ -119,7 +122,9 @@ export function CatastroReferenciaField({
       const file = base64ToImageFile(result.base64, result.mimeType || "image/jpeg");
       const previewUrl = URL.createObjectURL(file);
       onFachadaImported?.({ file, previewUrl });
-      toast.success("Foto de fachada lista para guardar");
+      if (!skipFachadaImportedToast) {
+        toast.success("Foto de fachada lista para guardar");
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "No se pudo importar la fachada";
       toast.error(msg);

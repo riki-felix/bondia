@@ -332,6 +332,12 @@ export async function handleDeleteActivo(table: string, body: any) {
 
 // ─── Activo Foto ─────────────────────────────────────────────
 
+function activoFotoStoragePathFromUrl(fotoUrl: string | null | undefined): string | null {
+  if (!fotoUrl) return null;
+  const match = fotoUrl.match(/activos-fotos\/(.+?)(?:\?|$)/);
+  return match?.[1] ?? null;
+}
+
 export async function handleUploadActivoFoto(table: string, body: any) {
   ensureConfig();
   const supabase = serviceSupabase();
@@ -343,32 +349,36 @@ export async function handleUploadActivoFoto(table: string, body: any) {
   const mimeType = body.mimeType || 'image/jpeg';
   if (!base64) return json({ error: 'base64 requerido' }, 400);
 
-  // Decode base64 to buffer
+  const { data: current } = await supabase
+    .from(table)
+    .select('foto_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  const oldPath = activoFotoStoragePathFromUrl(current?.foto_url);
+  if (oldPath) {
+    await supabase.storage.from('activos-fotos').remove([oldPath]);
+  }
+
   const buffer = Buffer.from(base64, 'base64');
   const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-  const filePath = `${table}/${id}/foto.${ext}`;
+  const filePath = `${table}/${id}/${Date.now()}-foto.${ext}`;
 
-  // Delete existing photo if any
-  await supabase.storage.from('activos-fotos').remove([filePath]);
-
-  // Upload new photo
   const { error: uploadError } = await supabase.storage
     .from('activos-fotos')
     .upload(filePath, buffer, {
       contentType: mimeType,
-      upsert: true,
+      upsert: false,
     });
 
   if (uploadError) return json({ error: uploadError.message }, 500);
 
-  // Get public URL
   const { data: urlData } = supabase.storage
     .from('activos-fotos')
     .getPublicUrl(filePath);
 
   const foto_url = urlData.publicUrl;
 
-  // Update the activo with the photo URL
   const { data, error } = await supabase
     .from(table)
     .update({ foto_url })
@@ -395,10 +405,9 @@ export async function handleDeleteActivoFoto(table: string, body: any) {
     .single();
 
   if (activo?.foto_url) {
-    // Extract storage path from URL
-    const match = activo.foto_url.match(/activos-fotos\/(.+)$/);
-    if (match) {
-      await supabase.storage.from('activos-fotos').remove([match[1]]);
+    const oldPath = activoFotoStoragePathFromUrl(activo.foto_url);
+    if (oldPath) {
+      await supabase.storage.from('activos-fotos').remove([oldPath]);
     }
   }
 

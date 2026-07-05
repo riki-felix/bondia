@@ -14,6 +14,16 @@ import {
 } from "@/components/ui/select";
 import type { ActivoCaracteristica } from "@/lib/bloqueTypes";
 import { MoneyInput } from "@/components/ui/money-input";
+import { AddressAutocomplete } from "@/components/propiedades/AddressAutocomplete";
+import {
+  CatastroReferenciaField,
+  type CatastroFachadaImportPayload,
+} from "@/components/propiedades/CatastroReferenciaField";
+import {
+  applyCatastroToInmuebleCaracValores,
+  getInmuebleCatastroValidation,
+  touchInmuebleCatastroReferencia,
+} from "@/lib/inmuebleCatastro";
 import {
   INMUEBLE_ESTADO_VENDIDO,
   INMUEBLE_FIELD_GROUPS,
@@ -27,6 +37,7 @@ interface Props {
   plantillaCaracteristicas: ActivoCaracteristica[];
   caracValores: Record<string, string>;
   setCaracValores: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onFachadaFromCatastro?: (payload: CatastroFachadaImportPayload) => void;
 }
 
 function slugToCaracteristicaId(
@@ -44,6 +55,14 @@ function getFieldValue(
   const caracId = slugToCaracteristicaId(plantilla, slug);
   const valueKey = caracId ?? slug;
   return caracValores[valueKey] ?? (caracId ? caracValores[caracId] ?? "" : "");
+}
+
+function applyCatastroToCaracValores(
+  plantilla: ActivoCaracteristica[],
+  prev: Record<string, string>,
+  result: Parameters<typeof applyCatastroToInmuebleCaracValores>[2]
+): Record<string, string> {
+  return applyCatastroToInmuebleCaracValores(plantilla, prev, result);
 }
 
 function InmuebleFieldInput({
@@ -88,7 +107,7 @@ function InmuebleFieldInput({
           id={inputId}
           value={value}
           onValueChange={(v) => onChange(caracId, v)}
-          placeholder="0,00 €"
+          placeholder="0,00"
         />
       </div>
     );
@@ -135,19 +154,13 @@ function InmuebleFieldInput({
   );
 }
 
-function groupGridClass(title: string): string {
-  if (title === "Identificación") return "grid grid-cols-1 sm:grid-cols-2 gap-4";
-  if (title === "Características") return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
-  if (title === "Participación") return "grid grid-cols-1 sm:grid-cols-3 gap-4";
-  return "grid grid-cols-1 sm:grid-cols-2 gap-4";
-}
-
 export default function BloqueActivoInmuebleSection({
   esInmueble,
   onEsInmuebleChange,
   plantillaCaracteristicas,
   caracValores,
   setCaracValores,
+  onFachadaFromCatastro,
 }: Props) {
   const handleToggle = (checked: boolean) => {
     onEsInmuebleChange(checked === true);
@@ -174,6 +187,14 @@ export default function BloqueActivoInmuebleSection({
     );
   };
 
+  const direccionCaracId = slugToCaracteristicaId(plantillaCaracteristicas, "direccion");
+  const catastroValue = getFieldValue("numero_catastro", plantillaCaracteristicas, caracValores);
+  const catastroValidation = getInmuebleCatastroValidation(
+    plantillaCaracteristicas,
+    caracValores,
+    catastroValue
+  );
+
   return (
     <div className="space-y-4">
       <Card>
@@ -190,6 +211,69 @@ export default function BloqueActivoInmuebleSection({
 
       {esInmueble &&
         INMUEBLE_FIELD_GROUPS.map((group) => {
+          if (group.title === "Identificación") {
+            return (
+              <Card key={group.title}>
+                <CardHeader>
+                  <CardTitle className="text-base">{group.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderField("origen")}
+                    {direccionCaracId ? (
+                      <AddressAutocomplete
+                        id="inmueble-direccion"
+                        value={getFieldValue("direccion", plantillaCaracteristicas, caracValores)}
+                        onChange={(v) => setValor(direccionCaracId, v)}
+                        className="sm:col-span-2"
+                      />
+                    ) : (
+                      renderField("direccion")
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (group.title === "Características") {
+            return (
+              <Card key={group.title}>
+                <CardHeader>
+                  <CardTitle className="text-base">{group.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div className="lg:col-span-2">{renderField("superficie_m2")}</div>
+                    <div className="lg:col-span-2">{renderField("superficie_registrada_m2")}</div>
+                    <div className="lg:col-span-2">{renderField("superficie_real_m2")}</div>
+                    <div className="lg:col-span-2">{renderField("anio_construccion")}</div>
+                    <div className="lg:col-span-4">
+                      <CatastroReferenciaField
+                        id="inmueble-numero_catastro"
+                        value={catastroValue}
+                        validatedReferencia={catastroValidation.validatedReferencia}
+                        validatedAt={catastroValidation.validatedAt}
+                        onChange={(v) =>
+                          setCaracValores((prev) =>
+                            touchInmuebleCatastroReferencia(plantillaCaracteristicas, prev, v)
+                          )
+                        }
+                        onValidated={(result) =>
+                          setCaracValores((prev) =>
+                            applyCatastroToCaracValores(plantillaCaracteristicas, prev, result)
+                          )
+                        }
+                        onFachadaImported={onFachadaFromCatastro}
+                        skipFachadaImportedToast
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
           if (group.title === "Estado") {
             return (
               <Card key={group.title}>
@@ -218,7 +302,7 @@ export default function BloqueActivoInmuebleSection({
                 <CardTitle className="text-base">{group.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={groupGridClass(group.title)}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {group.slugs.map((slug) => renderField(slug))}
                 </div>
               </CardContent>

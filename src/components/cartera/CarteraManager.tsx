@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import { toast } from "@/components/ui/sonner";
 import { Trash2, ArrowRight, Building2, Home, Briefcase, PiggyBank, Pencil } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { formatEuro } from "@/lib/money";
+import { moneyFieldFromNumber, moneyFieldToNumberOrNull } from "@/lib/moneyCalc";
 import type { MovimientoCartera, CarteraId } from "@/lib/bloqueTypes";
 import { CARTERA_OPTIONS } from "@/lib/bloqueTypes";
 
@@ -47,7 +49,7 @@ export default function CarteraManager({
   const [movimientos, setMovimientos] = useState<MovimientoCartera[]>(initialMovimientos);
   const [ahorroBase, setAhorroBase] = useState(initialAhorro);
   const [editingAhorro, setEditingAhorro] = useState(false);
-  const [ahorroInput, setAhorroInput] = useState(String(initialAhorro));
+  const [ahorroInput, setAhorroInput] = useState(moneyFieldFromNumber(initialAhorro));
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; concepto: string } | null>(null);
 
   // Form state
@@ -78,12 +80,17 @@ export default function CarteraManager({
       toast.error("Completa todos los campos");
       return;
     }
+    const val = moneyFieldToNumberOrNull(importe);
+    if (val == null || val <= 0) {
+      toast.error("Importe inválido");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/.netlify/functions/createMovimientoCartera", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ origen, destino, concepto: concepto.trim(), importe, fecha, ejercicio }),
+        body: JSON.stringify({ origen, destino, concepto: concepto.trim(), importe: val, fecha, ejercicio }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al crear");
@@ -117,8 +124,8 @@ export default function CarteraManager({
   }, []);
 
   const handleSaveAhorro = useCallback(async () => {
-    const val = parseFloat(ahorroInput.replace(",", "."));
-    if (!Number.isFinite(val)) {
+    const val = moneyFieldToNumberOrNull(ahorroInput);
+    if (val == null) {
       toast.error("Importe inválido");
       return;
     }
@@ -164,7 +171,7 @@ export default function CarteraManager({
                       size="icon"
                       className="h-6 w-6 text-muted-foreground"
                       onClick={() => {
-                        setAhorroInput(String(ahorroBase));
+                        setAhorroInput(moneyFieldFromNumber(ahorroBase));
                         setEditingAhorro(true);
                       }}
                     >
@@ -176,10 +183,10 @@ export default function CarteraManager({
                 </div>
                 {id === "ahorro" && editingAhorro ? (
                   <div className="flex gap-1">
-                    <Input
+                    <MoneyInput
                       className="h-8 text-sm"
                       value={ahorroInput}
-                      onChange={(e) => setAhorroInput(e.target.value)}
+                      onValueChange={setAhorroInput}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleSaveAhorro();
                         if (e.key === "Escape") setEditingAhorro(false);
@@ -320,11 +327,10 @@ export default function CarteraManager({
 
             <div className="w-[120px]">
               <label className="text-xs text-muted-foreground mb-1 block">Importe</label>
-              <Input
+              <MoneyInput
                 className="h-9"
-                placeholder="0,00"
                 value={importe}
-                onChange={(e) => setImporte(e.target.value)}
+                onValueChange={setImporte}
               />
             </div>
 

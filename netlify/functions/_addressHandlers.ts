@@ -7,6 +7,63 @@ const BIAS_LON = 2.1;
 const cache = new Map<string, { at: number; results: unknown[] }>();
 const CACHE_TTL_MS = 1000 * 60 * 60;
 
+type PhotonFeature = {
+  geometry: { coordinates: number[] };
+  properties: Record<string, string>;
+};
+
+type AddressResult = {
+  label: string;
+  street?: string;
+  housenumber?: string;
+  city?: string;
+  postcode?: string;
+  lat?: number;
+  lon?: number;
+};
+
+function titleCaseCatalanStreet(raw: string): string {
+  const words = raw.toLowerCase().split(/\s+/).filter(Boolean);
+  return words
+    .map((w, i) => {
+      if (w === 'deu') return 'Déu';
+      if (w === 'de' || w === 'd') return i === 0 ? 'De' : 'de';
+      if (['la', 'el', 'les', 'dels', 'l'].includes(w)) {
+        return i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+      }
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join(' ');
+}
+
+function buildAddressSearchVariants(q: string): string[] {
+  const trimmed = q.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return [];
+
+  const variants = new Set<string>();
+  variants.add(trimmed);
+
+  const hasCity = trimmed.includes(',');
+  if (!hasCity) {
+    variants.add(`${trimmed}, Barcelona, España`);
+    variants.add(`${trimmed}, L'Hospitalet de Llobregat, España`);
+  }
+
+  const isCatastroLike =
+    trimmed === trimmed.toUpperCase() &&
+    /[A-Z]/.test(trimmed) &&
+    !/^(CARRER|AVINGUDA|AV\.|PLAÇA|PASSEIG|CAMÍ|C\/)/i.test(trimmed);
+
+  if (isCatastroLike) {
+    const titled = titleCaseCatalanStreet(trimmed);
+    variants.add(`Carrer de la ${titled}, Barcelona, España`);
+    variants.add(`Carrer ${titled}, Barcelona, España`);
+    variants.add(`${titled}, Barcelona, España`);
+  }
+
+  return [...variants];
+}
+
 function formatPhotonProperties(props: Record<string, string | undefined>): string {
   const parts: string[] = [];
 
@@ -25,6 +82,36 @@ function formatPhotonProperties(props: Record<string, string | undefined>): stri
   return parts.join(', ');
 }
 
+function featureScore(props: Record<string, string>): number {
+  if (props.type === 'street') return 100;
+  if (props.osm_value === 'residential' || props.osm_value === 'living_street') return 90;
+  if (props.street && props.osm_key === 'highway') return 70;
+  if (props.street) return 40;
+  return 10;
+}
+
+function dedupeKey(item: AddressResult): string {
+  const street = (item.street || item.label.split(',')[0] || '').trim().toLowerCase();
+  const city = (item.city || '').trim().toLowerCase();
+  return `${street}|${city}`;
+}
+
+function mapFeature(f: PhotonFeature): AddressResult | null {
+  const props = f.properties ?? {};
+  const label = formatPhotonProperties(props);
+  if (!label) return null;
+  const [lon, lat] = f.geometry?.coordinates ?? [];
+  return {
+    label,
+    street: props.street,
+    housenumber: props.housenumber,
+    city: props.city || props.locality || props.town,
+    postcode: props.postcode,
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lon: Number.isFinite(lon) ? lon : undefined,
+  };
+}
+
 async function fetchPhoton(q: string, limit: number) {
   const url = new URL('https://photon.komoot.io/api/');
   url.searchParams.set('q', q);
@@ -39,27 +126,30 @@ async function fetchPhoton(q: string, limit: number) {
   if (!res.ok) {
     throw new Error(`Photon error ${res.status}`);
   }
-  return res.json() as Promise<{ features?: Array<{ geometry: { coordinates: number[] }; properties: Record<string, string> }> }>;
+  return res.json() as Promise<{ features?: PhotonFeature[] }>;
 }
 
-function mapFeatures(features: Array<{ geometry: { coordinates: number[] }; properties: Record<string, string> }>) {
-  return features
-    .map((f) => {
-      const props = f.properties ?? {};
-      const label = formatPhotonProperties(props);
-      if (!label) return null;
-      const [lon, lat] = f.geometry?.coordinates ?? [];
-      return {
-        label,
-        street: props.street,
-        housenumber: props.housenumber,
-        city: props.city || props.locality || props.town,
-        postcode: props.postcode,
-        lat: Number.isFinite(lat) ? lat : undefined,
-        lon: Number.isFinite(lon) ? lon : undefined,
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x != null);
+async function searchPhotonRanked(queries: string[], limit: number): Promise<AddressResult[]> {
+  const seen = new Set<string>();
+  const ranked: { score: number; item: AddressResult }[] = [];
+
+  for (const q of queries) {
+    const data = await fetchPhoton(q, limit);
+    for (const f of data.features ?? []) {
+      const item = mapFeature(f);
+      if (!item) continue;
+      const key = dedupeKey(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ranked.push({ score: featureScore(f.properties ?? {}), item });
+    }
+    if (ranked.length >= limit) break;
+  }
+
+  return ranked
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((r) => r.item);
 }
 
 export async function handleSearchAddress(body: { q?: string; limit?: number }) {
@@ -69,14 +159,14 @@ export async function handleSearchAddress(body: { q?: string; limit?: number }) 
   }
 
   const limit = Math.min(Math.max(Number(body.limit) || 6, 1), 10);
-  const cacheKey = `${q.toLowerCase()}|${limit}`;
+  const queries = buildAddressSearchVariants(q);
+  const cacheKey = `${queries.join('||').toLowerCase()}|${limit}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     return json({ results: cached.results });
   }
 
-  const data = await fetchPhoton(q, limit);
-  const results = mapFeatures(data.features ?? []);
+  const results = await searchPhotonRanked(queries, limit);
 
   cache.set(cacheKey, { at: Date.now(), results });
   return json({ results });

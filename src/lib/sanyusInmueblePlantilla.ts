@@ -10,6 +10,11 @@ export const INMUEBLE_PARTICIPACION_SLUGS = [
   "participacion_izan",
 ] as const;
 
+export const INMUEBLE_CATASTRO_SLUGS = [
+  "catastro_referencia_validada",
+  "catastro_validado_at",
+] as const;
+
 export const INMUEBLE_PLANTILLA_SLUGS = [
   "origen",
   "direccion",
@@ -19,6 +24,7 @@ export const INMUEBLE_PLANTILLA_SLUGS = [
   "superficie_real_m2",
   "anio_construccion",
   "numero_catastro",
+  ...INMUEBLE_CATASTRO_SLUGS,
   "estado",
   "ocupado",
   "fecha_ingreso",
@@ -43,7 +49,7 @@ export interface InmuebleFieldMeta {
 
 export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMeta> = {
   origen: { slug: "origen", label: "Origen", type: "text", colSpan: 1 },
-  direccion: { slug: "direccion", label: "Dirección", type: "text", colSpan: 1 },
+  direccion: { slug: "direccion", label: "Dirección postal", type: "text", colSpan: 2 },
   precio_venta: { slug: "precio_venta", label: "Precio de venta", type: "money" },
   superficie_m2: { slug: "superficie_m2", label: "Superficie construida", type: "number" },
   superficie_registrada_m2: {
@@ -64,6 +70,16 @@ export const INMUEBLE_FIELD_META: Record<InmueblePlantillaSlug, InmuebleFieldMet
     max: "2100",
   },
   numero_catastro: { slug: "numero_catastro", label: "Ref. Catastral", type: "text" },
+  catastro_referencia_validada: {
+    slug: "catastro_referencia_validada",
+    label: "Catastro validado",
+    type: "text",
+  },
+  catastro_validado_at: {
+    slug: "catastro_validado_at",
+    label: "Fecha validación catastro",
+    type: "text",
+  },
   estado: {
     slug: "estado",
     label: "Estado",
@@ -126,6 +142,8 @@ export const INMUEBLE_EXTERNAL_FIELD_SLUGS = [
   "fecha_ingreso",
   "precio_venta",
   "fecha_venta",
+  "catastro_referencia_validada",
+  "catastro_validado_at",
 ] as const satisfies readonly InmueblePlantillaSlug[];
 
 export const INMUEBLE_ESTADO_VENDIDO = "vendido";

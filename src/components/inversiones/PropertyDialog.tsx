@@ -425,21 +425,21 @@ export function PropertyDialog({
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="precio_compra">Precio compra (€)</Label>
+                  <Label htmlFor="precio_compra">Precio compra</Label>
                   <MoneyInput
                     id="precio_compra"
                     value={form.precio_compra}
                     onValueChange={(v) => setForm((prev) => ({ ...prev, precio_compra: v }))}
-                    placeholder="0,00 €"
+                    placeholder="0,00"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="precio_venta">Precio venta (€)</Label>
+                  <Label htmlFor="precio_venta">Precio venta</Label>
                   <MoneyInput
                     id="precio_venta"
                     value={form.precio_venta}
                     onValueChange={(v) => setForm((prev) => ({ ...prev, precio_venta: v }))}
-                    placeholder="0,00 €"
+                    placeholder="0,00"
                   />
                 </div>
               </div>
