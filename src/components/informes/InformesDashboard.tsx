@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BarChart3, CheckCircle, Circle, Pencil } from "lucide-react";
+import { BarChart3, CheckCircle, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { StatCard } from "@/components/ui/stat-card";
@@ -8,6 +8,7 @@ import { AportacionMargenCard } from "./AportacionMargenCard";
 import { RepartoCard } from "./RepartoCard";
 import { RepartoNetoCard } from "./RepartoNetoCard";
 import { InvertidoDialog } from "./InvertidoDialog";
+import { InvertidoChart } from "./InvertidoChart";
 import { PreciosMediosCard } from "./PreciosMediosCard";
 import { PropiedadesPorAnioChart } from "./PropiedadesPorAnioChart";
 import type { InformesProperty } from "@/lib/informesStats";
@@ -361,24 +362,6 @@ export default function InformesDashboard({
             Última actualización: {formatLastUpdated(lastUpdatedAt)}
           </p>
         </div>
-
-        <div className="rounded-lg border bg-card px-4 py-3 min-w-[200px]">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            Invertido
-            <Pencil className="h-3 w-3" />
-          </p>
-          <button
-            type="button"
-            data-money
-            className="mt-0.5 text-xl font-semibold tabular-nums hover:text-primary transition-colors text-left"
-            onClick={() => setInvertidoDialogOpen(true)}
-          >
-            {formatEuro(invertido)}
-          </button>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {invertidoViewLabel(yearFilter)} · Clic para editar
-          </p>
-        </div>
       </div>
 
       <InvertidoDialog
@@ -441,7 +424,19 @@ export default function InformesDashboard({
         </Button>
       </div>
 
-      {/* Bloque 1 — Beneficios */}
+      {/* Bloque 1 — Invertido */}
+      <InformesBlock title="Invertido">
+        <InvertidoChart
+          byYear={byYear}
+          activeYear={yearFilter !== "all" ? Number(yearFilter) : null}
+          invertido={invertido}
+          viewLabel={invertidoViewLabel(yearFilter)}
+          yearComparisonPct={yoy(invertido, prevInvertido)}
+          onEdit={() => setInvertidoDialogOpen(true)}
+        />
+      </InformesBlock>
+
+      {/* Bloque 2 — Beneficios */}
       <InformesBlock title="Beneficios">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <BeneficioObjetivoCard
@@ -471,7 +466,7 @@ export default function InformesDashboard({
         </div>
       </InformesBlock>
 
-      {/* Bloque 2 — Participación */}
+      {/* Bloque 3 — Participación */}
       <InformesBlock title="Participación">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)] lg:items-start">
           <RepartoCard
@@ -505,7 +500,7 @@ export default function InformesDashboard({
         </div>
       </InformesBlock>
 
-      {/* Bloque 3 — Fiscal */}
+      {/* Bloque 4 — Fiscal */}
       <InformesBlock title="Fiscal">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <StatCard

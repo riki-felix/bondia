@@ -82,3 +82,27 @@ export function invertidoViewLabel(yearFilter: string): string {
   if (yearFilter === "all") return "Acumulado total";
   return `Acumulado a ${yearFilter}`;
 }
+
+export type InvertidoEvolutionEntry = {
+  year: number;
+  amount: number;
+  increment: number;
+};
+
+/** Serie acumulada por ejercicio para gráficas. */
+export function computeInvertidoEvolution(
+  byYear: InvertidoByYear
+): InvertidoEvolutionEntry[] {
+  const entries = Object.entries(byYear)
+    .map(([year, increment]) => ({ year: Number(year), increment }))
+    .filter(
+      ({ year, increment }) => Number.isFinite(year) && increment > 0
+    )
+    .sort((a, b) => a.year - b.year);
+
+  let cumulative = 0;
+  return entries.map(({ year, increment }) => {
+    cumulative = round2(cumulative + increment);
+    return { year, amount: cumulative, increment: round2(increment) };
+  });
+}
