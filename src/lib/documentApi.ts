@@ -1,6 +1,7 @@
 // src/lib/documentApi.ts
 import {
   DOCUMENT_API,
+  MAX_DOCUMENT_UPLOAD_BYTES,
   type Documento,
   type DocumentBloque,
   type DocumentEntityType,
@@ -14,7 +15,7 @@ import {
   MASTER_LIQUIDACION_FOLDER_SLUG,
 } from "./documentTypes";
 
-export { ESCRITURA_FOLDER_SLUG, MASTER_LIQUIDACION_FOLDER_SLUG };
+export { ESCRITURA_FOLDER_SLUG, MASTER_LIQUIDACION_FOLDER_SLUG, MAX_DOCUMENT_UPLOAD_BYTES };
 
 export interface ListDocumentsOptions {
   folderSlug?: string;
@@ -24,6 +25,17 @@ export interface ListDocumentsOptions {
 export interface UploadDocumentOptions {
   displayName?: string;
   folderSlug?: string;
+}
+
+interface PrepareDocumentUploadResponse {
+  documentId: string;
+  storage_path: string;
+  signedUrl: string;
+  token: string;
+  sort_order: number;
+  folder_slug: string;
+  display_name: string;
+  mime_type: string;
 }
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
@@ -62,16 +74,52 @@ export async function uploadDocument(
   file: File,
   options?: UploadDocumentOptions
 ): Promise<Documento> {
-  const base64 = await fileToBase64(file);
+  if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+    throw new Error(
+      `El archivo supera el límite de ${Math.round(MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024))} MB`
+    );
+  }
+
   const mimeType = file.type || "application/octet-stream";
-  return postJson<Documento>(DOCUMENT_API.upload, {
+  const displayName = options?.displayName?.trim() || file.name;
+
+  const prep = await postJson<PrepareDocumentUploadResponse>(
+    DOCUMENT_API.prepareUpload,
+    {
+      bloque,
+      entityType,
+      entityId,
+      mimeType,
+      displayName,
+      folderSlug: options?.folderSlug,
+      sizeBytes: file.size,
+    }
+  );
+
+  const putRes = await fetch(prep.signedUrl, {
+    method: "PUT",
+    headers: { "Content-Type": mimeType },
+    body: file,
+  });
+
+  if (!putRes.ok) {
+    const errText = await putRes.text().catch(() => "");
+    throw new Error(
+      errText.trim() || `Error al subir el archivo (${putRes.status})`
+    );
+  }
+
+  return postJson<Documento>(DOCUMENT_API.finalizeUpload, {
+    documentId: prep.documentId,
     bloque,
     entityType,
     entityId,
-    base64,
+    storage_path: prep.storage_path,
+    folderSlug: prep.folder_slug,
+    displayName,
     mimeType,
-    displayName: options?.displayName?.trim() || file.name,
-    folderSlug: options?.folderSlug,
+    sizeBytes: file.size,
+    sort_order: prep.sort_order,
   });
 }
 
@@ -176,17 +224,4 @@ export async function searchDocuments(params: {
     entities: data.entities ?? [],
     files: data.files ?? [],
   };
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
-    reader.readAsDataURL(file);
-  });
 }

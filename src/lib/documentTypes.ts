@@ -19,6 +19,9 @@ export interface Documento {
 
 export const DOCUMENT_BUCKET = "bondia-documentos";
 
+/** Límite de archivo (30 MB). Subida directa a Supabase Storage (sin base64 en Netlify). */
+export const MAX_DOCUMENT_UPLOAD_BYTES = 30 * 1024 * 1024;
+
 /** Carpeta única en storage para documentos de escritura de inmuebles */
 export const ESCRITURA_FOLDER_SLUG = "escritura";
 
@@ -35,6 +38,8 @@ export type PendingEscrituraDocument = PendingTitledDocument;
 
 export const DOCUMENT_API = {
   list: "/.netlify/functions/listDocuments",
+  prepareUpload: "/.netlify/functions/prepareDocumentUpload",
+  finalizeUpload: "/.netlify/functions/finalizeDocumentUpload",
   upload: "/.netlify/functions/uploadDocument",
   update: "/.netlify/functions/updateDocument",
   reorder: "/.netlify/functions/reorderDocuments",

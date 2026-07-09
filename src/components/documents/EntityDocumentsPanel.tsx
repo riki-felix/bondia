@@ -22,11 +22,12 @@ import {
   updateDocumentDisplayName,
   uploadDocument,
 } from "@/lib/documentApi";
-import type {
-  DocumentBloque,
-  DocumentEntityType,
-  Documento,
-  PendingTitledDocument,
+import {
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  type DocumentBloque,
+  type DocumentEntityType,
+  type Documento,
+  type PendingTitledDocument,
 } from "@/lib/documentTypes";
 import {
   ArrowDown,
@@ -141,6 +142,14 @@ export function EntityDocumentsPanel({
     }
 
     const file = files[0];
+
+    if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+      toast.error(
+        `El archivo supera el límite de ${Math.round(MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024))} MB`
+      );
+      e.target.value = "";
+      return;
+    }
 
     if (singleDocument && accept) {
       const allowed = accept.split(",").map((s) => s.trim().toLowerCase());
@@ -308,6 +317,9 @@ export function EntityDocumentsPanel({
                   Se guardarán al crear la entidad
                 </span>
               )}
+              <span className="text-xs text-muted-foreground">
+                Máx. {Math.round(MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024))} MB por archivo
+              </span>
             </div>
           </div>
 

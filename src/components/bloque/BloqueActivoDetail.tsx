@@ -357,8 +357,12 @@ export default function BloqueActivoDetail({
                 displayName: docTitle,
               });
             }
-          } catch {
-            // Non-blocking
+          } catch (pendingErr) {
+            toast.error(
+              pendingErr instanceof Error
+                ? pendingErr.message
+                : "No se pudieron subir los documentos del activo"
+            );
           }
         }
         if (pendingEscrituraDocuments.length > 0) {
@@ -371,8 +375,12 @@ export default function BloqueActivoDetail({
                 folderSlug: ESCRITURA_FOLDER_SLUG,
               });
             }
-          } catch {
-            // Non-blocking
+          } catch (pendingErr) {
+            toast.error(
+              pendingErr instanceof Error
+                ? pendingErr.message
+                : "No se pudieron subir los documentos de escritura"
+            );
           }
         }
         // Redirect to detail page of the new activo

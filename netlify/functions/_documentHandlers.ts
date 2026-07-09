@@ -94,6 +94,7 @@ function getDocumentEntityConfig(
 const BUCKET = 'bondia-documentos';
 const MASTER_LIQUIDACION_FOLDER_SLUG = 'master-liquidacion';
 const SIGNED_URL_TTL = 60 * 60; // 1 hora
+const MAX_DOCUMENT_UPLOAD_BYTES = 30 * 1024 * 1024;
 
 const ENTITY_TYPES = new Set<DocumentEntityType>(['propiedad', 'activo', 'gasto', 'ingreso']);
 const BLOQUES = new Set<DocumentBloque>(['engine', 'casa', 'sanyus']);
@@ -258,44 +259,180 @@ export async function handleListDocuments(body: any) {
   return json({ documents: data ?? [] });
 }
 
-export async function handleUploadDocument(body: any) {
-  ensureConfig();
+function maxUploadMb(): number {
+  return Math.round(MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024));
+}
+
+async function resolveDocumentUpload(
+  body: Record<string, unknown>
+): Promise<
+  | { error: ReturnType<typeof json> }
+  | {
+      entityType: DocumentEntityType;
+      bloque: DocumentBloque;
+      cfg: DocumentEntityConfig;
+      entityId: string;
+      mimeType: string;
+      displayName: string;
+      folderSlug: string;
+      folderSlugOverride: string | null;
+      supabase: ReturnType<typeof serviceSupabase>;
+    }
+> {
   const resolved = resolveConfig(body);
-  if ('error' in resolved && resolved.error) return resolved.error;
+  if ('error' in resolved && resolved.error) return { error: resolved.error };
   const { entityType, bloque, cfg } = resolved;
 
   const entityId = emptyOrNull(body.entityId);
-  if (!entityId) return json({ error: 'entityId requerido' }, 400);
+  if (!entityId) return { error: json({ error: 'entityId requerido' }, 400) };
 
-  const base64 = body.base64;
-  const mimeType = (body.mimeType || 'application/octet-stream').toLowerCase();
+  const mimeType = String(body.mimeType || 'application/octet-stream').toLowerCase();
   const displayName = emptyOrNull(body.displayName) || 'documento';
-  if (!base64) return json({ error: 'base64 requerido' }, 400);
-
-  const buffer = Buffer.from(base64, 'base64');
-  if (buffer.length === 0) return json({ error: 'Archivo vacío' }, 400);
+  const folderSlugOverride =
+    emptyOrNull(body.folderSlug) || emptyOrNull(body.folder_slug);
 
   const supabase = serviceSupabase();
   const entityRes = await loadEntityRow(supabase, cfg, entityId);
-  if ('error' in entityRes && entityRes.error) return entityRes.error;
+  if ('error' in entityRes && entityRes.error) return { error: entityRes.error };
   const row = entityRes.row!;
 
-  const folderSlugOverride = emptyOrNull(body.folderSlug);
   const folderSlug = folderSlugOverride || folderSlugFromRow(cfg, row);
+
+  return {
+    entityType,
+    bloque,
+    cfg,
+    entityId,
+    mimeType,
+    displayName,
+    folderSlug,
+    folderSlugOverride,
+    supabase,
+  };
+}
+
+export async function handlePrepareDocumentUpload(body: Record<string, unknown>) {
+  ensureConfig();
+  const ctx = await resolveDocumentUpload(body);
+  if ('error' in ctx) return ctx.error;
+
+  const sizeBytes = Number(body.sizeBytes);
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    return json({ error: 'sizeBytes inválido' }, 400);
+  }
+  if (sizeBytes > MAX_DOCUMENT_UPLOAD_BYTES) {
+    return json({ error: `El archivo supera el límite de ${maxUploadMb()} MB` }, 413);
+  }
+
+  const {
+    entityType,
+    bloque,
+    cfg,
+    entityId,
+    mimeType,
+    displayName,
+    folderSlug,
+    folderSlugOverride,
+    supabase,
+  } = ctx;
 
   if (folderSlug === MASTER_LIQUIDACION_FOLDER_SLUG) {
     await deleteDocumentsInFolder(supabase, entityType, entityId, folderSlug);
   }
 
   const documentId = crypto.randomUUID();
-  const storage_path = buildStoragePath(cfg, entityId, folderSlug, documentId, displayName, mimeType);
-  const sort_order = await nextSortOrder(supabase, entityType, entityId, folderSlugOverride || undefined);
+  const storage_path = buildStoragePath(
+    cfg,
+    entityId,
+    folderSlug,
+    documentId,
+    displayName,
+    mimeType
+  );
+  const sort_order = await nextSortOrder(
+    supabase,
+    entityType,
+    entityId,
+    folderSlugOverride || undefined
+  );
 
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storage_path, buffer, {
-    contentType: mimeType,
-    upsert: false,
+  const { data: signed, error: signErr } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(storage_path);
+
+  if (signErr || !signed?.signedUrl) {
+    return json({ error: signErr?.message || 'No se pudo preparar la subida' }, 500);
+  }
+
+  return json({
+    documentId,
+    storage_path,
+    signedUrl: signed.signedUrl,
+    token: signed.token,
+    sort_order,
+    folder_slug: folderSlug,
+    display_name: displayName,
+    mime_type: mimeType,
+    bloque,
+    entity_type: entityType,
+    entity_id: entityId,
   });
-  if (uploadError) return json({ error: uploadError.message }, 500);
+}
+
+export async function handleFinalizeDocumentUpload(body: Record<string, unknown>) {
+  ensureConfig();
+  const ctx = await resolveDocumentUpload(body);
+  if ('error' in ctx) return ctx.error;
+
+  const documentId = emptyOrNull(body.documentId);
+  if (!documentId) return json({ error: 'documentId requerido' }, 400);
+
+  const sizeBytes = Number(body.sizeBytes);
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    return json({ error: 'sizeBytes inválido' }, 400);
+  }
+  if (sizeBytes > MAX_DOCUMENT_UPLOAD_BYTES) {
+    return json({ error: `El archivo supera el límite de ${maxUploadMb()} MB` }, 413);
+  }
+
+  const sort_order = Number(body.sort_order);
+  if (!Number.isFinite(sort_order)) {
+    return json({ error: 'sort_order inválido' }, 400);
+  }
+
+  const {
+    entityType,
+    bloque,
+    cfg,
+    entityId,
+    mimeType,
+    displayName,
+    folderSlug,
+    supabase,
+  } = ctx;
+
+  const storage_path = buildStoragePath(
+    cfg,
+    entityId,
+    folderSlug,
+    documentId,
+    displayName,
+    mimeType
+  );
+  const storagePathBody = emptyOrNull(body.storage_path);
+  if (storagePathBody && storagePathBody !== storage_path) {
+    return json({ error: 'storage_path no coincide con la sesión de subida' }, 400);
+  }
+
+  const { error: existsErr } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storage_path, 60);
+  if (existsErr) {
+    return json(
+      { error: 'El archivo no está en storage. Repite la subida.' },
+      400
+    );
+  }
 
   const { data, error } = await supabase
     .from('documentos')
@@ -308,7 +445,7 @@ export async function handleUploadDocument(body: any) {
       folder_slug: folderSlug,
       display_name: displayName,
       mime_type: mimeType,
-      size_bytes: buffer.length,
+      size_bytes: Math.round(sizeBytes),
       sort_order,
     })
     .select('*')
@@ -320,6 +457,20 @@ export async function handleUploadDocument(body: any) {
   }
 
   return json(data, 201);
+}
+
+/** @deprecated Usar prepareDocumentUpload + finalizeDocumentUpload (subida directa a Storage). */
+export async function handleUploadDocument(body: Record<string, unknown>) {
+  if (body.base64) {
+    return json(
+      {
+        error:
+          'La subida por base64 ya no está soportada. Actualiza la aplicación.',
+      },
+      400
+    );
+  }
+  return json({ error: 'Usa prepareDocumentUpload y finalizeDocumentUpload' }, 400);
 }
 
 export async function handleUpdateDocument(body: any) {
